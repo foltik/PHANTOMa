@@ -1,0 +1,25 @@
+[package]
+name = "phantoma"
+version = "0.1.0"
+authors = ["Jack Foltz <jack@foltz.io>"]
+edition = "2018"
+
+[features]
+default = ["vulkan", "window", "shader-compiler"]
+metal = ["rendy/metal"]
+vulkan = ["rendy/vulkan"]
+empty = ["rendy/empty"]
+#profiler = [ "thread_profiler/thread_profiler", "rendy/profiler" ]
+profiler = ["rendy/profiler"]
+no-slow-safety-checks = ["rendy/no-slow-safety-checks"]
+shader-compiler =  ["rendy/shader-compiler"]
+experimental-spirv-reflection = ["rendy/spirv-reflection"]
+window = ["rendy/init-winit"]
+
+[dependencies]
+rendy = "0.5.1"
+rendy-core = "0.5.1"
+rendy-shader = "0.5.1"
+log = "0.4.8"
+env_logger = "0.7.1"
+lazy_static = "1.4.0"
