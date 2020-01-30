@@ -6,7 +6,7 @@ use rendy::{
         GraphContext, NodeBuffer, NodeImage,
     },
     hal::{self, pso, device::Device, pass::Subpass, Backend},
-    mesh::{AsVertex, Mesh, PosTex},
+    mesh::{AsVertex, Mesh, VertexFormat},
     shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvShader, SpirvReflection},
 };
 
@@ -131,19 +131,22 @@ fn build_triangle_pipeline<B: Backend>(
 
     let mut shaders = SHADERS.build(factory, Default::default()).unwrap();
 
-    //let shader_vertex = unsafe { (*VERTEX)..module(factory).unwrap() };
-    //let shader_fragment = unsafe { (*FRAGMENT).module(factory).unwrap() };
+    let format: VertexFormat = SHADER_REFLECT.attributes_range(..).unwrap();
+    let attrs = format.attributes;
+    let stride = format.stride;
 
-    let v = SHADER_REFLECT.attributes_range(..).unwrap().gfx_vertex_input_desc(hal::pso::VertexInputRate::Vertex);
+    let a0 = attrs.get(0).unwrap();
+
+    let (attrs, stride, rate) = SHADER_REFLECT
+        .attributes_range(..)
+        .unwrap()
+        .gfx_vertex_input_desc(hal::pso::VertexInputRate::Vertex);
 
     let pipes = PipelinesBuilder::default()
         .with_pipeline(
             PipelineDescBuilder::default()
                 //.with_vertex_desc(&[(PosTex::vertex(), pso::VertexInputRate::Vertex)])
-                /*.with_shaders(shader::shader_set(
-                    &shader_vertex,
-                    Some(&shader_fragment),
-                ))*/
+                .with_shaders(shaders.raw().unwrap())
                 .with_layout(&layout)
                 .with_subpass(subpass)
                 //.with_framebuffer_size(framebuffer_width, framebuffer_height)

@@ -18,7 +18,7 @@ use rendy::{
     memory::Dynamic,
     mesh::PosColor,
     resource::{Buffer, BufferInfo, DescriptorSetLayout, Escape, Handle},
-    shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvShader},
+    shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvReflection, SpirvShader},
 };
 
 #[macro_use]
@@ -29,37 +29,32 @@ extern crate derivative;
 
 mod component;
 
-#[cfg(feature = "spirv-reflection")]
-use rendy::shader::SpirvReflection;
-
-#[cfg(not(feature = "spirv-reflection"))]
-use rendy::mesh::AsVertex;
-
-lazy_static::lazy_static! {
+lazy_static! {
+    static ref SHADER_REFLECTION: SpirvReflection = SHADERS.reflect().unwrap();
     static ref VERTEX: SpirvShader = SourceShaderInfo::new(
         include_str!("shader.vert"),
         concat!(env!("CARGO_MANIFEST_DIR"), "/examples/triangle/shader.vert").into(),
         ShaderKind::Vertex,
         SourceLanguage::GLSL,
         "main",
-    ).precompile().unwrap();
-
+    )
+    .precompile()
+    .unwrap();
     static ref FRAGMENT: SpirvShader = SourceShaderInfo::new(
         include_str!("shader.frag"),
         concat!(env!("CARGO_MANIFEST_DIR"), "/examples/triangle/shader.frag").into(),
         ShaderKind::Fragment,
         SourceLanguage::GLSL,
         "main",
-    ).precompile().unwrap();
-
-    static ref SHADERS: rendy::shader::ShaderSetBuilder = rendy::shader::ShaderSetBuilder::default()
-        .with_vertex(&*VERTEX).unwrap()
-        .with_fragment(&*FRAGMENT).unwrap();
-}
-
-#[cfg(feature = "spirv-reflection")]
-lazy_static::lazy_static! {
-    static ref SHADER_REFLECTION: SpirvReflection = SHADERS.reflect().unwrap();
+    )
+    .precompile()
+    .unwrap();
+    static ref SHADERS: rendy::shader::ShaderSetBuilder =
+        rendy::shader::ShaderSetBuilder::default()
+            .with_vertex(&*VERTEX)
+            .unwrap()
+            .with_fragment(&*FRAGMENT)
+            .unwrap();
 }
 
 #[derive(Debug, Default)]
@@ -71,18 +66,14 @@ struct TriangleRenderPipeline<B: hal::Backend> {
 }
 
 impl<B, T> SimpleGraphicsPipelineDesc<B, T> for TriangleRenderPipelineDesc
-    where
-        B: hal::Backend,
-        T: ?Sized,
+where
+    B: hal::Backend,
+    T: ?Sized,
 {
     type Pipeline = TriangleRenderPipeline<B>;
 
     fn depth_stencil(&self) -> Option<hal::pso::DepthStencilDesc> {
         None
-    }
-
-    fn load_shader_set(&self, factory: &mut Factory<B>, _aux: &T) -> rendy_shader::ShaderSet<B> {
-        SHADERS.build(factory, Default::default()).unwrap()
     }
 
     fn vertices(
@@ -92,14 +83,14 @@ impl<B, T> SimpleGraphicsPipelineDesc<B, T> for TriangleRenderPipelineDesc
         hal::pso::ElemStride,
         hal::pso::VertexInputRate,
     )> {
-        #[cfg(feature = "spirv-reflection")]
-            return vec![SHADER_REFLECTION
+        return vec![SHADER_REFLECTION
             .attributes_range(..)
             .unwrap()
             .gfx_vertex_input_desc(hal::pso::VertexInputRate::Vertex)];
+    }
 
-        #[cfg(not(feature = "spirv-reflection"))]
-            return vec![PosColor::vertex().gfx_vertex_input_desc(hal::pso::VertexInputRate::Vertex)];
+    fn load_shader_set(&self, factory: &mut Factory<B>, _aux: &T) -> rendy_shader::ShaderSet<B> {
+        SHADERS.build(factory, Default::default()).unwrap()
     }
 
     fn build<'a>(
@@ -121,9 +112,9 @@ impl<B, T> SimpleGraphicsPipelineDesc<B, T> for TriangleRenderPipelineDesc
 }
 
 impl<B, T> SimpleGraphicsPipeline<B, T> for TriangleRenderPipeline<B>
-    where
-        B: hal::Backend,
-        T: ?Sized,
+where
+    B: hal::Backend,
+    T: ?Sized,
 {
     type Desc = TriangleRenderPipelineDesc;
 
@@ -136,11 +127,7 @@ impl<B, T> SimpleGraphicsPipeline<B, T> for TriangleRenderPipeline<B>
         _aux: &T,
     ) -> PrepareResult {
         if self.vertex.is_none() {
-            #[cfg(feature = "spirv-reflection")]
-                let vbuf_size = SHADER_REFLECTION.attributes_range(..).unwrap().stride as u64 * 3;
-
-            #[cfg(not(feature = "spirv-reflection"))]
-                let vbuf_size = PosColor::vertex().stride as u64 * 3;
+            let vbuf_size = SHADER_REFLECTION.attributes_range(..).unwrap().stride as u64 * 3;
 
             let mut vbuf = factory
                 .create_buffer(

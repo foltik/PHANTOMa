@@ -17,7 +17,6 @@ use rendy::{
     mesh::VertexFormat,
 };
 
-
 #[derive(Derivative, Debug)]
 #[derivative(Clone(bound = ""))]
 enum BasePipelineExt<'a, P> {
@@ -25,7 +24,6 @@ enum BasePipelineExt<'a, P> {
     Index(usize),
     None,
 }
-
 
 #[derive(Derivative, Debug)]
 #[derivative(Clone(bound = ""))]
@@ -84,7 +82,7 @@ impl<'a, B: Backend> PipelineDescBuilder<'a, B> {
                 BasePipelineExt::Pipeline(p) => BasePipeline::Pipeline(p),
                 BasePipelineExt::Index(i) => BasePipeline::Index(i),
                 BasePipelineExt::None => BasePipeline::None,
-            }
+            },
         }
     }
 
@@ -205,7 +203,7 @@ pub struct PipelinesBuilder<'a, B: Backend> {
 impl<'a, B: Backend> Default for PipelinesBuilder<'a, B> {
     fn default() -> Self {
         Self {
-            builders: Vec::new()
+            builders: Vec::new(),
         }
     }
 }
