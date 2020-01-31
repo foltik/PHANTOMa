@@ -197,7 +197,7 @@ fn run<B: Backend>(
     let mut elapsed = started.elapsed();
     let mut graph = Some(graph);
 
-    triangle::test();
+    //triangle::test();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -251,13 +251,15 @@ fn main() {
         .with_inner_size(PhysicalSize { width, height })
         .with_title("Rendy example");
 
+    let tri = triangle::TriangleDesc::default().builder();
+
     let rendy = AnyWindowedRendy::init_auto(&config, window, &event_loop).unwrap();
     rendy::with_any_windowed_rendy!((rendy)
         (mut factory, mut families, surface, _window) => {
             let mut graph_builder = GraphBuilder::<_, ()>::new();
 
-            graph_builder.add_node(
-                TriangleRenderPipeline::builder()
+            let sub =
+                tri
                     .into_subpass()
                     .with_color_surface()
                     .into_pass()
@@ -272,8 +274,10 @@ fn main() {
                                 float32: [1.0, 1.0, 1.0, 1.0],
                             },
                         }),
-                    ),
-            );
+                    );
+
+            //TriangleRenderPipeline::builder()
+            graph_builder.add_node(sub);
 
             let graph = graph_builder
                 .build(&mut factory, &mut families, &())

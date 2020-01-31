@@ -66,6 +66,10 @@ pub struct TriangleDesc {}
 //impl TriangleDesc {}
 
 impl<B: Backend> RenderGroupDesc<B, ()> for TriangleDesc {
+    fn depth(&self) -> bool {
+        false
+    }
+
     fn build<'a>(
         self,
         ctx: &GraphContext<B>,
@@ -86,6 +90,8 @@ impl<B: Backend> RenderGroupDesc<B, ()> for TriangleDesc {
             vec![],
         )?;
 
+
+
         Ok(Box::new(Triangle::<B> { pipeline, layout }))
     }
 }
@@ -94,6 +100,7 @@ impl<B: Backend> RenderGroupDesc<B, ()> for TriangleDesc {
 pub struct Triangle<B: Backend> {
     pipeline: B::GraphicsPipeline,
     layout: B::PipelineLayout,
+    vertex: Escape<Buffer<B>>
 }
 
 impl<B: Backend> RenderGroup<B, ()> for Triangle<B> {
@@ -152,10 +159,12 @@ fn build_triangle_pipeline<B: Backend>(
                 .with_layout(&layout)
                 .with_subpass(subpass)
                 .with_framebuffer_size(framebuffer_width, framebuffer_height)
+                /*
                 .with_depth_test(pso::DepthTest {
                     fun: pso::Comparison::LessEqual,
                     write: false,
                 })
+                */
                 .with_blend_targets(vec![pso::ColorBlendDesc {
                     mask: pso::ColorMask::ALL,
                     blend: None,

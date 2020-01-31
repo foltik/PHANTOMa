@@ -215,6 +215,9 @@ impl<'a, B: Backend> PipelineDescBuilder<'a, B> {
                 });
             }
         }
+
+        println!("{:#?}", buffers);
+        println!("{:#?}", attrs);
     }
     pub fn with_vertex_desc(mut self, fmts: &[(VertexFormat, VertexInputRate)]) -> Self {
         self.set_vertex_desc(fmts);
