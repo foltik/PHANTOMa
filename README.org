@@ -1,0 +1,15 @@
+* PHANTOMa ONLINE
+Merge reality with the virtual world.
+
+** Goals
+*** Audio Analysis
+*** Data Streaming
+**** Audio Streaming
+**** OSC Messages
+**** RPC API
+*** Audiovisual Themes
+** Subsystems
+*** Renderer
+The visual component of PHANTOMa. A high performance scene compositor
+and bare metal renderer enabling ultimate control of the graphics
+pipeline, while still providing abstractions for quick prototyping.
