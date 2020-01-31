@@ -1,7 +1,12 @@
-//!
-//! The mighty triangle example.
-//! This examples shows colord triangle on white background.
-//! Nothing fancy. Just prove that `rendy` works.
+#[macro_use]
+extern crate lazy_static;
+#[macro_use]
+extern crate derivative;
+#[macro_use]
+extern crate failure;
+
+mod component;
+mod error;
 
 use rendy::{
     command::{Families, QueueId, RenderPassEncoder},
@@ -21,13 +26,7 @@ use rendy::{
     shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvReflection, SpirvShader},
 };
 
-#[macro_use]
-extern crate lazy_static;
-
-#[macro_use]
-extern crate derivative;
-
-mod component;
+use component::triangle;
 
 lazy_static! {
     static ref SHADER_REFLECTION: SpirvReflection = SHADERS.reflect().unwrap();
@@ -197,6 +196,8 @@ fn run<B: Backend>(
     let mut frame = 0u64;
     let mut elapsed = started.elapsed();
     let mut graph = Some(graph);
+
+    triangle::test();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;

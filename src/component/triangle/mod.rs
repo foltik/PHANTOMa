@@ -5,19 +5,20 @@ use rendy::{
         render::{PrepareResult, RenderGroup, RenderGroupDesc},
         GraphContext, NodeBuffer, NodeImage,
     },
-    hal::{self, pso, device::Device, pass::Subpass, Backend},
+    hal::{self, device::Device, pass::Subpass, pso, Backend},
     mesh::{AsVertex, Mesh, VertexFormat},
-    shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvShader, SpirvReflection},
+    shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvReflection, SpirvShader},
 };
 
 use super::{
-    pipeline::{PipelinesBuilder, PipelineDescBuilder},
-    shader
+    pipeline::{PipelineDescBuilder, PipelinesBuilder},
+    shader,
 };
+
+use crate::error::AppError;
 
 lazy_static! {
     static ref SHADER_REFLECT: SpirvReflection = SHADERS.reflect().unwrap();
-
     static ref VERTEX: SpirvShader = SourceShaderInfo::new(
         include_str!("shader.vert"),
         concat!(
@@ -31,7 +32,6 @@ lazy_static! {
     )
     .precompile()
     .unwrap();
-
     static ref FRAGMENT: SpirvShader = SourceShaderInfo::new(
         include_str!("shader.frag"),
         concat!(
@@ -45,23 +45,25 @@ lazy_static! {
     )
     .precompile()
     .unwrap();
-
-    static ref SHADERS: rendy::shader::ShaderSetBuilder = rendy::shader::ShaderSetBuilder::default()
-        .with_vertex(&*VERTEX).unwrap()
-        .with_fragment(&*FRAGMENT).unwrap();
+    static ref SHADERS: rendy::shader::ShaderSetBuilder =
+        rendy::shader::ShaderSetBuilder::default()
+            .with_vertex(&*VERTEX)
+            .unwrap()
+            .with_fragment(&*FRAGMENT)
+            .unwrap();
 }
 
-#[derive(Clone, Debug)]
-pub struct TriangleSettings {}
+pub fn test() {
 
-impl Default for TriangleSettings {
-    fn default() -> Self {
-        TriangleSettings {}
-    }
 }
 
-#[derive(Clone, Debug)]
+//#[derive(Clone, Default, Debug)]
+//pub struct TriangleSettings {}
+
+#[derive(Clone, Default, Debug)]
 pub struct TriangleDesc {}
+
+//impl TriangleDesc {}
 
 impl<B: Backend> RenderGroupDesc<B, ()> for TriangleDesc {
     fn build<'a>(
@@ -76,7 +78,15 @@ impl<B: Backend> RenderGroupDesc<B, ()> for TriangleDesc {
         buffers: Vec<NodeBuffer>,
         images: Vec<NodeImage>,
     ) -> Result<Box<dyn RenderGroup<B, ()>>, pso::CreationError> {
-        unimplemented!()
+        let (pipeline, layout) = build_triangle_pipeline(
+            factory,
+            subpass,
+            framebuffer_width,
+            framebuffer_height,
+            vec![],
+        )?;
+
+        Ok(Box::new(Triangle::<B> { pipeline, layout }))
     }
 }
 
@@ -122,7 +132,7 @@ fn build_triangle_pipeline<B: Backend>(
     framebuffer_width: u32,
     framebuffer_height: u32,
     layouts: Vec<&B::DescriptorSetLayout>,
-) -> Result<(B::GraphicsPipeline, B::PipelineLayout), failure::Error> {
+) -> Result<(B::GraphicsPipeline, B::PipelineLayout), pso::CreationError> {
     let layout = unsafe {
         factory
             .device()
@@ -132,41 +142,31 @@ fn build_triangle_pipeline<B: Backend>(
     let mut shaders = SHADERS.build(factory, Default::default()).unwrap();
 
     let format: VertexFormat = SHADER_REFLECT.attributes_range(..).unwrap();
-    let attrs = format.attributes;
-    let stride = format.stride;
+    let rate = pso::VertexInputRate::Vertex;
 
-    let a0 = attrs.get(0).unwrap();
-
-    let (attrs, stride, rate) = SHADER_REFLECT
-        .attributes_range(..)
-        .unwrap()
-        .gfx_vertex_input_desc(hal::pso::VertexInputRate::Vertex);
-
-    let pipes = PipelinesBuilder::default()
+    let mut pipes = PipelinesBuilder::default()
         .with_pipeline(
             PipelineDescBuilder::default()
-                //.with_vertex_desc(&[(PosTex::vertex(), pso::VertexInputRate::Vertex)])
+                .with_vertex_desc(&[(format, rate)])
                 .with_shaders(shaders.raw().unwrap())
                 .with_layout(&layout)
                 .with_subpass(subpass)
-                //.with_framebuffer_size(framebuffer_width, framebuffer_height)
-                /*.with_depth_test(pso::DepthTest {
+                .with_framebuffer_size(framebuffer_width, framebuffer_height)
+                .with_depth_test(pso::DepthTest {
                     fun: pso::Comparison::LessEqual,
                     write: false,
-                })*/
-                /*.with_blend_targets(vec![pso::ColorBlendDesc {
+                })
+                .with_blend_targets(vec![pso::ColorBlendDesc {
                     mask: pso::ColorMask::ALL,
                     blend: None,
-                }]),*/
+                }]),
         )
         .build(factory);
 
-    unsafe {
-        shaders.dispose(factory);
-        //factory.destroy_shader_module(shader_vertex);
-        //factory.destroy_shader_module(shader_fragment);
-    }
+    shaders.dispose(factory);
 
+    /*
+    TODO: Actually handle failure
     match pipes {
         Err(e) => {
             unsafe {
@@ -176,4 +176,6 @@ fn build_triangle_pipeline<B: Backend>(
         }
         Ok(mut pipes) => Ok((pipes.remove(0), layout)),
     }
+    */
+    Ok((pipes.remove(0), layout))
 }

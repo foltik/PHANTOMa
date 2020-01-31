@@ -193,6 +193,72 @@ impl<'a, B: Backend> PipelineDescBuilder<'a, B> {
         self.set_parent(parent);
         self
     }
+
+    // Helper Functions
+
+    pub fn set_vertex_desc(&mut self, fmts: &[(VertexFormat, VertexInputRate)]) {
+        let mut buffers = Vec::with_capacity(fmts.len());
+        let mut attrs = Vec::with_capacity(fmts.len());
+
+        for (i, (fmt, rate)) in fmts.into_iter().enumerate() {
+            buffers.push(VertexBufferDesc {
+                binding: i as u32,
+                stride: fmt.stride,
+                rate: *rate,
+            });
+
+            for (j, attr) in (&fmt.attributes).into_iter().enumerate() {
+                attrs.push(AttributeDesc {
+                    binding: i as u32,
+                    location: j as u32,
+                    element: *attr.element(),
+                });
+            }
+        }
+    }
+    pub fn with_vertex_desc(mut self, fmts: &[(VertexFormat, VertexInputRate)]) -> Self {
+        self.set_vertex_desc(fmts);
+        self
+    }
+
+    pub fn set_framebuffer_size(&mut self, w: u32, h: u32) {
+        let old = self.baked_states.clone();
+
+        let rect = Rect {
+            x: 0,
+            y: 0,
+            w: w as i16,
+            h: h as i16,
+        };
+
+        self.set_baked_states(BakedStates {
+            viewport: Some(Viewport {
+                rect,
+                depth: old.viewport.map_or(0.0..1.0, |v| v.depth),
+            }),
+            ..old
+        })
+    }
+    pub fn with_framebuffer_size(mut self, w: u32, h: u32) -> Self {
+        self.set_framebuffer_size(w, h);
+        self
+    }
+
+    pub fn set_depth_test(&mut self, test: DepthTest) {
+        self.depth_stencil.depth = Some(test)
+    }
+    pub fn with_depth_test(mut self, test: DepthTest) -> Self {
+        self.set_depth_test(test);
+        self
+    }
+
+    pub fn set_blend_targets(&mut self, targets: Vec<ColorBlendDesc>) {
+        self.blender.targets = targets;
+    }
+    pub fn with_blend_targets(mut self, targets: Vec<ColorBlendDesc>) -> Self {
+        self.set_blend_targets(targets);
+        self
+    }
 }
 
 #[derive(Clone)]
@@ -231,7 +297,7 @@ impl<'a, B: Backend> PipelinesBuilder<'a, B> {
         self
     }
 
-    pub fn build(self, factory: &Factory<B>) -> Result<Vec<B::GraphicsPipeline>, failure::Error> {
+    pub fn build(self, factory: &Factory<B>) -> Vec<B::GraphicsPipeline> {
         let mut pipelines = unsafe {
             factory
                 .device()
@@ -244,9 +310,9 @@ impl<'a, B: Backend> PipelinesBuilder<'a, B> {
                     factory.destroy_graphics_pipeline(p);
                 }
             }
-            failure::bail!(err);
+            panic!("Error with pipelines");
         }
 
-        Ok(pipelines.into_iter().map(|p| p.unwrap()).collect())
+        pipelines.into_iter().map(|p| p.unwrap()).collect()
     }
 }
