@@ -1,4 +1,5 @@
 mod pipeline;
 mod shader;
+mod shape;
 
-pub(crate) mod triangle;
+pub mod triangle;

@@ -197,7 +197,7 @@ fn run<B: Backend>(
     let mut elapsed = started.elapsed();
     let mut graph = Some(graph);
 
-    //triangle::test();
+    triangle::test();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -207,10 +207,10 @@ fn run<B: Backend>(
                 _ => {}
             },
             Event::MainEventsCleared => {
-                elapsed = started.elapsed();
-                if elapsed >= std::time::Duration::new(5, 0) {
-                    *control_flow = ControlFlow::Exit
-                }
+                //elapsed = started.elapsed();
+                //if elapsed >= std::time::Duration::new(5, 0) {
+                //    *control_flow = ControlFlow::Exit
+                //}
 
                 frame += 1;
             }
@@ -251,7 +251,7 @@ fn main() {
         .with_inner_size(PhysicalSize { width, height })
         .with_title("Rendy example");
 
-    let tri = triangle::TriangleDesc::default().builder();
+    //let tri = triangle::TriangleDesc::default().builder();
 
     let rendy = AnyWindowedRendy::init_auto(&config, window, &event_loop).unwrap();
     rendy::with_any_windowed_rendy!((rendy)
@@ -259,7 +259,8 @@ fn main() {
             let mut graph_builder = GraphBuilder::<_, ()>::new();
 
             let sub =
-                tri
+            //TriangleRenderPipeline::builder()
+            triangle::TriangleDesc::default().builder()
                     .into_subpass()
                     .with_color_surface()
                     .into_pass()
@@ -275,8 +276,6 @@ fn main() {
                             },
                         }),
                     );
-
-            //TriangleRenderPipeline::builder()
             graph_builder.add_node(sub);
 
             let graph = graph_builder

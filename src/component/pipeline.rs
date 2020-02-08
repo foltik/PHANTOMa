@@ -216,8 +216,8 @@ impl<'a, B: Backend> PipelineDescBuilder<'a, B> {
             }
         }
 
-        println!("{:#?}", buffers);
-        println!("{:#?}", attrs);
+        self.set_vertex_buffers(buffers);
+        self.set_attributes(attrs);
     }
     pub fn with_vertex_desc(mut self, fmts: &[(VertexFormat, VertexInputRate)]) -> Self {
         self.set_vertex_desc(fmts);
@@ -239,6 +239,7 @@ impl<'a, B: Backend> PipelineDescBuilder<'a, B> {
                 rect,
                 depth: old.viewport.map_or(0.0..1.0, |v| v.depth),
             }),
+            scissor: Some(rect),
             ..old
         })
     }
