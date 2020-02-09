@@ -7,12 +7,10 @@ use rendy::{
     command::{QueueId, RenderPassEncoder},
     factory::Factory,
     graph::{
-        render::{PrepareResult, RenderGroup, RenderGroupDesc},
+        render::{PrepareResult, RenderGroup},
         GraphContext, NodeBuffer, NodeImage,
     },
-    hal::{self, pass::Subpass, pso, Backend},
-    resource::{DescriptorSetInfo, DescriptorSetLayout},
-    shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvReflection, SpirvShader},
+    hal::{pass::Subpass, Backend},
 };
 
 pub struct ComponentState {

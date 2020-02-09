@@ -1,5 +1,5 @@
 use rendy::{
-    mesh::{Mesh, MeshBuilder, Position, TexCoord, Normal, Tangent, PosTex, PosNormTex, PosNormTangTex},
+    mesh::{MeshBuilder, Position, TexCoord, Normal, Tangent, PosTex, PosNormTex, PosNormTangTex},
 };
 
 use genmesh::{
@@ -30,6 +30,7 @@ impl Shape {
     }
 
     /// Generate vertices for the `Shape`
+    #[allow(dead_code)]
     pub fn generate_vertices<V>(&self, scale: Option<(f32, f32, f32)>) -> V
         where
             V: FromShape,

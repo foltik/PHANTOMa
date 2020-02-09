@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+#[allow(dead_code)]
+
 use std::error::Error as StdError;
 use failure::{Fail, Error, Backtrace};
 use std::fmt::{self, Display, Formatter};

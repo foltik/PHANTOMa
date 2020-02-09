@@ -9,7 +9,6 @@ pub fn shader_set<'a, B: Backend>(
     shader_set_ext(vertex, fragment, None, None, None)
 }
 
-#[allow(dead_code)]
 pub fn shader_set_ext<'a, B: Backend>(
     vertex: &'a B::ShaderModule,
     fragment: Option<&'a B::ShaderModule>,

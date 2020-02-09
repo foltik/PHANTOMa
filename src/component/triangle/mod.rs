@@ -7,19 +7,16 @@ use rendy::{
     },
     hal::{self, device::Device, pass::Subpass, pso, Backend},
     mesh::{AsVertex, Mesh, VertexFormat},
-    resource::{DescriptorSetInfo, DescriptorSetLayout},
     shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvReflection, SpirvShader},
 };
 
 use super::{
     pipeline::{PipelineDescBuilder, PipelinesBuilder},
     push_constant::PushConstant,
-    shader,
     shape::Shape,
     Component, ComponentBuilder, ComponentState,
 };
 
-use crate::error::AppError;
 use rendy_core::types::vertex::Position;
 
 use nalgebra::Matrix4;
@@ -60,6 +57,14 @@ lazy_static! {
             .unwrap();
 }
 
+#[derive(Debug)]
+#[repr(C)]
+pub struct PushConstants {
+    transform: Matrix4<f32>,
+    frame: u32
+}
+unsafe impl PushConstant for PushConstants {}
+
 #[derive(Default, Debug)]
 pub struct TriangleDesc {}
 
@@ -94,13 +99,16 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
             .build(queue, factory)
             .unwrap();
 
-        let transform = Matrix4::new_perspective(4.0 / 3.0, 60.0, 0.1, 10.0);
+        let transform = Matrix4::new_perspective(8.0 / 3.0, 60.0, 0.1, 10.0);
 
         Triangle::<B> {
             pipeline,
             layout,
             mesh,
-            transform,
+            push: PushConstants {
+                transform,
+                frame: 0
+            }
         }
     }
 }
@@ -110,7 +118,7 @@ pub struct Triangle<B: Backend> {
     pipeline: B::GraphicsPipeline,
     layout: B::PipelineLayout,
     mesh: Mesh<B>,
-    transform: Matrix4<f32>,
+    push: PushConstants,
 }
 
 impl<B: Backend> Component<B> for Triangle<B> {
@@ -122,7 +130,9 @@ impl<B: Backend> Component<B> for Triangle<B> {
         subpass: Subpass<'_, B>,
         aux: &ComponentState,
     ) -> PrepareResult {
-        PrepareResult::DrawReuse
+        self.push.frame = aux.frame;
+
+        PrepareResult::DrawRecord
     }
 
     fn draw(
@@ -133,19 +143,21 @@ impl<B: Backend> Component<B> for Triangle<B> {
         aux: &ComponentState,
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
-        //self.mesh.bind(0, &[Position::vertex()], &mut encoder);
+
+        //self.push.frame = aux.frame;
+        //println!("{}", self.push.frame);
 
         unsafe {
             encoder.push_constants(
                 &self.layout,
                 pso::ShaderStageFlags::VERTEX,
                 0,
-                PushConstant::raw(&self.transform),
+                PushConstant::raw(&self.push),
             );
-            //encoder.push_constants(&self.layout, pso::ShaderStageFlags::VERTEX, 0, &[3]);
-            //encoder.draw(0..self.mesh.len(), 0..1);
+
             self.mesh
-                .bind_and_draw(0, &[Position::vertex()], 0..1, &mut encoder);
+                .bind_and_draw(0, &[Position::vertex()], 0..1, &mut encoder)
+                .unwrap();
         }
     }
 

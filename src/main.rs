@@ -17,7 +17,7 @@ use rendy::{
         dpi::PhysicalSize,
         event::{Event, WindowEvent},
         event_loop::{ControlFlow, EventLoop},
-        window::WindowBuilder,
+        window::{Window, WindowBuilder},
     },
     init::AnyWindowedRendy,
     memory::Dynamic,
@@ -26,22 +26,19 @@ use rendy::{
     shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvReflection, SpirvShader},
 };
 
-use component::{
-    ComponentState,
-    triangle
-};
+use component::{triangle, ComponentState};
 
 fn run<B: Backend>(
+    window: Window,
     event_loop: EventLoop<()>,
     mut factory: Factory<B>,
     mut families: Families<B>,
     mut state: ComponentState,
-    graph: Graph<B, ComponentState>
+    graph: Graph<B, ComponentState>,
 ) {
     let started = std::time::Instant::now();
 
     let mut frame = 0u64;
-    let mut elapsed = started.elapsed();
     let mut graph = Some(graph);
 
     event_loop.run(move |event, _, control_flow| {
@@ -52,12 +49,10 @@ fn run<B: Backend>(
                 _ => {}
             },
             Event::MainEventsCleared => {
-                //elapsed = started.elapsed();
-                //if elapsed >= std::time::Duration::new(5, 0) {
-                //    *control_flow = ControlFlow::Exit
-                //}
-
+                state.frame += 1;
                 frame += 1;
+
+                window.request_redraw();
             }
             Event::RedrawRequested(_) => {
                 factory.maintain(&mut families);
@@ -69,6 +64,7 @@ fn run<B: Backend>(
         }
 
         if *control_flow == ControlFlow::Exit && graph.is_some() {
+            let elapsed = started.elapsed();
             let elapsed_ns = elapsed.as_secs() * 1_000_000_000 + elapsed.subsec_nanos() as u64;
 
             log::info!(
@@ -94,20 +90,16 @@ fn main() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_inner_size(PhysicalSize { width, height })
-        .with_title("Rendy example");
+        .with_title("PHANTOMa");
 
-    let state = ComponentState {
-        frame: 0,
-        t: 0.0
-    };
+    let state = ComponentState { frame: 0, t: 0.0 };
 
     let rendy = AnyWindowedRendy::init_auto(&config, window, &event_loop).unwrap();
     rendy::with_any_windowed_rendy!((rendy)
-        (mut factory, mut families, surface, _window) => {
+        (mut factory, mut families, surface, window) => {
             let mut graph_builder = GraphBuilder::<_, ComponentState>::new();
 
             let sub =
-            //TriangleRenderPipeline::builder()
             triangle::TriangleDesc::default().builder()
                     .into_subpass()
                     .with_color_surface()
@@ -130,7 +122,7 @@ fn main() {
                 .build(&mut factory, &mut families, &state)
                 .unwrap();
 
-            run(event_loop, factory, families, state, graph);
+            run(window, event_loop, factory, families, state, graph);
         }
     );
 }
