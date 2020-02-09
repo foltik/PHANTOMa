@@ -7,18 +7,22 @@ use rendy::{
     },
     hal::{self, device::Device, pass::Subpass, pso, Backend},
     mesh::{AsVertex, Mesh, VertexFormat},
+    resource::{DescriptorSetInfo, DescriptorSetLayout},
     shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvReflection, SpirvShader},
-    resource::{DescriptorSetLayout, DescriptorSetInfo}
 };
 
 use super::{
     pipeline::{PipelineDescBuilder, PipelinesBuilder},
+    push_constant::PushConstant,
     shader,
     shape::Shape,
+    Component, ComponentBuilder, ComponentState,
 };
 
 use crate::error::AppError;
 use rendy_core::types::vertex::Position;
+
+use nalgebra::Matrix4;
 
 lazy_static! {
     static ref SHADER_REFLECT: SpirvReflection = SHADERS.reflect().unwrap();
@@ -56,40 +60,26 @@ lazy_static! {
             .unwrap();
 }
 
-pub fn test() {
-    /*
-    println!(
-        "{:#?}",
-        Shape::Cube.generate_vertices::<Vec<Position>>(Some((0.5, 0.5, 0.5)))
-    );
-    */
-}
-
-//#[derive(Clone, Default, Debug)]
-//pub struct TriangleSettings {}
-
-#[derive(Clone, Default, Debug)]
+#[derive(Default, Debug)]
 pub struct TriangleDesc {}
 
-//impl TriangleDesc {}
+impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
+    type For = Triangle<B>;
 
-impl<B: Backend> RenderGroupDesc<B, ()> for TriangleDesc {
-    fn depth(&self) -> bool {
-        false
-    }
-
-    fn build<'a>(
+    fn build(
         self,
         ctx: &GraphContext<B>,
         factory: &mut Factory<B>,
         queue: QueueId,
-        aux: &(),
+        aux: &ComponentState,
         framebuffer_width: u32,
         framebuffer_height: u32,
         subpass: Subpass<'_, B>,
         buffers: Vec<NodeBuffer>,
         images: Vec<NodeImage>,
-    ) -> Result<Box<dyn RenderGroup<B, ()>>, pso::CreationError> {
+    ) -> Self::For {
+        assert!(buffers.is_empty());
+        assert!(images.is_empty());
 
         let (pipeline, layout) = build_triangle_pipeline(
             factory,
@@ -97,20 +87,21 @@ impl<B: Backend> RenderGroupDesc<B, ()> for TriangleDesc {
             framebuffer_width,
             framebuffer_height,
             vec![],
-        )?;
+        );
 
         let mesh = Shape::Cube
             .generate::<Vec<Position>>(Some((0.5, 0.5, 0.5)))
             .build(queue, factory)
             .unwrap();
 
-        //println!("Len: {:?}", mesh.len());
+        let transform = Matrix4::new_perspective(4.0 / 3.0, 60.0, 0.1, 10.0);
 
-        Ok(Box::new(Triangle::<B> {
+        Triangle::<B> {
             pipeline,
             layout,
             mesh,
-        }))
+            transform,
+        }
     }
 }
 
@@ -118,40 +109,47 @@ impl<B: Backend> RenderGroupDesc<B, ()> for TriangleDesc {
 pub struct Triangle<B: Backend> {
     pipeline: B::GraphicsPipeline,
     layout: B::PipelineLayout,
-    mesh: Mesh<B>, //vertex: Escape<Buffer<B>>
+    mesh: Mesh<B>,
+    transform: Matrix4<f32>,
 }
 
-impl<B: Backend> RenderGroup<B, ()> for Triangle<B> {
+impl<B: Backend> Component<B> for Triangle<B> {
     fn prepare(
         &mut self,
         factory: &Factory<B>,
         queue: QueueId,
         index: usize,
         subpass: Subpass<'_, B>,
-        aux: &(),
+        aux: &ComponentState,
     ) -> PrepareResult {
         PrepareResult::DrawReuse
     }
 
-    fn draw_inline(
+    fn draw(
         &mut self,
         mut encoder: RenderPassEncoder<'_, B>,
         index: usize,
         subpass: Subpass<'_, B>,
-        aux: &(),
+        aux: &ComponentState,
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
         //self.mesh.bind(0, &[Position::vertex()], &mut encoder);
 
         unsafe {
-            encoder.push_constants(&self.layout, pso::ShaderStageFlags::VERTEX, 0, &[3]);
+            encoder.push_constants(
+                &self.layout,
+                pso::ShaderStageFlags::VERTEX,
+                0,
+                PushConstant::raw(&self.transform),
+            );
+            //encoder.push_constants(&self.layout, pso::ShaderStageFlags::VERTEX, 0, &[3]);
             //encoder.draw(0..self.mesh.len(), 0..1);
             self.mesh
                 .bind_and_draw(0, &[Position::vertex()], 0..1, &mut encoder);
         }
     }
 
-    fn dispose(self: Box<Self>, factory: &mut Factory<B>, aux: &()) {
+    fn dispose(self: Box<Self>, factory: &mut Factory<B>) {
         unsafe {
             factory.device().destroy_graphics_pipeline(self.pipeline);
             factory.device().destroy_pipeline_layout(self.layout);
@@ -165,14 +163,15 @@ fn build_triangle_pipeline<B: Backend>(
     framebuffer_width: u32,
     framebuffer_height: u32,
     layouts: Vec<&B::DescriptorSetLayout>,
-) -> Result<(B::GraphicsPipeline, B::PipelineLayout), pso::CreationError> {
+) -> (B::GraphicsPipeline, B::PipelineLayout) {
     let push_constants = SHADER_REFLECT.push_constants(None).unwrap();
 
     let layout = unsafe {
         factory
             .device()
             .create_pipeline_layout(layouts, push_constants)
-    }?;
+            .unwrap()
+    };
 
     let mut shaders = SHADERS.build(factory, Default::default()).unwrap();
 
@@ -215,5 +214,7 @@ fn build_triangle_pipeline<B: Backend>(
         Ok(mut pipes) => Ok((pipes.remove(0), layout)),
     }
     */
-    Ok((pipes.remove(0), layout))
+    (pipes.remove(0), layout)
 }
+
+component!(TriangleDesc, Triangle);
