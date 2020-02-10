@@ -17,10 +17,9 @@ use rendy::{
         dpi::PhysicalSize,
         event::{Event, WindowEvent},
         event_loop::{ControlFlow, EventLoop},
-        monitor::{MonitorHandle, VideoMode},
-        window::{Fullscreen, Window, WindowBuilder},
+        window::{Window, WindowBuilder},
     },
-    init::{AnyWindowedRendy, Rendy},
+    init::AnyWindowedRendy,
     memory::Dynamic,
     mesh::PosColor,
     resource::{Buffer, BufferInfo, DescriptorSetLayout, Escape, Handle},
@@ -36,7 +35,8 @@ use std::sync::{
 };
 use std::thread;
 
-use std::io::{stdin, stdout, Write};
+const WIDTH: u32 = 960;
+const HEIGHT: u32 = 640;
 
 fn run<B: Backend>(
     window: Window,
@@ -89,16 +89,46 @@ fn run<B: Backend>(
     });
 }
 
+fn build_graph<B: Backend>(
+    factory: &Factory<B>,
+    families: &Families<B>,
+    surface: Surface<B>,
+    window: Window,
+) -> GraphBuilder<B, ComponentState> {
+    let mut graph_builder = GraphBuilder::new();
+
+    graph_builder.add_node(
+        triangle::TriangleDesc::default()
+            .builder()
+            .into_subpass()
+            .with_color_surface()
+            .into_pass()
+            .with_surface(
+                surface,
+                hal::window::Extent2D {
+                    width: WIDTH,
+                    height: HEIGHT,
+                },
+                Some(hal::command::ClearValue {
+                    color: hal::command::ClearColor {
+                        float32: [1.0, 1.0, 1.0, 1.0],
+                    },
+                }),
+            ),
+    );
+
+    graph_builder
+}
+
 fn render<B: Backend>(
     active: Arc<AtomicBool>,
     state: Arc<Mutex<ComponentState>>,
-    factory: &mut Factory<B>,
-    families: &mut Families<B>,
-    window: Arc<Window>,
+    mut factory: Factory<B>,
+    mut families: Families<B>,
+    window: Window,
     surface: Surface<B>,
 ) {
-    /*
-    let mut graph_builder = GraphBuilder::new(); //build_graph(&factory, &families, surface, window);
+    let mut graph_builder = build_graph(&factory, &families, surface, window);
 
     let mut graph = {
         let state = state.lock().unwrap();
@@ -118,7 +148,6 @@ fn render<B: Backend>(
         let state = state.lock().unwrap();
         graph.dispose(&mut factory, &state);
     }
-    */
 }
 
 fn update(active: Arc<AtomicBool>, state: Arc<Mutex<ComponentState>>, event_loop: EventLoop<()>) {
@@ -166,144 +195,6 @@ fn update(active: Arc<AtomicBool>, state: Arc<Mutex<ComponentState>>, event_loop
     });
 }
 
-fn prompt_for_monitor(event_loop: &EventLoop<()>) -> MonitorHandle {
-    for (num, monitor) in event_loop.available_monitors().enumerate() {
-        println!("Monitor #{}: {:?}", num, monitor.name());
-    }
-
-    print!("Please write the number of the monitor to use: ");
-    stdout().flush().unwrap();
-
-    let mut num = String::new();
-    stdin().read_line(&mut num).unwrap();
-    let num = num.trim().parse().ok().expect("Please enter a number");
-    let monitor = event_loop
-        .available_monitors()
-        .nth(num)
-        .expect("Please enter a valid ID");
-
-    println!("Using {:?}", monitor.name());
-
-    monitor
-}
-
-fn prompt_for_video_mode(monitor: &MonitorHandle) -> VideoMode {
-    for (i, video_mode) in monitor.video_modes().enumerate() {
-        println!("Video mode #{}: {}", i, video_mode);
-    }
-
-    print!("Please write the number of the video mode to use: ");
-    stdout().flush().unwrap();
-
-    let mut num = String::new();
-    stdin().read_line(&mut num).unwrap();
-    let num = num.trim().parse().ok().expect("Please enter a number");
-    let video_mode = monitor
-        .video_modes()
-        .nth(num)
-        .expect("Please enter a valid ID");
-
-    println!("Using {}", video_mode);
-
-    video_mode
-}
-
-fn build_graph<B: Backend>(
-    factory: &mut Factory<B>,
-    families: &mut Families<B>,
-    window: &Window,
-    state: &ComponentState,
-) -> Graph<B, ComponentState> {
-    let mut graph_builder = GraphBuilder::new();
-
-    let surface = factory.create_surface(window).unwrap();
-    let size = window.inner_size();
-
-    println!("Creating surface with size {}x{}", size.width, size.height);
-
-    graph_builder.add_node(
-        triangle::TriangleDesc::default()
-            .builder()
-            .into_subpass()
-            .with_color_surface()
-            .into_pass()
-            .with_surface(
-                surface,
-                hal::window::Extent2D {
-                    width: size.width,
-                    height: size.height,
-                },
-                Some(hal::command::ClearValue {
-                    color: hal::command::ClearColor {
-                        float32: [1.0, 1.0, 1.0, 1.0],
-                    },
-                }),
-            ),
-    );
-
-    graph_builder.build(factory, families, state).unwrap()
-}
-
-fn sprint<B: Backend>(
-    event_loop: EventLoop<()>,
-    mut factory: Factory<B>,
-    mut families: Families<B>,
-    window: Window,
-) {
-    let mut state = ComponentState { frame: 0, t: 0.0 };
-
-    let mut graph = build_graph(&mut factory, &mut families, &window, &state);
-
-    let mut size = window.inner_size();
-    let mut rebuild = false;
-
-    let started = std::time::Instant::now();
-    let mut frame = 0u64;
-
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
-        match event {
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::CloseRequested => {
-                    *control_flow = ControlFlow::Exit;
-                }
-                WindowEvent::Resized(new) => {
-                    // do stuff
-                }
-                _ => {}
-            },
-            Event::MainEventsCleared => {
-                //let mut state = state.lock().unwrap();
-                state.frame += 1;
-                frame += 1;
-
-                window.request_redraw();
-            }
-            Event::RedrawRequested(_) => {
-                graph.run(&mut factory, &mut families, &state);
-                /*
-                factory.maintain(&mut families);
-                if let Some(ref mut graph) = graph {
-                }
-                */
-            }
-            _ => {}
-        }
-
-        if *control_flow == ControlFlow::Exit {
-            let elapsed = started.elapsed();
-            let elapsed_ns = elapsed.as_secs() * 1_000_000_000 + elapsed.subsec_nanos() as u64;
-
-            log::info!(
-                "Elapsed: {:?}. Frames: {}. FPS: {}",
-                elapsed,
-                frame,
-                frame * 1_000_000_000 / elapsed_ns
-            );
-        }
-    });
-}
-
 fn main() {
     env_logger::Builder::from_default_env()
         .filter_module("phantoma", log::LevelFilter::Trace)
@@ -311,31 +202,33 @@ fn main() {
 
     let config: Config = Default::default();
     let event_loop = EventLoop::new();
-
-    /*
-    let mon = prompt_for_monitor(&event_loop);
-    let mode = prompt_for_video_mode(&mon);
-
-    let sz = mode.size();
-    */
-
     let window = WindowBuilder::new()
         .with_inner_size(PhysicalSize {
-            width: 960,
-            height: 640,
+            width: WIDTH,
+            height: HEIGHT,
         })
-        //.with_fullscreen(Some(Fullscreen::Exclusive(mode)))
         .with_title("PHANTOMa");
 
-    //let mut rendy = Rendy::init(&config).unwrap();
-
-    //let active = Arc::new(AtomicBool::new(true));
-    //let state = Arc::new(Mutex::new(ComponentState { frame: 0, t: 0.0 }));
+    let active = Arc::new(AtomicBool::new(true));
+    let state = Arc::new(Mutex::new(ComponentState { frame: 0, t: 0.0 }));
 
     let rendy = AnyWindowedRendy::init_auto(&config, window, &event_loop).unwrap();
     rendy::with_any_windowed_rendy!((rendy)
         (mut factory, mut families, surface, window) => {
-            sprint(event_loop, factory, families, window);
+
+            println!("{:?}", window.current_monitor())
+
+
+            /*
+            let render_handle = {
+                let (active, state) = (Arc::clone(&active), Arc::clone(&state));
+                thread::spawn(move || render(active, state, factory, families, window, surface))
+            };
+            */
+
+            update(active, state, event_loop);
+
+            //render_handle.join().unwrap();
             //run(window, event_loop, factory, families, state, graph);
         }
     );
