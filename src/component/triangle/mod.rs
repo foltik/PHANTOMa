@@ -61,7 +61,7 @@ lazy_static! {
 #[repr(C)]
 pub struct PushConstants {
     transform: Matrix4<f32>,
-    frame: u32
+    //frame: u32
 }
 unsafe impl PushConstant for PushConstants {}
 
@@ -99,7 +99,8 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
             .build(queue, factory)
             .unwrap();
 
-        let transform = Matrix4::new_perspective(8.0 / 3.0, 60.0, 0.1, 10.0);
+        println!("Building matrix with aspect {}", aux.aspect);
+        let transform = Matrix4::new_perspective(aux.aspect, 60.0, 0.1, 10.0);
 
         Triangle::<B> {
             pipeline,
@@ -107,7 +108,7 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
             mesh,
             push: PushConstants {
                 transform,
-                frame: 0
+                //frame: 0
             }
         }
     }
@@ -130,9 +131,10 @@ impl<B: Backend> Component<B> for Triangle<B> {
         subpass: Subpass<'_, B>,
         aux: &ComponentState,
     ) -> PrepareResult {
-        self.push.frame = aux.frame;
+        //self.push.frame = aux.frame;
+        //PrepareResult::DrawRecord
 
-        PrepareResult::DrawRecord
+        PrepareResult::DrawReuse
     }
 
     fn draw(
@@ -142,17 +144,20 @@ impl<B: Backend> Component<B> for Triangle<B> {
         subpass: Subpass<'_, B>,
         aux: &ComponentState,
     ) {
+        let data = PushConstant::raw(&self.push);
+
         encoder.bind_graphics_pipeline(&self.pipeline);
 
         //self.push.frame = aux.frame;
         //println!("{}", self.push.frame);
 
         unsafe {
+
             encoder.push_constants(
                 &self.layout,
                 pso::ShaderStageFlags::VERTEX,
                 0,
-                PushConstant::raw(&self.push),
+                data,
             );
 
             self.mesh
@@ -177,6 +182,8 @@ fn build_triangle_pipeline<B: Backend>(
     layouts: Vec<&B::DescriptorSetLayout>,
 ) -> (B::GraphicsPipeline, B::PipelineLayout) {
     let push_constants = SHADER_REFLECT.push_constants(None).unwrap();
+
+    println!("{:#?}", push_constants);
 
     let layout = unsafe {
         factory

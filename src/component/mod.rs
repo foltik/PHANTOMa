@@ -16,6 +16,9 @@ use rendy::{
 pub struct ComponentState {
     pub frame: u32,
     pub t: f64,
+    pub w: u32,
+    pub h: u32,
+    pub aspect: f32,
 }
 
 pub trait ComponentBuilder<B: Backend> {

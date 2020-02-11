@@ -30,141 +30,12 @@ use rendy::{
 
 use component::{triangle, ComponentState};
 
+use std::io::{stdin, stdout, Write};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
 };
 use std::thread;
-
-use std::io::{stdin, stdout, Write};
-
-fn run<B: Backend>(
-    window: Window,
-    event_loop: EventLoop<()>,
-    mut factory: Factory<B>,
-    mut families: Families<B>,
-    mut state: ComponentState,
-    graph: Graph<B, ComponentState>,
-) {
-    let started = std::time::Instant::now();
-
-    let mut frame = 0u64;
-    let mut graph = Some(graph);
-
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
-        match event {
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                _ => {}
-            },
-            Event::MainEventsCleared => {
-                state.frame += 1;
-                frame += 1;
-
-                window.request_redraw();
-            }
-            Event::RedrawRequested(_) => {
-                factory.maintain(&mut families);
-                if let Some(ref mut graph) = graph {
-                    graph.run(&mut factory, &mut families, &state);
-                }
-            }
-            _ => {}
-        }
-
-        if *control_flow == ControlFlow::Exit && graph.is_some() {
-            let elapsed = started.elapsed();
-            let elapsed_ns = elapsed.as_secs() * 1_000_000_000 + elapsed.subsec_nanos() as u64;
-
-            log::info!(
-                "Elapsed: {:?}. Frames: {}. FPS: {}",
-                elapsed,
-                frame,
-                frame * 1_000_000_000 / elapsed_ns
-            );
-
-            graph.take().unwrap().dispose(&mut factory, &state);
-        }
-    });
-}
-
-fn render<B: Backend>(
-    active: Arc<AtomicBool>,
-    state: Arc<Mutex<ComponentState>>,
-    factory: &mut Factory<B>,
-    families: &mut Families<B>,
-    window: Arc<Window>,
-    surface: Surface<B>,
-) {
-    /*
-    let mut graph_builder = GraphBuilder::new(); //build_graph(&factory, &families, surface, window);
-
-    let mut graph = {
-        let state = state.lock().unwrap();
-        graph_builder
-            .build(&mut factory, &mut families, &state)
-            .unwrap()
-    };
-
-    while active.load(Ordering::SeqCst) {
-        let state = state.lock().unwrap();
-
-        factory.maintain(&mut families);
-        graph.run(&mut factory, &mut families, &state);
-    }
-
-    {
-        let state = state.lock().unwrap();
-        graph.dispose(&mut factory, &state);
-    }
-    */
-}
-
-fn update(active: Arc<AtomicBool>, state: Arc<Mutex<ComponentState>>, event_loop: EventLoop<()>) {
-    let started = std::time::Instant::now();
-    let mut frame = 0u64;
-
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
-        match event {
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::CloseRequested => {
-                    *control_flow = ControlFlow::Exit;
-                    active.store(false, Ordering::SeqCst);
-                }
-                _ => {}
-            },
-            Event::MainEventsCleared => {
-                let mut state = state.lock().unwrap();
-                state.frame += 1;
-
-                //window.request_redraw();
-            }
-            Event::RedrawRequested(_) => {
-                /*
-                factory.maintain(&mut families);
-                if let Some(ref mut graph) = graph {
-                    graph.run(&mut factory, &mut families, &state);
-                }
-                */
-            }
-            _ => {}
-        }
-
-        if *control_flow == ControlFlow::Exit {
-            let elapsed = started.elapsed();
-            let elapsed_ns = elapsed.as_secs() * 1_000_000_000 + elapsed.subsec_nanos() as u64;
-
-            log::info!(
-                "Elapsed: {:?}. Frames: {}. FPS: {}",
-                elapsed,
-                frame,
-                frame * 1_000_000_000 / elapsed_ns
-            );
-        }
-    });
-}
 
 fn prompt_for_monitor(event_loop: &EventLoop<()>) -> MonitorHandle {
     for (num, monitor) in event_loop.available_monitors().enumerate() {
@@ -250,15 +121,18 @@ fn sprint<B: Backend>(
     mut families: Families<B>,
     window: Window,
 ) {
-    let mut state = ComponentState { frame: 0, t: 0.0 };
-
-    let mut graph = build_graph(&mut factory, &mut families, &window, &state);
-
-    let mut size = window.inner_size();
-    let mut rebuild = false;
-
     let started = std::time::Instant::now();
-    let mut frame = 0u64;
+    let mut size = window.inner_size();
+
+    let mut state = ComponentState {
+        frame: 0,
+        t: 0.0,
+        w: size.width,
+        h: size.height,
+        aspect: size.width as f32 / size.height as f32,
+    };
+
+    let mut graph = Some(build_graph(&mut factory, &mut families, &window, &state));
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -268,24 +142,24 @@ fn sprint<B: Backend>(
                     *control_flow = ControlFlow::Exit;
                 }
                 WindowEvent::Resized(new) => {
-                    // do stuff
+                    graph.take().unwrap().dispose(&mut factory, &state);
+                    graph = Some(build_graph(&mut factory, &mut families, &window, &state));
+                    state.w = new.width;
+                    state.h = new.height;
+                    state.aspect = state.w as f32 / state.h as f32;
                 }
                 _ => {}
             },
             Event::MainEventsCleared => {
-                //let mut state = state.lock().unwrap();
                 state.frame += 1;
-                frame += 1;
 
                 window.request_redraw();
             }
             Event::RedrawRequested(_) => {
-                graph.run(&mut factory, &mut families, &state);
-                /*
                 factory.maintain(&mut families);
                 if let Some(ref mut graph) = graph {
+                    graph.run(&mut factory, &mut families, &state);
                 }
-                */
             }
             _ => {}
         }
@@ -294,11 +168,13 @@ fn sprint<B: Backend>(
             let elapsed = started.elapsed();
             let elapsed_ns = elapsed.as_secs() * 1_000_000_000 + elapsed.subsec_nanos() as u64;
 
+            graph.take().unwrap().dispose(&mut factory, &state);
+
             log::info!(
                 "Elapsed: {:?}. Frames: {}. FPS: {}",
                 elapsed,
-                frame,
-                frame * 1_000_000_000 / elapsed_ns
+                state.frame,
+                state.frame as u64 * 1_000_000_000 / elapsed_ns
             );
         }
     });
