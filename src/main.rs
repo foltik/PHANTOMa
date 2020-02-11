@@ -8,10 +8,11 @@ extern crate failure;
 mod component;
 mod error;
 
+#[allow(unused_imports)]
 use rendy::{
-    command::{Families, QueueId, RenderPassEncoder},
+    command::{Families},
     factory::{Config, Factory},
-    graph::{render::*, Graph, GraphBuilder, GraphContext, NodeBuffer, NodeImage},
+    graph::{render::*, Graph, GraphBuilder},
     hal::{self, Backend},
     init::winit::{
         dpi::PhysicalSize,
@@ -20,23 +21,14 @@ use rendy::{
         monitor::{MonitorHandle, VideoMode},
         window::{Fullscreen, Window, WindowBuilder},
     },
-    init::{AnyWindowedRendy, Rendy},
-    memory::Dynamic,
-    mesh::PosColor,
-    resource::{Buffer, BufferInfo, DescriptorSetLayout, Escape, Handle},
-    shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvReflection, SpirvShader},
-    wsi::Surface,
+    init::{AnyWindowedRendy},
 };
+
+use std::io::{stdin, stdout, Write};
 
 use component::{triangle, ComponentState};
 
-use std::io::{stdin, stdout, Write};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
-};
-use std::thread;
-
+#[allow(dead_code)]
 fn prompt_for_monitor(event_loop: &EventLoop<()>) -> MonitorHandle {
     for (num, monitor) in event_loop.available_monitors().enumerate() {
         println!("Monitor #{}: {:?}", num, monitor.name());
@@ -58,6 +50,7 @@ fn prompt_for_monitor(event_loop: &EventLoop<()>) -> MonitorHandle {
     monitor
 }
 
+#[allow(dead_code)]
 fn prompt_for_video_mode(monitor: &MonitorHandle) -> VideoMode {
     for (i, video_mode) in monitor.video_modes().enumerate() {
         println!("Video mode #{}: {}", i, video_mode);
@@ -115,15 +108,15 @@ fn build_graph<B: Backend>(
     graph_builder.build(factory, families, state).unwrap()
 }
 
-fn sprint<B: Backend>(
+fn run<B: Backend>(
     event_loop: EventLoop<()>,
     mut factory: Factory<B>,
     mut families: Families<B>,
     window: Window,
 ) {
     let started = std::time::Instant::now();
-    let mut size = window.inner_size();
 
+    let size = window.inner_size();
     let mut state = ComponentState {
         frame: 0,
         t: 0.0,
@@ -143,10 +136,12 @@ fn sprint<B: Backend>(
                 }
                 WindowEvent::Resized(new) => {
                     graph.take().unwrap().dispose(&mut factory, &state);
-                    graph = Some(build_graph(&mut factory, &mut families, &window, &state));
+
                     state.w = new.width;
                     state.h = new.height;
                     state.aspect = state.w as f32 / state.h as f32;
+
+                    graph = Some(build_graph(&mut factory, &mut families, &window, &state));
                 }
                 _ => {}
             },
@@ -191,8 +186,6 @@ fn main() {
     /*
     let mon = prompt_for_monitor(&event_loop);
     let mode = prompt_for_video_mode(&mon);
-
-    let sz = mode.size();
     */
 
     let window = WindowBuilder::new()
@@ -203,16 +196,10 @@ fn main() {
         //.with_fullscreen(Some(Fullscreen::Exclusive(mode)))
         .with_title("PHANTOMa");
 
-    //let mut rendy = Rendy::init(&config).unwrap();
-
-    //let active = Arc::new(AtomicBool::new(true));
-    //let state = Arc::new(Mutex::new(ComponentState { frame: 0, t: 0.0 }));
-
     let rendy = AnyWindowedRendy::init_auto(&config, window, &event_loop).unwrap();
     rendy::with_any_windowed_rendy!((rendy)
-        (mut factory, mut families, surface, window) => {
-            sprint(event_loop, factory, families, window);
-            //run(window, event_loop, factory, families, state, graph);
+        (factory, families, _surface, window) => {
+            run(event_loop, factory, families, window);
         }
     );
 }

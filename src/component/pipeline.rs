@@ -308,7 +308,7 @@ impl<'a, B: Backend> PipelinesBuilder<'a, B> {
                 .create_graphics_pipelines(self.builders.into_iter().map(|b| b.build()), None)
         };
 
-        if let Some(err) = pipelines.iter().find_map(|p| p.as_ref().err().cloned()) {
+        if let Some(_err) = pipelines.iter().find_map(|p| p.as_ref().err().cloned()) {
             for p in pipelines.drain(..).filter_map(Result::ok) {
                 unsafe {
                     factory.destroy_graphics_pipeline(p);

@@ -1,6 +1,5 @@
 mod pipeline;
 mod push_constant;
-mod shader;
 mod shape;
 
 use rendy::{
