@@ -104,12 +104,9 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
 }
 
 fn convert_matrix(mat: &Matrix4<f32>) -> mat4x4 {
-    let cols: Vec<vec4> = mat
-        .column_iter()
-        .map(|c| Into::<[f32; 4]>::into(c).into())
-        .collect();
-
-    TryInto::<[vec4; 4]>::try_into(cols.as_slice()).unwrap().into()
+    let flat: [f32; 16] = mat.as_slice().try_into().unwrap();
+    let arr: [[f32; 4]; 4] = unsafe { std::mem::transmute(flat) };
+    arr.into()
 }
 
 #[derive(Clone, Copy, AsStd140, Debug)]
