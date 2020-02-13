@@ -1,6 +1,6 @@
 mod pipeline;
-mod push_constant;
 mod shape;
+mod uniform;
 
 use rendy::{
     command::{QueueId, RenderPassEncoder},

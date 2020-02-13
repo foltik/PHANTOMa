@@ -6,20 +6,22 @@ use rendy::{
         GraphContext, NodeBuffer, NodeImage,
     },
     hal::{self, device::Device, pass::Subpass, pso, Backend},
-    mesh::{AsVertex, Mesh, VertexFormat},
+    mesh::{AsVertex, Mesh, PosTex, VertexFormat},
     shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvReflection, SpirvShader},
 };
 
+use nalgebra::{Matrix4, RealField, Vector3};
+
+use glsl_layout::{mat4x4, vec4, AsStd140};
+
+use std::convert::TryInto;
+
 use super::{
     pipeline::{PipelineDescBuilder, PipelinesBuilder},
-    push_constant::PushConstant,
     shape::Shape,
+    uniform::PushConstant,
     Component, ComponentBuilder, ComponentState,
 };
-
-use rendy_core::types::vertex::PosTex;
-
-use nalgebra::{Matrix4, Vector3};
 
 lazy_static! {
     static ref SHADER_REFLECT: SpirvReflection = SHADERS.reflect().unwrap();
@@ -96,22 +98,29 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
             layout,
             mesh,
             cfg: TriangleCfg::new(aux),
-            push: PushConstants::default(),
+            push: PushConstant::new(TrianglePush::default(), 0, pso::ShaderStageFlags::VERTEX),
         }
     }
 }
 
-#[derive(Debug)]
-#[repr(C)]
-pub struct PushConstants {
-    transform: Matrix4<f32>,
-}
-unsafe impl PushConstant for PushConstants {}
+fn convert_matrix(mat: &Matrix4<f32>) -> mat4x4 {
+    let cols: Vec<vec4> = mat
+        .column_iter()
+        .map(|c| Into::<[f32; 4]>::into(c).into())
+        .collect();
 
-impl std::default::Default for PushConstants {
+    TryInto::<[vec4; 4]>::try_into(cols.as_slice()).unwrap().into()
+}
+
+#[derive(Clone, Copy, AsStd140, Debug)]
+pub struct TrianglePush {
+    transform: mat4x4,
+}
+
+impl std::default::Default for TrianglePush {
     fn default() -> Self {
         Self {
-            transform: Matrix4::identity(),
+            transform: convert_matrix(&Matrix4::identity()),
         }
     }
 }
@@ -124,7 +133,7 @@ struct TriangleCfg {
 impl TriangleCfg {
     fn new(aux: &ComponentState) -> Self {
         Self {
-            projection: Matrix4::new_perspective(aux.aspect, 60.0, 0.001, 100.0),
+            projection: Matrix4::new_perspective(aux.aspect, f32::frac_pi_2(), 0.001, 100.0),
         }
     }
 }
@@ -135,7 +144,7 @@ pub struct Triangle<B: Backend> {
     layout: B::PipelineLayout,
     mesh: Mesh<B>,
     cfg: TriangleCfg,
-    push: PushConstants,
+    push: PushConstant<TrianglePush>,
 }
 
 impl<B: Backend> Component<B> for Triangle<B> {
@@ -159,19 +168,15 @@ impl<B: Backend> Component<B> for Triangle<B> {
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
 
-        let model = Matrix4::new_rotation(Vector3::new(aux.frame as f32 / 60.0, aux.frame as f32 / 40.0, 0.0));
-        let view = Matrix4::new_translation(&Vector3::new(0.0, 0.0, -1.0));
+        let model = Matrix4::new_rotation(Vector3::new(
+            aux.frame as f32 / 60.0,
+            aux.frame as f32 / 40.0,
+            0.0,
+        ));
+        let view = Matrix4::new_translation(&Vector3::new(0.0, 0.0, -2.0));
+        self.push.transform = convert_matrix(&(self.cfg.projection.clone() * view * model));
 
-        self.push.transform = self.cfg.projection.clone() * view * model;
-
-        unsafe {
-            encoder.push_constants(
-                &self.layout,
-                pso::ShaderStageFlags::VERTEX,
-                0,
-                PushConstant::raw(&self.push),
-            );
-        }
+        self.push.bind(&self.layout, &mut encoder);
 
         self.mesh
             .bind_and_draw(0, &[PosTex::vertex()], 0..1, &mut encoder)
@@ -219,7 +224,7 @@ fn build_triangle_pipeline<B: Backend>(
                     front_face: pso::FrontFace::Clockwise,
                     depth_clamping: false,
                     depth_bias: None,
-                    conservative: false
+                    conservative: false,
                 })
                 .with_layout(&layout)
                 .with_subpass(subpass)
