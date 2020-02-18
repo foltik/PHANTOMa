@@ -7,7 +7,8 @@ layout(location = 1) in vec2 tex;
 //layout(location = 0) out vec4 frag_color;
 layout(location = 0) out vec2 tex_out;
 
-layout(/*push_constant*/binding = 0, std140) uniform PushConstants {
+layout(binding = 0, std140) uniform PushConstants {
+//layout(push_constant, std140) uniform PushConstants {
     mat4 transform;
     //float t;
 } push;
@@ -18,6 +19,6 @@ void main() {
     tex_out = tex;
 
     //gl_Position = push.transform * vec4(pos + sin(), 1.0);
-    //gl_Position = push.transform * vec4(pos, 1.0);
-    gl_Position = vec4(pos, 1.0);
+    gl_Position = push.transform * vec4(pos, 1.0);
+    //gl_Position = vec4(pos, 1.0);
 }

@@ -155,7 +155,6 @@ impl<B: Backend> Component<B> for Triangle<B> {
         _subpass: Subpass<'_, B>,
         aux: &ComponentState,
     ) -> PrepareResult {
-        /*
         let model = Matrix4::new_rotation(Vector3::new(
             aux.frame as f32 / 60.0,
             aux.frame as f32 / 40.0,
@@ -163,10 +162,8 @@ impl<B: Backend> Component<B> for Triangle<B> {
         ));
         let view = Matrix4::new_translation(&Vector3::new(0.0, 0.0, -2.0));
         self.push.transform = convert_matrix(&(self.cfg.projection.clone() * view * model));
-        */
 
         self.ubo.write(factory, 0, &self.push.std140());
-
 
         PrepareResult::DrawRecord
     }
@@ -180,7 +177,7 @@ impl<B: Backend> Component<B> for Triangle<B> {
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
 
-
+        self.ubo.bind(0, &self.layout, 0, &mut encoder);
         //self.push.bind(&self.layout, &mut encoder);
 
         self.mesh
@@ -205,12 +202,33 @@ fn build_triangle_pipeline<B: Backend>(
 ) -> (B::GraphicsPipeline, B::PipelineLayout) {
     let push_constants = SHADER_REFLECT.push_constants(None).unwrap();
 
+    let rlayout = SHADER_REFLECT.layout().unwrap();
+
+    let set_layouts =
+        rlayout
+            .sets
+            .into_iter()
+            .map(|set| {
+                factory.create_descriptor_set_layout(set.bindings).unwrap()
+                //.map(Handle::from)
+            })
+            .collect::<Vec<_>>();
+
+    let layout = unsafe {
+        factory.device().create_pipeline_layout(
+            set_layouts.iter().map(|l| l.raw()),
+            rlayout.push_constants,
+        ).unwrap()
+    };
+
+    /*
     let layout = unsafe {
         factory
             .device()
             .create_pipeline_layout(layouts, push_constants)
             .unwrap()
     };
+    */
 
     let mut shaders = SHADERS.build(factory, Default::default()).unwrap();
 
