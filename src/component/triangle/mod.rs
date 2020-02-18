@@ -19,7 +19,7 @@ use std::convert::TryInto;
 use super::{
     pipeline::{PipelineDescBuilder, PipelinesBuilder},
     shape::Shape,
-    uniform::PushConstant,
+    uniform::{DynamicUniform, PushConstant},
     Component, ComponentBuilder, ComponentState,
 };
 
@@ -99,6 +99,7 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
             mesh,
             cfg: TriangleCfg::new(aux),
             push: PushConstant::new(TrianglePush::default(), 0, pso::ShaderStageFlags::VERTEX),
+            ubo: DynamicUniform::new(factory, pso::ShaderStageFlags::VERTEX),
         }
     }
 }
@@ -142,17 +143,31 @@ pub struct Triangle<B: Backend> {
     mesh: Mesh<B>,
     cfg: TriangleCfg,
     push: PushConstant<TrianglePush>,
+    ubo: DynamicUniform<B, TrianglePush>,
 }
 
 impl<B: Backend> Component<B> for Triangle<B> {
     fn prepare(
         &mut self,
-        _factory: &Factory<B>,
+        factory: &Factory<B>,
         _queue: QueueId,
         _index: usize,
         _subpass: Subpass<'_, B>,
-        _aux: &ComponentState,
+        aux: &ComponentState,
     ) -> PrepareResult {
+        /*
+        let model = Matrix4::new_rotation(Vector3::new(
+            aux.frame as f32 / 60.0,
+            aux.frame as f32 / 40.0,
+            0.0,
+        ));
+        let view = Matrix4::new_translation(&Vector3::new(0.0, 0.0, -2.0));
+        self.push.transform = convert_matrix(&(self.cfg.projection.clone() * view * model));
+        */
+
+        self.ubo.write(factory, 0, &self.push.std140());
+
+
         PrepareResult::DrawRecord
     }
 
@@ -165,15 +180,8 @@ impl<B: Backend> Component<B> for Triangle<B> {
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
 
-        let model = Matrix4::new_rotation(Vector3::new(
-            aux.frame as f32 / 60.0,
-            aux.frame as f32 / 40.0,
-            0.0,
-        ));
-        let view = Matrix4::new_translation(&Vector3::new(0.0, 0.0, -2.0));
-        self.push.transform = convert_matrix(&(self.cfg.projection.clone() * view * model));
 
-        self.push.bind(&self.layout, &mut encoder);
+        //self.push.bind(&self.layout, &mut encoder);
 
         self.mesh
             .bind_and_draw(0, &[PosTex::vertex()], 0..1, &mut encoder)

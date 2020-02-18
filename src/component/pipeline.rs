@@ -3,6 +3,7 @@
 
 use rendy::{
     factory::Factory,
+    graph::render::Layout,
     hal::{
         device::Device,
         pass::Subpass,
@@ -38,6 +39,7 @@ pub struct PipelineDescBuilder<'a, B: Backend> {
     multisampling: Option<Multisampling>,
     baked_states: BakedStates,
     layout: Option<&'a B::PipelineLayout>,
+    rlayout: Option<Layout>,
     subpass: Option<Subpass<'a, B>>,
     flags: PipelineCreationFlags,
     parent: BasePipelineExt<'a, B::GraphicsPipeline>,
@@ -56,6 +58,7 @@ impl<'a, B: Backend> Default for PipelineDescBuilder<'a, B> {
             multisampling: None,
             baked_states: BakedStates::default(),
             layout: None,
+            rlayout: None,
             subpass: None,
             flags: PipelineCreationFlags::empty(),
             parent: BasePipelineExt::None,
@@ -65,6 +68,30 @@ impl<'a, B: Backend> Default for PipelineDescBuilder<'a, B> {
 
 impl<'a, B: Backend> PipelineDescBuilder<'a, B> {
     pub fn build(self) -> GraphicsPipelineDesc<'a, B> {
+        /*
+        let layout = self.rlayout.unwrap();
+
+        let set_layouts =
+            layout
+            .sets
+            .into_iter()
+            .map(|set| {
+                factory.create_descriptor_set_layout(set.bindings).unwrap()
+                //.map(Handle::from)
+            })
+            .collect::<Vec<_>>();
+
+        let pipeline_layout = unsafe {
+            factory.device().create_pipeline_layout(
+                set_layouts.iter().map(|l| l.raw()),
+                layout.push_constants,
+                //pipeline.layout.push_constants,
+            ).unwrap()
+        };
+
+        //assert_eq!(pipeline.colors.len(), self.inner.colors().len());
+        */
+
         GraphicsPipelineDesc {
             shaders: self.shaders.expect("No shaders specified for pipeline"),
             rasterizer: self.rasterizer,
@@ -76,6 +103,7 @@ impl<'a, B: Backend> PipelineDescBuilder<'a, B> {
             multisampling: self.multisampling,
             baked_states: self.baked_states,
             layout: self.layout.expect("No layout specified for pipeline"),
+            //layout: &pipeline_layout,
             subpass: self.subpass.expect("No subpass specified for pipeline"),
             flags: self.flags,
             parent: match self.parent {
@@ -155,6 +183,14 @@ impl<'a, B: Backend> PipelineDescBuilder<'a, B> {
     }
     pub fn with_baked_states(mut self, baked_states: BakedStates) -> Self {
         self.set_baked_states(baked_states);
+        self
+    }
+
+    pub fn set_rlayout(&mut self, layout: Layout) {
+        self.rlayout = Some(layout);
+    }
+    pub fn with_rlayout(mut self, layout: Layout) -> Self {
+        self.set_rlayout(layout);
         self
     }
 
@@ -303,9 +339,10 @@ impl<'a, B: Backend> PipelinesBuilder<'a, B> {
 
     pub fn build(self, factory: &Factory<B>) -> Vec<B::GraphicsPipeline> {
         let mut pipelines = unsafe {
-            factory
-                .device()
-                .create_graphics_pipelines(self.builders.into_iter().map(|b| b.build()), None)
+            factory.device().create_graphics_pipelines(
+                self.builders.into_iter().map(|b| b.build()),
+                None,
+            )
         };
 
         if let Some(_err) = pipelines.iter().find_map(|p| p.as_ref().err().cloned()) {

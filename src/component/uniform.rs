@@ -120,7 +120,7 @@ where
     }
 
     /// Write `T` to this descriptor set memory
-    pub fn write(&mut self, factory: &Factory<B>, index: usize, item: T::Std140) -> bool {
+    pub fn write(&mut self, factory: &Factory<B>, index: usize, item: &T::Std140) -> bool {
         let mut changed = false;
         let this_image = {
             while self.per_image.len() <= index {
@@ -141,7 +141,7 @@ where
 
         let bytes = unsafe {
             std::slice::from_raw_parts(
-                &item as *const T::Std140 as *const u8,
+                item as *const T::Std140 as *const u8,
                 std::mem::size_of::<T::Std140>(),
             )
         };
