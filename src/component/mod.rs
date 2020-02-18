@@ -9,11 +9,11 @@ use rendy::{
         render::{PrepareResult, RenderGroup},
         GraphContext, NodeBuffer, NodeImage,
     },
-    shader::{ShaderSetBuilder},
-    hal::{pso, pass::Subpass, Backend},
+    hal::{pass::Subpass, pso, Backend},
+    shader::ShaderSetBuilder,
 };
 
-use pipeline::{PipelineDescBuilder, PipelinesBuilder};
+use pipeline::PipelineDescBuilder;
 
 pub struct ComponentState {
     pub frame: u32,
@@ -36,7 +36,11 @@ pub trait ComponentBuilder<B: Backend> {
 
     fn shaders(&self) -> &'static ShaderSetBuilder;
 
-    fn build_pipeline<'a>(&self, factory: &Factory<B>, builder: PipelineDescBuilder<'a, B>) -> PipelineDescBuilder<'a, B>;
+    fn build_pipeline<'a>(
+        &self,
+        factory: &Factory<B>,
+        builder: PipelineDescBuilder<'a, B>,
+    ) -> PipelineDescBuilder<'a, B>;
 
     fn build(
         self,
@@ -102,18 +106,20 @@ macro_rules! component {
                 let vertex_format = reflect.attributes_range(..).unwrap();
                 let layout = reflect.layout().unwrap();
 
-                let set_layouts =
-                    layout
-                        .sets
-                        .into_iter()
-                        .map(|set| factory.create_descriptor_set_layout(set.bindings).unwrap())
-                        .collect::<Vec<_>>();
+                let set_layouts = layout
+                    .sets
+                    .into_iter()
+                    .map(|set| factory.create_descriptor_set_layout(set.bindings).unwrap())
+                    .collect::<Vec<_>>();
 
                 let layout = unsafe {
-                    factory.device().create_pipeline_layout(
-                        set_layouts.iter().map(|l| l.raw()),
-                        layout.push_constants,
-                    ).unwrap()
+                    factory
+                        .device()
+                        .create_pipeline_layout(
+                            set_layouts.iter().map(|l| l.raw()),
+                            layout.push_constants,
+                        )
+                        .unwrap()
                 };
 
                 let mut pipe = PipelineDescBuilder::default()

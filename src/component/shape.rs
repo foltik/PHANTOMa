@@ -1,10 +1,10 @@
-use rendy::{
-    mesh::{MeshBuilder, Position, TexCoord, Normal, Tangent, PosTex, PosNormTex, PosNormTangTex},
+use rendy::mesh::{
+    MeshBuilder, Normal, PosNormTangTex, PosNormTex, PosTex, Position, Tangent, TexCoord,
 };
 
 use genmesh::{
-    generators::{self, SharedVertex, IndexedPolygon},
-    Vertex, Vertices, MapVertex, Triangulate, EmitTriangles
+    generators::{self, IndexedPolygon, SharedVertex},
+    EmitTriangles, MapVertex, Triangulate, Vertex, Vertices,
 };
 
 use nalgebra::Vector3;
@@ -23,8 +23,8 @@ pub enum Shape {
 impl Shape {
     /// Generate `MeshBuilder` for the `Shape`
     pub fn generate<V>(&self, scale: Option<(f32, f32, f32)>) -> MeshBuilder<'static>
-        where
-            V: FromShape + Into<MeshBuilder<'static>>,
+    where
+        V: FromShape + Into<MeshBuilder<'static>>,
     {
         V::from(&self.generate_internal(scale)).into()
     }
@@ -32,8 +32,8 @@ impl Shape {
     /// Generate vertices for the `Shape`
     #[allow(dead_code)]
     pub fn generate_vertices<V>(&self, scale: Option<(f32, f32, f32)>) -> V
-        where
-            V: FromShape,
+    where
+        V: FromShape,
     {
         V::from(&self.generate_internal(scale))
     }
@@ -50,11 +50,11 @@ fn generate_vertices<F, P, G>(
     generator: G,
     scale: Option<(f32, f32, f32)>,
 ) -> Vec<InternalVertexData>
-    where
-        F: EmitTriangles<Vertex = Vertex>,
-        F::Vertex: Clone + Copy + PartialEq,
-        P: EmitTriangles<Vertex = usize>,
-        G: SharedVertex<F::Vertex> + IndexedPolygon<P> + Iterator<Item = F>,
+where
+    F: EmitTriangles<Vertex = Vertex>,
+    F::Vertex: Clone + Copy + PartialEq,
+    P: EmitTriangles<Vertex = usize>,
+    G: SharedVertex<F::Vertex> + IndexedPolygon<P> + Iterator<Item = F>,
 {
     let vertices = generator.shared_vertex_iter().collect::<Vec<_>>();
     generator

@@ -15,8 +15,8 @@ use rendy::{
         },
         Backend,
     },
-    shader::{SpirvReflection},
     mesh::VertexFormat,
+    shader::SpirvReflection,
 };
 
 #[derive(Debug)]
@@ -66,7 +66,7 @@ impl<'a, B: Backend> Default for PipelineDescBuilder<'a, B> {
 }
 
 impl<'a, B: Backend> PipelineDescBuilder<'a, B> {
-    pub fn build(mut self, factory: &Factory<B>) -> GraphicsPipelineDesc<'a, B> {
+    pub fn build(self) -> GraphicsPipelineDesc<'a, B> {
         GraphicsPipelineDesc {
             shaders: self.shaders.expect("No shaders specified for pipeline"),
             rasterizer: self.rasterizer,
@@ -304,11 +304,10 @@ impl<'a, B: Backend> PipelinesBuilder<'a, B> {
     }
 
     pub fn build(self, factory: &Factory<B>) -> Vec<B::GraphicsPipeline> {
-        let mut pipelines = unsafe {
-            factory.device().create_graphics_pipelines(
-                self.builders.into_iter().map(|b| b.build(factory)),
-                None,
-            )
+        let pipelines = unsafe {
+            factory
+                .device()
+                .create_graphics_pipelines(self.builders.into_iter().map(|b| b.build()), None)
         };
 
         pipelines.into_iter().map(|p| p.unwrap()).collect()

@@ -8,7 +8,7 @@ mod error;
 
 #[allow(unused_imports)]
 use rendy::{
-    command::{Families},
+    command::Families,
     factory::{Config, Factory},
     graph::{render::*, Graph, GraphBuilder},
     hal::{self, Backend},
@@ -19,7 +19,7 @@ use rendy::{
         monitor::{MonitorHandle, VideoMode},
         window::{Fullscreen, Window, WindowBuilder},
     },
-    init::{AnyWindowedRendy},
+    init::AnyWindowedRendy,
 };
 
 use std::io::{stdin, stdout, Write};

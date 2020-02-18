@@ -5,14 +5,14 @@ use rendy::{
         render::{PrepareResult, RenderGroup, RenderGroupDesc},
         GraphContext, NodeBuffer, NodeImage,
     },
-    hal::{self, device::Device, pass::Subpass, pso, Backend},
-    mesh::{AsVertex, Mesh, PosTex, VertexFormat},
-    shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvReflection, SpirvShader},
+    hal::{device::Device, pass::Subpass, pso, Backend},
+    mesh::{AsVertex, Mesh, PosTex},
+    shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvShader},
 };
 
 use nalgebra::{Matrix4, RealField, Vector3};
 
-use glsl_layout::{mat4x4, vec4, AsStd140};
+use glsl_layout::{mat4x4, AsStd140};
 
 use std::convert::TryInto;
 
@@ -25,7 +25,6 @@ use super::{
 use rendy_shader::ShaderSetBuilder;
 
 lazy_static! {
-    static ref SHADER_REFLECT: SpirvReflection = SHADERS.reflect().unwrap();
     static ref VERTEX: SpirvShader = SourceShaderInfo::new(
         include_str!("shader.vert"),
         concat!(
@@ -70,7 +69,11 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
         &SHADERS
     }
 
-    fn build_pipeline<'a>(&self, factory: &Factory<B>, builder: PipelineDescBuilder<'a, B>) -> PipelineDescBuilder<'a, B> {
+    fn build_pipeline<'a>(
+        &self,
+        factory: &Factory<B>,
+        builder: PipelineDescBuilder<'a, B>,
+    ) -> PipelineDescBuilder<'a, B> {
         builder
             .with_rasterizer(pso::Rasterizer {
                 polygon_mode: pso::PolygonMode::Fill,
@@ -99,17 +102,6 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
     ) -> Self::For {
         assert!(buffers.is_empty());
         assert!(images.is_empty());
-
-        /*
-        let pipeline = build_triangle_pipeline(
-            factory,
-            subpass,
-            framebuffer_width,
-            framebuffer_height,
-            vec![],
-            &layout
-        );
-        */
 
         let mesh = Shape::Cube
             .generate::<Vec<PosTex>>(Some((0.5, 0.5, 0.5)))
@@ -174,7 +166,7 @@ impl<B: Backend> Component<B> for Triangle<B> {
         &mut self,
         factory: &Factory<B>,
         _queue: QueueId,
-        _index: usize,
+        index: usize,
         _subpass: Subpass<'_, B>,
         aux: &ComponentState,
     ) -> PrepareResult {
@@ -186,7 +178,7 @@ impl<B: Backend> Component<B> for Triangle<B> {
         let view = Matrix4::new_translation(&Vector3::new(0.0, 0.0, -2.0));
         self.push.transform = convert_matrix(&(self.cfg.projection.clone() * view * model));
 
-        self.ubo.write(factory, 0, &self.push.std140());
+        self.ubo.write(factory, index, &self.push);
 
         PrepareResult::DrawRecord
     }
@@ -194,14 +186,13 @@ impl<B: Backend> Component<B> for Triangle<B> {
     fn draw(
         &mut self,
         mut encoder: RenderPassEncoder<'_, B>,
-        _index: usize,
+        index: usize,
         _subpass: Subpass<'_, B>,
-        aux: &ComponentState,
+        _aux: &ComponentState,
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
 
-        self.ubo.bind(0, &self.layout, 0, &mut encoder);
-        //self.push.bind(&self.layout, &mut encoder);
+        self.ubo.bind(index, &self.layout, 0, &mut encoder);
 
         self.mesh
             .bind_and_draw(0, &[PosTex::vertex()], 0..1, &mut encoder)
