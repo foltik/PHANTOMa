@@ -22,6 +22,7 @@ use super::{
     uniform::{DynamicUniform, PushConstant},
     Component, ComponentBuilder, ComponentState,
 };
+use rendy_shader::ShaderSetBuilder;
 
 lazy_static! {
     static ref SHADER_REFLECT: SpirvReflection = SHADERS.reflect().unwrap();
@@ -65,28 +66,50 @@ pub struct TriangleDesc {}
 impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
     type For = Triangle<B>;
 
+    fn shaders(&self) -> &'static ShaderSetBuilder {
+        &SHADERS
+    }
+
+    fn build_pipeline<'a>(&self, factory: &Factory<B>, builder: PipelineDescBuilder<'a, B>) -> PipelineDescBuilder<'a, B> {
+        builder
+            .with_rasterizer(pso::Rasterizer {
+                polygon_mode: pso::PolygonMode::Fill,
+                cull_face: pso::Face::BACK,
+                front_face: pso::FrontFace::Clockwise,
+                depth_clamping: false,
+                depth_bias: None,
+                conservative: false,
+            })
+            .with_blend_targets(vec![pso::ColorBlendDesc {
+                mask: pso::ColorMask::ALL,
+                blend: None,
+            }])
+    }
+
     fn build(
         self,
         _ctx: &GraphContext<B>,
         factory: &mut Factory<B>,
         queue: QueueId,
         aux: &ComponentState,
-        framebuffer_width: u32,
-        framebuffer_height: u32,
-        subpass: Subpass<'_, B>,
+        pipeline: B::GraphicsPipeline,
+        layout: B::PipelineLayout,
         buffers: Vec<NodeBuffer>,
         images: Vec<NodeImage>,
     ) -> Self::For {
         assert!(buffers.is_empty());
         assert!(images.is_empty());
 
-        let (pipeline, layout) = build_triangle_pipeline(
+        /*
+        let pipeline = build_triangle_pipeline(
             factory,
             subpass,
             framebuffer_width,
             framebuffer_height,
             vec![],
+            &layout
         );
+        */
 
         let mesh = Shape::Cube
             .generate::<Vec<PosTex>>(Some((0.5, 0.5, 0.5)))
@@ -191,95 +214,6 @@ impl<B: Backend> Component<B> for Triangle<B> {
             factory.device().destroy_pipeline_layout(self.layout);
         }
     }
-}
-
-fn build_triangle_pipeline<B: Backend>(
-    factory: &Factory<B>,
-    subpass: hal::pass::Subpass<'_, B>,
-    framebuffer_width: u32,
-    framebuffer_height: u32,
-    layouts: Vec<&B::DescriptorSetLayout>,
-) -> (B::GraphicsPipeline, B::PipelineLayout) {
-    let push_constants = SHADER_REFLECT.push_constants(None).unwrap();
-
-    let rlayout = SHADER_REFLECT.layout().unwrap();
-
-    let set_layouts =
-        rlayout
-            .sets
-            .into_iter()
-            .map(|set| {
-                factory.create_descriptor_set_layout(set.bindings).unwrap()
-                //.map(Handle::from)
-            })
-            .collect::<Vec<_>>();
-
-    let layout = unsafe {
-        factory.device().create_pipeline_layout(
-            set_layouts.iter().map(|l| l.raw()),
-            rlayout.push_constants,
-        ).unwrap()
-    };
-
-    /*
-    let layout = unsafe {
-        factory
-            .device()
-            .create_pipeline_layout(layouts, push_constants)
-            .unwrap()
-    };
-    */
-
-    let mut shaders = SHADERS.build(factory, Default::default()).unwrap();
-
-    let format: VertexFormat = SHADER_REFLECT.attributes_range(..).unwrap();
-    let rate = pso::VertexInputRate::Vertex;
-
-    let mut pipes = PipelinesBuilder::default()
-        .with_pipeline(
-            PipelineDescBuilder::default()
-                .with_vertex_desc(&[(format, rate)])
-                //.with_vertex_desc(&[(Position::vertex(), pso::VertexInputRate::Vertex)])
-                .with_shaders(shaders.raw().unwrap())
-                .with_rasterizer(pso::Rasterizer {
-                    polygon_mode: pso::PolygonMode::Fill,
-                    cull_face: pso::Face::BACK,
-                    front_face: pso::FrontFace::Clockwise,
-                    depth_clamping: false,
-                    depth_bias: None,
-                    conservative: false,
-                })
-                .with_layout(&layout)
-                .with_subpass(subpass)
-                .with_framebuffer_size(framebuffer_width, framebuffer_height)
-                /*
-                .with_depth_test(pso::DepthTest {
-                    fun: pso::Comparison::LessEqual,
-                    write: false,
-                })
-                */
-                .with_blend_targets(vec![pso::ColorBlendDesc {
-                    mask: pso::ColorMask::ALL,
-                    blend: None,
-                }]),
-        )
-        .build(factory);
-
-    shaders.dispose(factory);
-
-    /*
-    TODO: Actually handle failure
-    match pipes {
-        Err(e) => {
-            unsafe {
-                factory.device().destroy_pipeline_layout(layout);
-            }
-            Err(e)
-        }
-        Ok(mut pipes) => Ok((pipes.remove(0), layout)),
-    }
-    */
-    (pipes.remove(0), layout)
 }
 
 component!(TriangleDesc, Triangle);
