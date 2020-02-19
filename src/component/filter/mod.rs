@@ -3,9 +3,9 @@ use rendy::{
     factory::Factory,
     graph::{
         render::{PrepareResult, RenderGroup, RenderGroupDesc},
-        GraphContext, NodeBuffer, NodeImage,
+        GraphContext, NodeBuffer, NodeImage
     },
-    hal::{device::Device, pass::Subpass, pso, Backend},
+    hal::{self, device::Device, pass::Subpass, pso, Backend},
     mesh::{AsVertex, Mesh, PosTex},
     shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvShader},
 };
@@ -69,6 +69,15 @@ impl<B: Backend> ComponentBuilder<B> for FilterDesc {
         false
     }
 
+    fn images(&self) -> Vec<ImageAccess> {
+        vec![ImageAccess {
+            access: hal::image::Access::SHADER_READ,
+            usage: hal::image::Usage::SAMPLED,
+            layout: hal::image::Layout::ShaderReadOnlyOptimal,
+            stages: pso::PipelineStage::FRAGMENT_SHADER
+        }]
+    }
+
     fn shaders(&self) -> &'static ShaderSetBuilder {
         &SHADERS
     }
@@ -81,8 +90,8 @@ impl<B: Backend> ComponentBuilder<B> for FilterDesc {
         builder
             .with_rasterizer(pso::Rasterizer {
                 polygon_mode: pso::PolygonMode::Fill,
-                cull_face: pso::Face::BACK,
-                front_face: pso::FrontFace::Clockwise,
+                cull_face: pso::Face::FRONT,
+                front_face: pso::FrontFace::CounterClockwise,
                 depth_clamping: false,
                 depth_bias: None,
                 conservative: false,
@@ -104,8 +113,40 @@ impl<B: Backend> ComponentBuilder<B> for FilterDesc {
         buffers: Vec<NodeBuffer>,
         images: Vec<NodeImage>,
     ) -> Self::For {
-        assert!(buffers.is_empty());
-        assert!(images.is_empty());
+        println!("{:#?}", images);
+        let image = images.get(0);
+
+        let layout_binding = factory
+            .create_descriptor_set_layout(vec![pso::DescriptorSetLayoutBinding {
+                binding: 0,
+                ty: pso::DescriptorType::SampledImage,
+                count: 1,
+                stage_flags: pso::ShaderStageFlags::VERTEX,
+                immutable_samplers: false,
+            }])
+            .unwrap();
+
+        let buffer = factory
+            .create_buffer(
+                BufferInfo {
+                    size: std::mem::size_of::<T::Std140>() as u64,
+                    usage: hal::buffer::Usage::UNIFORM,
+                },
+                rendy::memory::Dynamic,
+            )
+            .unwrap();
+
+        let set = factory.create_descriptor_set(layout_binding.clone()).unwrap();
+        let desc = pso::Descriptor::Buffer(buffer.raw(), None..None);
+        unsafe {
+            let set = set.raw();
+            factory.write_descriptor_sets(Some(pso::DescriptorSetWrite {
+                set,
+                binding: 0,
+                array_offset: 0,
+                descriptors: Some(desc),
+            }));
+        }
 
         Filter::<B> {
             pipeline,

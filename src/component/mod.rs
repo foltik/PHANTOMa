@@ -8,6 +8,7 @@ use rendy::{
     graph::{
         render::{PrepareResult, RenderGroup},
         GraphContext, NodeBuffer, NodeImage,
+        ImageAccess, BufferAccess
     },
     hal::{pass::Subpass, pso, Backend},
     shader::ShaderSetBuilder,
@@ -30,12 +31,20 @@ pub trait ComponentBuilder<B: Backend> {
         true
     }
 
+    fn input_rate(&self) -> pso::VertexInputRate {
+        pso::VertexInputRate::Vertex
+    }
+
     fn depth(&self) -> bool {
         false
     }
 
-    fn input_rate(&self) -> pso::VertexInputRate {
-        pso::VertexInputRate::Vertex
+    fn buffers(&self) -> Vec<BufferAccess> {
+        vec!()
+    }
+
+    fn images(&self) -> Vec<ImageAccess> {
+        vec!()
     }
 
     fn shaders(&self) -> &'static ShaderSetBuilder;
@@ -82,12 +91,22 @@ pub trait Component<B: Backend> {
 
 macro_rules! component {
     ($builder:ident, $comp:ident) => {
+        use rendy::graph::{ImageAccess, BufferAccess};
+
         impl<B: Backend> RenderGroupDesc<B, ComponentState> for $builder
         where
             $builder: ComponentBuilder<B>,
         {
             fn depth(&self) -> bool {
                 ComponentBuilder::depth(self)
+            }
+
+            fn buffers(&self) -> Vec<BufferAccess> {
+                ComponentBuilder::buffers(self)
+            }
+
+            fn images(&self) -> Vec<ImageAccess> {
+                ComponentBuilder::images(self)
             }
 
             fn build(
