@@ -10,7 +10,7 @@ mod error;
 use rendy::{
     command::Families,
     factory::{Config, Factory},
-    graph::{render::*, Graph, GraphBuilder},
+    graph::{render::*, Graph, GraphBuilder, present::PresentNode},
     hal::{self, Backend},
     init::winit::{
         dpi::PhysicalSize,
@@ -24,7 +24,7 @@ use rendy::{
 
 use std::io::{stdin, stdout, Write};
 
-use component::{triangle, ComponentState};
+use component::{triangle, filter, ComponentState};
 
 #[allow(dead_code)]
 fn prompt_for_monitor(event_loop: &EventLoop<()>) -> MonitorHandle {
@@ -81,14 +81,28 @@ fn build_graph<B: Backend>(
     let surface = factory.create_surface(window).unwrap();
     let size = window.inner_size();
 
+    let color = graph_builder.create_image(
+        hal::image::Kind::D2(size.width, size.height, 1, 1),
+        1,
+        factory.get_surface_format(&surface),
+        Some(hal::command::ClearValue {
+            color: hal::command::ClearColor {
+                float32: [1.0, 1.0, 1.0, 1.0],
+            },
+        }),
+    );
+
     println!("Creating surface with size {}x{}", size.width, size.height);
 
-    graph_builder.add_node(
-        triangle::TriangleDesc::default()
+    let pass = graph_builder.add_node(
+        //    triangle::TriangleDesc::default()
+            filter::FilterDesc::default()
             .builder()
             .into_subpass()
-            .with_color_surface()
+            .with_color(color)
+            //.with_color_surface()
             .into_pass()
+            /*
             .with_surface(
                 surface,
                 hal::window::Extent2D {
@@ -101,7 +115,10 @@ fn build_graph<B: Backend>(
                     },
                 }),
             ),
+            */
     );
+
+    graph_builder.add_node(PresentNode::builder(&factory, surface, color).with_dependency(pass));
 
     graph_builder.build(factory, families, state).unwrap()
 }

@@ -26,6 +26,10 @@ pub struct ComponentState {
 pub trait ComponentBuilder<B: Backend> {
     type For: RenderGroup<B, ComponentState>;
 
+    fn vertex_input(&self) -> bool {
+        true
+    }
+
     fn depth(&self) -> bool {
         false
     }
@@ -103,14 +107,17 @@ macro_rules! component {
                 let reflect = shader_set.reflect().unwrap();
                 let mut shaders = shader_set.build(factory, Default::default()).unwrap();
 
-                let vertex_format = reflect.attributes_range(..).unwrap();
                 let layout = reflect.layout().unwrap();
 
-                let set_layouts = layout
-                    .sets
-                    .into_iter()
-                    .map(|set| factory.create_descriptor_set_layout(set.bindings).unwrap())
-                    .collect::<Vec<_>>();
+                let set_layouts = if layout.sets.is_empty() {
+                    vec!()
+                } else {
+                    layout
+                        .sets
+                        .into_iter()
+                        .map(|set| factory.create_descriptor_set_layout(set.bindings).unwrap())
+                        .collect::<Vec<_>>()
+                };
 
                 let layout = unsafe {
                     factory
@@ -123,11 +130,17 @@ macro_rules! component {
                 };
 
                 let mut pipe = PipelineDescBuilder::default()
-                    .with_vertex_desc(&[(vertex_format, ComponentBuilder::input_rate(&self))])
                     .with_shaders(shaders.raw().unwrap())
                     .with_layout(&layout)
                     .with_subpass(subpass)
                     .with_framebuffer_size(framebuffer_width, framebuffer_height);
+
+                if (ComponentBuilder::vertex_input(&self)) {
+                    let vertex_format = reflect.attributes_range(..).unwrap();
+
+                    pipe = pipe.with_vertex_desc(&[(vertex_format, ComponentBuilder::input_rate(&self))])
+                }
+
                 pipe = ComponentBuilder::build_pipeline(&self, factory, pipe);
 
                 let mut pipes = PipelinesBuilder::default()
@@ -183,3 +196,4 @@ macro_rules! component {
 }
 
 pub mod triangle;
+pub mod filter;
