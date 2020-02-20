@@ -211,5 +211,6 @@ macro_rules! component {
     };
 }
 
+pub mod test;
 pub mod cube;
 pub mod filter;
