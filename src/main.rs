@@ -15,6 +15,7 @@ use rendy::{
         self,
         command::{ClearColor, ClearValue},
         Backend,
+        window::PresentMode,
     },
     init::winit::{
         dpi::PhysicalSize,
@@ -130,7 +131,19 @@ fn build_graph<B: Backend>(
             .into_pass(),
     );
 
-    graph_builder.add_node(PresentNode::builder(&factory, surface, color).with_dependency(post));
+    graph_builder.add_node(
+        PresentNode::builder(&factory, surface, color)
+            .with_dependency(post)
+            .with_present_modes_priority(|mode| -> Option<usize> {
+                match mode {
+                    PresentMode::MAILBOX => Some(100),
+                    PresentMode::RELAXED => Some(50),
+                    PresentMode::IMMEDIATE => Some(10),
+                    PresentMode::FIFO => Some(5),
+                    _ => Some(0)
+                }
+            }),
+    );
 
     graph_builder.build(factory, families, state).unwrap()
 }
@@ -179,9 +192,15 @@ fn run<B: Backend>(
             }
             Event::RedrawRequested(_) => {
                 factory.maintain(&mut families);
+
+                let before = std::time::Instant::now();
                 if let Some(ref mut graph) = graph {
                     graph.run(&mut factory, &mut families, &state);
                 }
+                let elapsed = before.elapsed();
+                let ms: f32 = elapsed.as_secs() as f32 * 1_000 as f32
+                    + elapsed.subsec_nanos() as f32 / 1_000_000 as f32;
+                log::trace!("Frame {}: {} ms", state.frame, ms);
             }
             _ => {}
         }
@@ -210,10 +229,8 @@ fn main() {
     let config: Config = Default::default();
     let event_loop = EventLoop::new();
 
-    /*
-    let mon = prompt_for_monitor(&event_loop);
-    let mode = prompt_for_video_mode(&mon);
-    */
+    //let mon = prompt_for_monitor(&event_loop);
+    //let mode = prompt_for_video_mode(&mon);
 
     let window = WindowBuilder::new()
         .with_inner_size(PhysicalSize {
