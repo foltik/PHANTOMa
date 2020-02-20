@@ -1,4 +1,5 @@
 mod pipeline;
+mod shader;
 mod shape;
 mod uniform;
 
@@ -210,5 +211,5 @@ macro_rules! component {
     };
 }
 
+pub mod cube;
 pub mod filter;
-pub mod triangle;

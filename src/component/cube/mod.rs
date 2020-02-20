@@ -1,3 +1,5 @@
+use glsl_layout::{mat4x4, AsStd140};
+use nalgebra::{Matrix4, RealField, Vector3};
 use rendy::{
     command::{QueueId, RenderPassEncoder},
     factory::Factory,
@@ -7,56 +9,27 @@ use rendy::{
     },
     hal::{device::Device, pass::Subpass, pso, Backend},
     mesh::{AsVertex, Mesh, PosTex},
-    shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvShader},
 };
-
-use nalgebra::{Matrix4, RealField, Vector3};
-
-use glsl_layout::{mat4x4, AsStd140};
-
 use std::convert::TryInto;
 
 use super::{
     pipeline::{PipelineDescBuilder, PipelinesBuilder},
+    shader::{self, Shader, ShaderKind, ShaderSetBuilder},
     shape::Shape,
     uniform::{DynamicUniform, PushConstant},
     Component, ComponentBuilder, ComponentState,
 };
-use rendy_shader::ShaderSetBuilder;
 
 lazy_static! {
-    static ref VERTEX: SpirvShader = SourceShaderInfo::new(
-        include_str!("shader.vert"),
-        concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/src/component/triangle/shader.vert"
-        )
-        .into(),
-        ShaderKind::Vertex,
-        SourceLanguage::GLSL,
-        "main",
-    )
-    .precompile()
-    .unwrap();
-    static ref FRAGMENT: SpirvShader = SourceShaderInfo::new(
-        include_str!("shader.frag"),
-        concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/src/component/triangle/shader.frag"
-        )
-        .into(),
-        ShaderKind::Fragment,
-        SourceLanguage::GLSL,
-        "main",
-    )
-    .precompile()
-    .unwrap();
-    static ref SHADERS: rendy::shader::ShaderSetBuilder =
-        rendy::shader::ShaderSetBuilder::default()
-            .with_vertex(&*VERTEX)
-            .unwrap()
-            .with_fragment(&*FRAGMENT)
-            .unwrap();
+    static ref VERTEX: Shader =
+        shader::from_source(include_str!("shader.vert"), ShaderKind::Vertex);
+    static ref FRAGMENT: Shader =
+        shader::from_source(include_str!("shader.frag"), ShaderKind::Fragment);
+    static ref SHADERS: ShaderSetBuilder = ShaderSetBuilder::default()
+        .with_vertex(&*VERTEX)
+        .unwrap()
+        .with_fragment(&*FRAGMENT)
+        .unwrap();
 }
 
 #[derive(Default, Debug)]
@@ -71,7 +44,7 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
 
     fn pipeline_builder<'a>(
         &self,
-        factory: &Factory<B>,
+        _factory: &Factory<B>,
         builder: PipelineDescBuilder<'a, B>,
     ) -> PipelineDescBuilder<'a, B> {
         builder
@@ -97,22 +70,22 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
         aux: &ComponentState,
         pipeline: B::GraphicsPipeline,
         layout: B::PipelineLayout,
-        buffers: Vec<NodeBuffer>,
-        images: Vec<NodeImage>,
+        _buffers: Vec<NodeBuffer>,
+        _images: Vec<NodeImage>,
     ) -> Self::For {
-        assert!(buffers.is_empty());
-        assert!(images.is_empty());
-
         let mesh = Shape::Cube
             .generate::<Vec<PosTex>>(Some((0.5, 0.5, 0.5)))
             .build(queue, factory)
             .unwrap();
 
+        let proj = Matrix4::new_perspective(aux.aspect, f32::frac_pi_2(), 0.001, 100.0);
+        let view = Matrix4::new_translation(&Vector3::new(0.0, 0.0, -2.0));
+
         Triangle::<B> {
             pipeline,
             layout,
             mesh,
-            cfg: TriangleCfg::new(aux),
+            view_proj: proj * view,
             push: PushConstant::new(TrianglePush::default(), 0, pso::ShaderStageFlags::VERTEX),
             ubo: DynamicUniform::new(factory, pso::ShaderStageFlags::VERTEX),
         }
@@ -139,24 +112,11 @@ impl std::default::Default for TrianglePush {
 }
 
 #[derive(Debug)]
-struct TriangleCfg {
-    projection: Matrix4<f32>,
-}
-
-impl TriangleCfg {
-    fn new(aux: &ComponentState) -> Self {
-        Self {
-            projection: Matrix4::new_perspective(aux.aspect, f32::frac_pi_2(), 0.001, 100.0),
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct Triangle<B: Backend> {
     pipeline: B::GraphicsPipeline,
     layout: B::PipelineLayout,
     mesh: Mesh<B>,
-    cfg: TriangleCfg,
+    view_proj: Matrix4<f32>,
     push: PushConstant<TrianglePush>,
     ubo: DynamicUniform<B, TrianglePush>,
 }
@@ -175,8 +135,7 @@ impl<B: Backend> Component<B> for Triangle<B> {
             aux.frame as f32 / 40.0,
             0.0,
         ));
-        let view = Matrix4::new_translation(&Vector3::new(0.0, 0.0, -2.0));
-        self.push.transform = convert_matrix(&(self.cfg.projection.clone() * view * model));
+        self.push.transform = convert_matrix(&(self.view_proj.clone() * model));
 
         self.ubo.write(factory, index, &self.push);
 

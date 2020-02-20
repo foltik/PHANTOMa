@@ -10,8 +10,12 @@ mod error;
 use rendy::{
     command::Families,
     factory::{Config, Factory},
-    graph::{present::PresentNode, render::*, Graph, GraphBuilder},
-    hal::{self, Backend},
+    graph::{present::PresentNode, render::*, Graph, GraphBuilder, ImageId},
+    hal::{
+        self,
+        command::{ClearColor, ClearValue},
+        Backend,
+    },
     init::winit::{
         dpi::PhysicalSize,
         event::{Event, WindowEvent},
@@ -20,11 +24,12 @@ use rendy::{
         window::{Fullscreen, Window, WindowBuilder},
     },
     init::AnyWindowedRendy,
+    wsi::Surface,
 };
 
 use std::io::{stdin, stdout, Write};
 
-use component::{filter, triangle, ComponentState};
+use component::{cube, filter, ComponentState};
 
 #[allow(dead_code)]
 fn prompt_for_monitor(event_loop: &EventLoop<()>) -> MonitorHandle {
@@ -70,6 +75,21 @@ fn prompt_for_video_mode(monitor: &MonitorHandle) -> VideoMode {
     video_mode
 }
 
+fn create_image<B: Backend>(
+    factory: &Factory<B>,
+    builder: &mut GraphBuilder<B, ComponentState>,
+    surface: &Surface<B>,
+    size: &PhysicalSize<u32>,
+    clear: Option<ClearValue>,
+) -> ImageId {
+    builder.create_image(
+        hal::image::Kind::D2(size.width, size.height, 1, 1),
+        1,
+        factory.get_surface_format(surface),
+        clear,
+    )
+}
+
 fn build_graph<B: Backend>(
     factory: &mut Factory<B>,
     families: &mut Families<B>,
@@ -81,49 +101,36 @@ fn build_graph<B: Backend>(
     let surface = factory.create_surface(window).unwrap();
     let size = window.inner_size();
 
-    let res = graph_builder.create_image(
-        hal::image::Kind::D2(size.width, size.height, 1, 1),
-        1,
-        factory.get_surface_format(&surface),
-        Some(hal::command::ClearValue {
-            color: hal::command::ClearColor {
-                float32: [1.0, 1.0, 1.0, 1.0],
-            },
-        }),
-    );
+    let white = ClearValue {
+        color: ClearColor {
+            float32: [1.0, 1.0, 1.0, 1.0],
+        },
+    };
 
-    let out = graph_builder.create_image(
-        hal::image::Kind::D2(size.width, size.height, 1, 1),
-        1,
-        factory.get_surface_format(&surface),
-        Some(hal::command::ClearValue {
-            color: hal::command::ClearColor {
-                float32: [1.0, 1.0, 1.0, 1.0],
-            },
-        }),
-    );
+    let color = create_image(factory, &mut graph_builder, &surface, &size, None);
+    let mesh = create_image(factory, &mut graph_builder, &surface, &size, Some(white));
 
-    println!("Creating surface with size {}x{}", size.width, size.height);
+    log::debug!("Creating surface with size {}x{}", size.width, size.height);
 
     let cube = graph_builder.add_node(
-        triangle::TriangleDesc::default()
+        cube::TriangleDesc::default()
             .builder()
             .into_subpass()
-            .with_color(res)
+            .with_color(mesh)
             .into_pass(),
     );
 
     let post = graph_builder.add_node(
         filter::FilterDesc::default()
             .builder()
-            .with_image(res)
+            .with_image(mesh)
             .with_dependency(cube)
             .into_subpass()
-            .with_color(out)
-            .into_pass()
+            .with_color(color)
+            .into_pass(),
     );
 
-    graph_builder.add_node(PresentNode::builder(&factory, surface, out).with_dependency(post));
+    graph_builder.add_node(PresentNode::builder(&factory, surface, color).with_dependency(post));
 
     graph_builder.build(factory, families, state).unwrap()
 }

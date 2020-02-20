@@ -1,3 +1,5 @@
+use core::marker::PhantomData;
+use glsl_layout::AsStd140;
 use rendy::{
     command::RenderPassEncoder,
     factory::Factory,
@@ -9,10 +11,6 @@ use rendy::{
         SamplerDesc, ViewKind,
     },
 };
-
-use glsl_layout::AsStd140;
-
-use core::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct PushConstant<T: AsStd140>
@@ -56,6 +54,7 @@ where
         }
     }
 
+    #[allow(dead_code)]
     pub fn bind<B: Backend>(&self, layout: &B::PipelineLayout, encoder: &mut RenderPassEncoder<B>) {
         let std = &self.item.std140();
 
@@ -273,7 +272,12 @@ impl<B: Backend> Sampler<B> {
         Self { set }
     }
 
-    pub fn bind(&self, pipeline_layout: &B::PipelineLayout, binding: u32, encoder: &mut RenderPassEncoder<B>) {
+    pub fn bind(
+        &self,
+        pipeline_layout: &B::PipelineLayout,
+        binding: u32,
+        encoder: &mut RenderPassEncoder<B>,
+    ) {
         unsafe {
             encoder.bind_graphics_descriptor_sets(
                 pipeline_layout,

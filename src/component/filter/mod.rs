@@ -6,58 +6,26 @@ use rendy::{
         GraphContext, NodeBuffer, NodeImage,
     },
     hal::{self, device::Device, pass::Subpass, pso, Backend},
-    mesh::{AsVertex, Mesh, PosTex},
-    resource::{self, DescriptorSet, Escape, Handle, ImageViewInfo, SamplerDesc, ViewKind},
-    shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvShader},
+    resource::{self, SamplerDesc},
 };
-
-use nalgebra::{Matrix4, RealField, Vector3};
-
-use glsl_layout::{mat4x4, AsStd140};
-
-use std::convert::TryInto;
 
 use super::{
     pipeline::{PipelineDescBuilder, PipelinesBuilder},
-    shape::Shape,
-    uniform::{DynamicUniform, PushConstant, Sampler},
+    shader::{self, Shader, ShaderKind, ShaderSetBuilder},
+    uniform::Sampler,
     Component, ComponentBuilder, ComponentState,
 };
-use rendy_shader::ShaderSetBuilder;
 
 lazy_static! {
-    static ref VERTEX: SpirvShader = SourceShaderInfo::new(
-        include_str!("shader.vert"),
-        concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/src/component/filter/shader.vert"
-        )
-        .into(),
-        ShaderKind::Vertex,
-        SourceLanguage::GLSL,
-        "main",
-    )
-    .precompile()
-    .unwrap();
-    static ref FRAGMENT: SpirvShader = SourceShaderInfo::new(
-        include_str!("shader.frag"),
-        concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/src/component/filter/shader.frag"
-        )
-        .into(),
-        ShaderKind::Fragment,
-        SourceLanguage::GLSL,
-        "main",
-    )
-    .precompile()
-    .unwrap();
-    static ref SHADERS: rendy::shader::ShaderSetBuilder =
-        rendy::shader::ShaderSetBuilder::default()
-            .with_vertex(&*VERTEX)
-            .unwrap()
-            .with_fragment(&*FRAGMENT)
-            .unwrap();
+    static ref VERTEX: Shader =
+        shader::from_source(include_str!("shader.vert"), ShaderKind::Vertex);
+    static ref FRAGMENT: Shader =
+        shader::from_source(include_str!("shader.frag"), ShaderKind::Fragment);
+    static ref SHADERS: ShaderSetBuilder = ShaderSetBuilder::default()
+        .with_vertex(&*VERTEX)
+        .unwrap()
+        .with_fragment(&*FRAGMENT)
+        .unwrap();
 }
 
 #[derive(Default, Debug)]
@@ -107,11 +75,11 @@ impl<B: Backend> ComponentBuilder<B> for FilterDesc {
         self,
         ctx: &GraphContext<B>,
         factory: &mut Factory<B>,
-        queue: QueueId,
-        aux: &ComponentState,
+        _queue: QueueId,
+        _aux: &ComponentState,
         pipeline: B::GraphicsPipeline,
         layout: B::PipelineLayout,
-        buffers: Vec<NodeBuffer>,
+        _buffers: Vec<NodeBuffer>,
         images: Vec<NodeImage>,
     ) -> Self::For {
         let image = images.get(0).unwrap();
@@ -127,38 +95,8 @@ impl<B: Backend> ComponentBuilder<B> for FilterDesc {
         Filter::<B> {
             pipeline,
             layout,
-            cfg: FilterCfg::new(aux),
-            //set
             sampler,
         }
-    }
-}
-
-fn convert_matrix(mat: &Matrix4<f32>) -> mat4x4 {
-    let flat: [f32; 16] = mat.as_slice().try_into().unwrap();
-    let arr: [[f32; 4]; 4] = unsafe { std::mem::transmute(flat) };
-    arr.into()
-}
-
-#[derive(Clone, Copy, AsStd140, Debug)]
-pub struct FilterPush {
-    transform: mat4x4,
-}
-
-impl std::default::Default for FilterPush {
-    fn default() -> Self {
-        Self {
-            transform: convert_matrix(&Matrix4::identity()),
-        }
-    }
-}
-
-#[derive(Debug)]
-struct FilterCfg {}
-
-impl FilterCfg {
-    fn new(aux: &ComponentState) -> Self {
-        Self {}
     }
 }
 
@@ -166,19 +104,17 @@ impl FilterCfg {
 pub struct Filter<B: Backend> {
     pipeline: B::GraphicsPipeline,
     layout: B::PipelineLayout,
-    cfg: FilterCfg,
-    //set: Escape<DescriptorSet<B>>,
     sampler: Sampler<B>,
 }
 
 impl<B: Backend> Component<B> for Filter<B> {
     fn prepare(
         &mut self,
-        factory: &Factory<B>,
+        _factory: &Factory<B>,
         _queue: QueueId,
-        index: usize,
+        _index: usize,
         _subpass: Subpass<'_, B>,
-        aux: &ComponentState,
+        _aux: &ComponentState,
     ) -> PrepareResult {
         PrepareResult::DrawReuse
     }
@@ -186,7 +122,7 @@ impl<B: Backend> Component<B> for Filter<B> {
     fn draw(
         &mut self,
         mut encoder: RenderPassEncoder<'_, B>,
-        index: usize,
+        _index: usize,
         _subpass: Subpass<'_, B>,
         _aux: &ComponentState,
     ) {
