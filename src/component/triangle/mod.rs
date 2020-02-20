@@ -69,7 +69,7 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
         &SHADERS
     }
 
-    fn build_pipeline<'a>(
+    fn pipeline_builder<'a>(
         &self,
         factory: &Factory<B>,
         builder: PipelineDescBuilder<'a, B>,

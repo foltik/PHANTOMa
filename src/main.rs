@@ -81,8 +81,6 @@ fn build_graph<B: Backend>(
     let surface = factory.create_surface(window).unwrap();
     let size = window.inner_size();
 
-    println!("Format: {:#?}", factory.get_surface_format(&surface));
-
     let res = graph_builder.create_image(
         hal::image::Kind::D2(size.width, size.height, 1, 1),
         1,

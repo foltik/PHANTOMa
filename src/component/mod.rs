@@ -6,12 +6,11 @@ use rendy::{
     command::{QueueId, RenderPassEncoder},
     factory::Factory,
     graph::{
-        render::{PrepareResult, RenderGroup},
-        GraphContext, NodeBuffer, NodeImage,
-        ImageAccess, BufferAccess
+        render::{Layout, PrepareResult, RenderGroup},
+        BufferAccess, GraphContext, ImageAccess, NodeBuffer, NodeImage,
     },
     hal::{pass::Subpass, pso, Backend},
-    shader::ShaderSetBuilder,
+    shader::{ShaderSetBuilder, SpirvReflection},
 };
 
 use pipeline::PipelineDescBuilder;
@@ -27,29 +26,29 @@ pub struct ComponentState {
 pub trait ComponentBuilder<B: Backend> {
     type For: RenderGroup<B, ComponentState>;
 
-    fn vertex_input(&self) -> bool {
-        true
-    }
-
-    fn input_rate(&self) -> pso::VertexInputRate {
-        pso::VertexInputRate::Vertex
-    }
-
     fn depth(&self) -> bool {
         false
     }
 
+    fn input_rate(&self) -> Option<pso::VertexInputRate> {
+        Some(pso::VertexInputRate::Vertex)
+    }
+
     fn buffers(&self) -> Vec<BufferAccess> {
-        vec!()
+        vec![]
     }
 
     fn images(&self) -> Vec<ImageAccess> {
-        vec!()
+        vec![]
     }
 
     fn shaders(&self) -> &'static ShaderSetBuilder;
 
-    fn build_pipeline<'a>(
+    fn layout(&self, reflect: &SpirvReflection) -> Layout {
+        reflect.layout().unwrap()
+    }
+
+    fn pipeline_builder<'a>(
         &self,
         factory: &Factory<B>,
         builder: PipelineDescBuilder<'a, B>,
@@ -91,7 +90,7 @@ pub trait Component<B: Backend> {
 
 macro_rules! component {
     ($builder:ident, $comp:ident) => {
-        use rendy::graph::{ImageAccess, BufferAccess};
+        use rendy::graph::{BufferAccess, ImageAccess};
 
         impl<B: Backend> RenderGroupDesc<B, ComponentState> for $builder
         where
@@ -126,21 +125,15 @@ macro_rules! component {
                 let reflect = shader_set.reflect().unwrap();
                 let mut shaders = shader_set.build(factory, Default::default()).unwrap();
 
-                let layout = reflect.layout().unwrap();
+                let layout = ComponentBuilder::layout(&self, &reflect);
 
-                //println!("{:#?}", layout);
+                let set_layouts = layout
+                    .sets
+                    .into_iter()
+                    .map(|set| factory.create_descriptor_set_layout(set.bindings).unwrap())
+                    .collect::<Vec<_>>();
 
-                let set_layouts = if layout.sets.is_empty() {
-                    vec!()
-                } else {
-                    layout
-                        .sets
-                        .into_iter()
-                        .map(|set| factory.create_descriptor_set_layout(set.bindings).unwrap())
-                        .collect::<Vec<_>>()
-                };
-
-                let layout = unsafe {
+                let pipeline_layout = unsafe {
                     factory
                         .device()
                         .create_pipeline_layout(
@@ -150,22 +143,23 @@ macro_rules! component {
                         .unwrap()
                 };
 
-                let mut pipe = PipelineDescBuilder::default()
+                let mut pipeline = PipelineDescBuilder::default()
                     .with_shaders(shaders.raw().unwrap())
-                    .with_layout(&layout)
+                    .with_layout(&pipeline_layout)
                     .with_subpass(subpass)
                     .with_framebuffer_size(framebuffer_width, framebuffer_height);
 
-                if (ComponentBuilder::vertex_input(&self)) {
-                    let vertex_format = reflect.attributes_range(..).unwrap();
+                match ComponentBuilder::input_rate(&self) {
+                    Some(rate) => {
+                        pipeline.set_vertex_desc(&[(reflect.attributes_range(..).unwrap(), rate)])
+                    }
+                    _ => {}
+                };
 
-                    pipe = pipe.with_vertex_desc(&[(vertex_format, ComponentBuilder::input_rate(&self))])
-                }
-
-                pipe = ComponentBuilder::build_pipeline(&self, factory, pipe);
+                pipeline = ComponentBuilder::pipeline_builder(&self, factory, pipeline);
 
                 let mut pipes = PipelinesBuilder::default()
-                    .with_pipeline(pipe)
+                    .with_pipeline(pipeline)
                     .build(factory);
 
                 shaders.dispose(factory);
@@ -177,7 +171,7 @@ macro_rules! component {
                     queue,
                     aux,
                     pipes.remove(0),
-                    layout,
+                    pipeline_layout,
                     buffers,
                     images,
                 )))
@@ -216,5 +210,5 @@ macro_rules! component {
     };
 }
 
-pub mod triangle;
 pub mod filter;
+pub mod triangle;

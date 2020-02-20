@@ -9,6 +9,13 @@ layout(location = 0) out vec4 color;
 layout(binding = 0) uniform sampler2D img;
 
 void main() {
-    color = vec4(texture(img, tex).xz, 0, 1.0);
-    //color = vec4(tex, 0, 0);
+    vec4 c = texture(img, tex);
+
+    float d = 0.003;
+
+    float r = texture(img, tex + vec2(0.0, -d)).r;
+    float g = texture(img, tex + vec2(-d, d)).g;
+    float b = texture(img, tex + vec2(d, -d)).b;
+
+    color = vec4(r, g, b, 1.0);
 }
