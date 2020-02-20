@@ -1,10 +1,12 @@
 use rendy::{
     command::RenderPassEncoder,
     factory::Factory,
+    graph::{GraphContext, NodeImage},
     hal::{self, device::Device, pso, Backend},
     memory::{MappedRange, Write},
     resource::{
-        Buffer, BufferInfo, DescriptorSet, DescriptorSetLayout, Escape, Handle as RendyHandle,
+        Buffer, BufferInfo, DescriptorSet, DescriptorSetLayout, Escape, Handle, ImageViewInfo,
+        SamplerDesc, ViewKind,
     },
 };
 
@@ -78,7 +80,7 @@ pub struct DynamicUniform<B: Backend, T: AsStd140>
 where
     T::Std140: Sized,
 {
-    layout: RendyHandle<DescriptorSetLayout<B>>,
+    layout: Handle<DescriptorSetLayout<B>>,
     per_image: Vec<PerImageDynamicUniform<B, T>>,
 }
 
@@ -161,7 +163,7 @@ impl<B: Backend, T: AsStd140> PerImageDynamicUniform<B, T>
 where
     T::Std140: Sized,
 {
-    fn new(factory: &Factory<B>, layout: &RendyHandle<DescriptorSetLayout<B>>) -> Self {
+    fn new(factory: &Factory<B>, layout: &Handle<DescriptorSetLayout<B>>) -> Self {
         let buffer = factory
             .create_buffer(
                 BufferInfo {
@@ -206,6 +208,76 @@ where
             encoder.bind_graphics_descriptor_sets(
                 pipeline_layout,
                 set_id,
+                Some(self.set.raw()),
+                std::iter::empty(),
+            );
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Sampler<B: Backend> {
+    set: Escape<DescriptorSet<B>>,
+}
+
+impl<B: Backend> Sampler<B> {
+    pub fn new(
+        ctx: &GraphContext<B>,
+        factory: &Factory<B>,
+        image: &NodeImage,
+        info: SamplerDesc,
+        flags: pso::ShaderStageFlags,
+    ) -> Self {
+        let layout_binding: Handle<_> = factory
+            .create_descriptor_set_layout(vec![pso::DescriptorSetLayoutBinding {
+                binding: 0,
+                ty: pso::DescriptorType::CombinedImageSampler,
+                count: 1,
+                stage_flags: flags,
+                immutable_samplers: false,
+            }])
+            .unwrap()
+            .into();
+
+        let sampler = factory.create_sampler(info).unwrap();
+
+        let handle = ctx.get_image(image.id).unwrap();
+
+        let view = factory
+            .create_image_view(
+                handle.clone(),
+                ImageViewInfo {
+                    view_kind: ViewKind::D2,
+                    format: handle.info().format,
+                    swizzle: hal::format::Swizzle::NO,
+                    range: image.range.clone(),
+                },
+            )
+            .unwrap();
+
+        let set = factory
+            .create_descriptor_set(layout_binding.clone())
+            .unwrap();
+
+        let desc = pso::Descriptor::CombinedImageSampler(view.raw(), image.layout, sampler.raw());
+
+        unsafe {
+            factory.write_descriptor_sets(Some(pso::DescriptorSetWrite {
+                set: set.raw(),
+                binding: 0,
+                array_offset: 0,
+                descriptors: Some(desc),
+            }));
+        }
+
+        Self { set }
+    }
+
+    pub fn bind(&self, pipeline_layout: &B::PipelineLayout, binding: u32, encoder: &mut RenderPassEncoder<B>) {
+        unsafe {
+            encoder.bind_graphics_descriptor_sets(
+                pipeline_layout,
+                binding,
                 Some(self.set.raw()),
                 std::iter::empty(),
             );
