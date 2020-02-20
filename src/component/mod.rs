@@ -128,6 +128,8 @@ macro_rules! component {
 
                 let layout = reflect.layout().unwrap();
 
+                //println!("{:#?}", layout);
+
                 let set_layouts = if layout.sets.is_empty() {
                     vec!()
                 } else {

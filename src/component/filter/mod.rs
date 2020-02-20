@@ -8,6 +8,7 @@ use rendy::{
     hal::{self, device::Device, pass::Subpass, pso, Backend},
     mesh::{AsVertex, Mesh, PosTex},
     shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvShader},
+    resource::{self, Escape, Handle, SamplerDesc, ImageViewInfo, ViewKind, DescriptorSet}
 };
 
 use nalgebra::{Matrix4, RealField, Vector3};
@@ -84,7 +85,7 @@ impl<B: Backend> ComponentBuilder<B> for FilterDesc {
 
     fn build_pipeline<'a>(
         &self,
-        factory: &Factory<B>,
+        _factory: &Factory<B>,
         builder: PipelineDescBuilder<'a, B>,
     ) -> PipelineDescBuilder<'a, B> {
         builder
@@ -104,7 +105,7 @@ impl<B: Backend> ComponentBuilder<B> for FilterDesc {
 
     fn build(
         self,
-        _ctx: &GraphContext<B>,
+        ctx: &GraphContext<B>,
         factory: &mut Factory<B>,
         queue: QueueId,
         aux: &ComponentState,
@@ -113,35 +114,44 @@ impl<B: Backend> ComponentBuilder<B> for FilterDesc {
         buffers: Vec<NodeBuffer>,
         images: Vec<NodeImage>,
     ) -> Self::For {
-        println!("{:#?}", images);
-        let image = images.get(0);
+        let image = images.get(0).unwrap();
 
-        let layout_binding = factory
+        let layout_binding = Handle::from(factory
             .create_descriptor_set_layout(vec![pso::DescriptorSetLayoutBinding {
                 binding: 0,
-                ty: pso::DescriptorType::SampledImage,
+                ty: pso::DescriptorType::CombinedImageSampler,
                 count: 1,
-                stage_flags: pso::ShaderStageFlags::VERTEX,
+                stage_flags: pso::ShaderStageFlags::FRAGMENT,
                 immutable_samplers: false,
             }])
+            .unwrap());
+
+        let image_sampler = factory
+            .create_sampler(SamplerDesc::new(resource::Filter::Nearest, resource::WrapMode::Clamp))
             .unwrap();
 
-        let buffer = factory
-            .create_buffer(
-                BufferInfo {
-                    size: std::mem::size_of::<T::Std140>() as u64,
-                    usage: hal::buffer::Usage::UNIFORM,
-                },
-                rendy::memory::Dynamic,
-            )
+        let image_handle = ctx
+            .get_image(image.id)
             .unwrap();
+
+        println!("{:#?}", image_handle);
+
+        let image_view = factory
+            .create_image_view(
+                image_handle.clone(),
+                ImageViewInfo {
+                    view_kind: ViewKind::D2,
+                    format: image_handle.info().format,
+                    swizzle: hal::format::Swizzle::NO,
+                    range: image.range.clone(),
+                },
+            ).unwrap();
 
         let set = factory.create_descriptor_set(layout_binding.clone()).unwrap();
-        let desc = pso::Descriptor::Buffer(buffer.raw(), None..None);
+        let desc = pso::Descriptor::CombinedImageSampler(image_view.raw(), image.layout, image_sampler.raw());
         unsafe {
-            let set = set.raw();
             factory.write_descriptor_sets(Some(pso::DescriptorSetWrite {
-                set,
+                set: set.raw(),
                 binding: 0,
                 array_offset: 0,
                 descriptors: Some(desc),
@@ -152,6 +162,7 @@ impl<B: Backend> ComponentBuilder<B> for FilterDesc {
             pipeline,
             layout,
             cfg: FilterCfg::new(aux),
+            set
         }
     }
 }
@@ -191,6 +202,7 @@ pub struct Filter<B: Backend> {
     pipeline: B::GraphicsPipeline,
     layout: B::PipelineLayout,
     cfg: FilterCfg,
+    set: Escape<DescriptorSet<B>>
 }
 
 impl<B: Backend> Component<B> for Filter<B> {
@@ -214,6 +226,10 @@ impl<B: Backend> Component<B> for Filter<B> {
         _aux: &ComponentState,
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
+
+        unsafe {
+            encoder.bind_graphics_descriptor_sets(&self.layout, 0, Some(self.set.raw()), std::iter::empty());
+        }
 
         unsafe {
             encoder.draw(0..3, 0..1);
