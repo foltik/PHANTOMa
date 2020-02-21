@@ -5,76 +5,30 @@ extern crate failure;
 
 mod component;
 mod error;
+mod init;
 
 #[allow(unused_imports)]
 use rendy::{
     command::Families,
-    factory::{Config, Factory},
+    factory::{self, Factory},
     graph::{present::PresentNode, render::*, Graph, GraphBuilder, ImageId},
     hal::{
         self,
         command::{ClearColor, ClearValue},
-        Backend,
         window::PresentMode,
+        Backend,
     },
     init::winit::{
         dpi::PhysicalSize,
         event::{Event, WindowEvent},
         event_loop::{ControlFlow, EventLoop},
-        monitor::{MonitorHandle, VideoMode},
-        window::{Fullscreen, Window, WindowBuilder},
+        window::{Window, WindowBuilder},
     },
     init::AnyWindowedRendy,
     wsi::Surface,
 };
 
-use std::io::{stdin, stdout, Write};
-
 use component::{cube, filter, ComponentState};
-
-#[allow(dead_code)]
-fn prompt_for_monitor(event_loop: &EventLoop<()>) -> MonitorHandle {
-    for (num, monitor) in event_loop.available_monitors().enumerate() {
-        println!("Monitor #{}: {:?}", num, monitor.name());
-    }
-
-    print!("Please write the number of the monitor to use: ");
-    stdout().flush().unwrap();
-
-    let mut num = String::new();
-    stdin().read_line(&mut num).unwrap();
-    let num = num.trim().parse().ok().expect("Please enter a number");
-    let monitor = event_loop
-        .available_monitors()
-        .nth(num)
-        .expect("Please enter a valid ID");
-
-    println!("Using {:?}", monitor.name());
-
-    monitor
-}
-
-#[allow(dead_code)]
-fn prompt_for_video_mode(monitor: &MonitorHandle) -> VideoMode {
-    for (i, video_mode) in monitor.video_modes().enumerate() {
-        println!("Video mode #{}: {}", i, video_mode);
-    }
-
-    print!("Please write the number of the video mode to use: ");
-    stdout().flush().unwrap();
-
-    let mut num = String::new();
-    stdin().read_line(&mut num).unwrap();
-    let num = num.trim().parse().ok().expect("Please enter a number");
-    let video_mode = monitor
-        .video_modes()
-        .nth(num)
-        .expect("Please enter a valid ID");
-
-    println!("Using {}", video_mode);
-
-    video_mode
-}
 
 fn create_image<B: Backend>(
     factory: &Factory<B>,
@@ -92,6 +46,7 @@ fn create_image<B: Backend>(
 }
 
 fn build_graph<B: Backend>(
+    args: &init::Args,
     factory: &mut Factory<B>,
     families: &mut Families<B>,
     window: &Window,
@@ -102,6 +57,8 @@ fn build_graph<B: Backend>(
     let surface = factory.create_surface(window).unwrap();
     let size = window.inner_size();
 
+    log::debug!("Creating {}x{} surface", size.width, size.height);
+
     let white = ClearValue {
         color: ClearColor {
             float32: [1.0, 1.0, 1.0, 1.0],
@@ -110,8 +67,6 @@ fn build_graph<B: Backend>(
 
     let color = create_image(factory, &mut graph_builder, &surface, &size, None);
     let mesh = create_image(factory, &mut graph_builder, &surface, &size, Some(white));
-
-    log::debug!("Creating surface with size {}x{}", size.width, size.height);
 
     let cube = graph_builder.add_node(
         cube::TriangleDesc::default()
@@ -131,24 +86,34 @@ fn build_graph<B: Backend>(
             .into_pass(),
     );
 
-    graph_builder.add_node(
-        PresentNode::builder(&factory, surface, color)
-            .with_dependency(post)
-            .with_present_modes_priority(|mode| -> Option<usize> {
-                match mode {
-                    PresentMode::MAILBOX => Some(100),
-                    PresentMode::RELAXED => Some(50),
-                    PresentMode::IMMEDIATE => Some(10),
-                    PresentMode::FIFO => Some(5),
-                    _ => Some(0)
-                }
-            }),
+    let present = PresentNode::builder(&factory, surface, color)
+        .with_dependency(post)
+        .with_present_modes_priority(|m| match args.vsync {
+            true => match m {
+                PresentMode::RELAXED => Some(2),
+                PresentMode::FIFO => Some(1),
+                _ => Some(0),
+            },
+            false => match m {
+                PresentMode::MAILBOX => Some(2),
+                PresentMode::IMMEDIATE => Some(1),
+                _ => Some(0),
+            },
+        });
+
+    log::debug!(
+        "Creating {} image swapchain with present mode {:?}",
+        present.image_count(),
+        present.present_mode()
     );
+
+    graph_builder.add_node(present);
 
     graph_builder.build(factory, families, state).unwrap()
 }
 
 fn run<B: Backend>(
+    args: init::Args,
     event_loop: EventLoop<()>,
     mut factory: Factory<B>,
     mut families: Families<B>,
@@ -165,7 +130,13 @@ fn run<B: Backend>(
         aspect: size.width as f32 / size.height as f32,
     };
 
-    let mut graph = Some(build_graph(&mut factory, &mut families, &window, &state));
+    let mut graph = Some(build_graph(
+        &args,
+        &mut factory,
+        &mut families,
+        &window,
+        &state,
+    ));
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -181,7 +152,13 @@ fn run<B: Backend>(
                     state.h = new.height;
                     state.aspect = state.w as f32 / state.h as f32;
 
-                    graph = Some(build_graph(&mut factory, &mut families, &window, &state));
+                    graph = Some(build_graph(
+                        &args,
+                        &mut factory,
+                        &mut families,
+                        &window,
+                        &state,
+                    ));
                 }
                 _ => {}
             },
@@ -222,28 +199,27 @@ fn run<B: Backend>(
 }
 
 fn main() {
-    env_logger::Builder::from_default_env()
-        .filter_module("phantoma", log::LevelFilter::Trace)
-        .init();
-
-    let config: Config = Default::default();
+    let config: factory::Config = Default::default();
     let event_loop = EventLoop::new();
 
-    //let mon = prompt_for_monitor(&event_loop);
-    //let mode = prompt_for_video_mode(&mon);
+    let args = init::init(&event_loop);
+
+    env_logger::Builder::from_default_env()
+        .filter_module("phantoma", args.log_level)
+        .init();
 
     let window = WindowBuilder::new()
         .with_inner_size(PhysicalSize {
             width: 960,
             height: 640,
         })
-        //.with_fullscreen(Some(Fullscreen::Exclusive(mode)))
+        .with_fullscreen(args.fullscreen.clone())
         .with_title("PHANTOMa");
 
     let rendy = AnyWindowedRendy::init_auto(&config, window, &event_loop).unwrap();
     rendy::with_any_windowed_rendy!((rendy)
         (factory, families, _surface, window) => {
-            run(event_loop, factory, families, window);
+            run(args, event_loop, factory, families, window);
         }
     );
 }

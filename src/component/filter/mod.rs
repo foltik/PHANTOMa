@@ -82,7 +82,7 @@ impl<B: Backend> ComponentBuilder<B> for FilterDesc {
         _buffers: Vec<NodeBuffer>,
         images: Vec<NodeImage>,
     ) -> Self::For {
-        let image = images.get(0).unwrap();
+        let image = images.get(0).expect("Filter requires an input image!");
 
         let sampler = Sampler::new(
             ctx,
