@@ -8,10 +8,13 @@ use rendy::{
     hal::{device::Device, pass::Subpass, pso, Backend},
 };
 
+use glsl_layout::AsStd140;
+
 use super::{
     pipeline::{PipelineDescBuilder, PipelinesBuilder},
     shader::{self, Shader, ShaderKind, ShaderSetBuilder},
     Component, ComponentBuilder, ComponentState,
+    uniform::{DynamicUniform},
 };
 
 lazy_static! {
@@ -24,6 +27,13 @@ lazy_static! {
         .unwrap()
         .with_fragment(&*FRAGMENT)
         .unwrap();
+}
+
+#[derive(Default, Clone, Copy, AsStd140, Debug)]
+pub struct TestPush {
+    t: f64,
+    w: u32,
+    h: u32,
 }
 
 #[derive(Default, Debug)]
@@ -63,7 +73,7 @@ impl<B: Backend> ComponentBuilder<B> for TestDesc {
     fn build(
         self,
         _ctx: &GraphContext<B>,
-        _factory: &mut Factory<B>,
+        factory: &mut Factory<B>,
         _queue: QueueId,
         _aux: &Arc<Mutex<ComponentState>>,
         pipeline: B::GraphicsPipeline,
@@ -75,6 +85,8 @@ impl<B: Backend> ComponentBuilder<B> for TestDesc {
         Test::<B> {
             pipeline,
             layout,
+            uniform: DynamicUniform::new(factory, pso::ShaderStageFlags::FRAGMENT),
+            push: TestPush { t: 0.0, w: 0, h: 0 }
         }
     }
 }
@@ -83,28 +95,43 @@ impl<B: Backend> ComponentBuilder<B> for TestDesc {
 pub struct Test<B: Backend> {
     pipeline: B::GraphicsPipeline,
     layout: B::PipelineLayout,
+    uniform: DynamicUniform<B, TestPush>,
+    push: TestPush,
 }
 
 impl<B: Backend> Component<B> for Test<B> {
     fn prepare(
         &mut self,
-        _factory: &Factory<B>,
+        factory: &Factory<B>,
         _queue: QueueId,
-        _index: usize,
+        index: usize,
         _subpass: Subpass<'_, B>,
-        _aux: &Arc<Mutex<ComponentState>>,
+        aux: &Arc<Mutex<ComponentState>>,
     ) -> PrepareResult {
-        PrepareResult::DrawReuse
+        let (t, w, h) = {
+            let aux = aux.lock().unwrap();
+            (aux.t, aux.w, aux.h)
+        };
+
+        self.push.t = t;
+        self.push.w = w;
+        self.push.h = h;
+
+        //self.uniform.write(factory, index, &self.push);
+
+        PrepareResult::DrawRecord
     }
 
     fn draw(
         &mut self,
         mut encoder: RenderPassEncoder<'_, B>,
-        _index: usize,
+        index: usize,
         _subpass: Subpass<'_, B>,
         _aux: &Arc<Mutex<ComponentState>>,
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
+
+        //self.uniform.bind(index, &self.layout, 0, &mut encoder);
 
         unsafe {
             encoder.draw(0..3, 0..1);

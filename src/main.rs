@@ -30,7 +30,7 @@ use rendy::{
 
 use std::sync::{Arc, Mutex};
 
-use component::{cube, filter, ComponentState};
+use component::{cube, filter, test, ComponentState};
 
 fn create_image<B: Backend>(
     factory: &Factory<B>,
@@ -68,6 +68,7 @@ fn build_graph<B: Backend>(
     };
 
     let color = create_image(factory, &mut graph_builder, &surface, &size, None);
+    /*
     let mesh = create_image(factory, &mut graph_builder, &surface, &size, Some(white));
 
     let cube = graph_builder.add_node(
@@ -87,9 +88,19 @@ fn build_graph<B: Backend>(
             .with_color(color)
             .into_pass(),
     );
+    */
+
+    let test = graph_builder.add_node(
+        test::TestDesc::default()
+            .builder()
+            .into_subpass()
+            .with_color(color)
+            .into_pass()
+    );
 
     let present = PresentNode::builder(&factory, surface, color)
-        .with_dependency(post)
+        //.with_dependency(post)
+        .with_dependency(test)
         .with_present_modes_priority(|m| match args.vsync {
             true => match m {
                 PresentMode::RELAXED => Some(2),
