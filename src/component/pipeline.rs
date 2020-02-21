@@ -55,13 +55,7 @@ impl<'a, B: Backend> Default for PipelineDescBuilder<'a, B> {
             input_assembler: InputAssemblerDesc::new(Primitive::TriangleList),
             blender: BlendDesc::default(),
             depth_stencil: DepthStencilDesc::default(),
-            multisampling: Some(Multisampling {
-                rasterization_samples: 4,
-                sample_shading: None,
-                sample_mask: 0,
-                alpha_coverage: false,
-                alpha_to_one: false
-            }),
+            multisampling: None,
             baked_states: BakedStates::default(),
             layout: None,
             subpass: None,

@@ -40,7 +40,7 @@ fn create_image<B: Backend>(
     clear: Option<ClearValue>,
 ) -> ImageId {
     builder.create_image(
-        hal::image::Kind::D2(size.width, size.height, 1, 4),
+        hal::image::Kind::D2(size.width, size.height, 1, 1),
         1,
         factory.get_surface_format(surface),
         clear,
