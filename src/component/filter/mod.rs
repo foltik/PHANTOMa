@@ -76,7 +76,7 @@ impl<B: Backend> ComponentBuilder<B> for FilterDesc {
         ctx: &GraphContext<B>,
         factory: &mut Factory<B>,
         _queue: QueueId,
-        _aux: &ComponentState,
+        _aux: &Arc<Mutex<ComponentState>>,
         pipeline: B::GraphicsPipeline,
         layout: B::PipelineLayout,
         _buffers: Vec<NodeBuffer>,
@@ -114,7 +114,7 @@ impl<B: Backend> Component<B> for Filter<B> {
         _queue: QueueId,
         _index: usize,
         _subpass: Subpass<'_, B>,
-        _aux: &ComponentState,
+        _aux: &Arc<Mutex<ComponentState>>,
     ) -> PrepareResult {
         PrepareResult::DrawReuse
     }
@@ -124,7 +124,7 @@ impl<B: Backend> Component<B> for Filter<B> {
         mut encoder: RenderPassEncoder<'_, B>,
         _index: usize,
         _subpass: Subpass<'_, B>,
-        _aux: &ComponentState,
+        _aux: &Arc<Mutex<ComponentState>>,
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
 

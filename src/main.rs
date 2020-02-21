@@ -28,17 +28,19 @@ use rendy::{
     wsi::Surface,
 };
 
+use std::sync::{Arc, Mutex};
+
 use component::{cube, filter, ComponentState};
 
 fn create_image<B: Backend>(
     factory: &Factory<B>,
-    builder: &mut GraphBuilder<B, ComponentState>,
+    builder: &mut GraphBuilder<B, Arc<Mutex<ComponentState>>>,
     surface: &Surface<B>,
     size: &PhysicalSize<u32>,
     clear: Option<ClearValue>,
 ) -> ImageId {
     builder.create_image(
-        hal::image::Kind::D2(size.width, size.height, 1, 1),
+        hal::image::Kind::D2(size.width, size.height, 1, 4),
         1,
         factory.get_surface_format(surface),
         clear,
@@ -50,8 +52,8 @@ fn build_graph<B: Backend>(
     factory: &mut Factory<B>,
     families: &mut Families<B>,
     window: &Window,
-    state: &ComponentState,
-) -> Graph<B, ComponentState> {
+    state: &Arc<Mutex<ComponentState>>,
+) -> Graph<B, Arc<Mutex<ComponentState>>> {
     let mut graph_builder = GraphBuilder::new();
 
     let surface = factory.create_surface(window).unwrap();
@@ -109,7 +111,7 @@ fn build_graph<B: Backend>(
 
     graph_builder.add_node(present);
 
-    graph_builder.build(factory, families, state).unwrap()
+    graph_builder.build(factory, families, &state).unwrap()
 }
 
 fn run<B: Backend>(
@@ -120,15 +122,20 @@ fn run<B: Backend>(
     window: Window,
 ) {
     let started = std::time::Instant::now();
+    let ms = |i: &std::time::Instant| {
+        let elapsed = i.elapsed();
+        elapsed.as_secs() as f64 * 1_000.0 + elapsed.subsec_nanos() as f64 / 1_000_000.0
+    };
 
     let size = window.inner_size();
-    let mut state = ComponentState {
+
+    let state = Arc::new(Mutex::new(ComponentState {
         frame: 0,
         t: 0.0,
         w: size.width,
         h: size.height,
         aspect: size.width as f32 / size.height as f32,
-    };
+    }));
 
     let mut graph = Some(build_graph(
         &args,
@@ -148,9 +155,12 @@ fn run<B: Backend>(
                 WindowEvent::Resized(new) => {
                     graph.take().unwrap().dispose(&mut factory, &state);
 
-                    state.w = new.width;
-                    state.h = new.height;
-                    state.aspect = state.w as f32 / state.h as f32;
+                    {
+                        let mut state = state.lock().unwrap();
+                        state.w = new.width;
+                        state.h = new.height;
+                        state.aspect = state.w as f32 / state.h as f32;
+                    }
 
                     graph = Some(build_graph(
                         &args,
@@ -163,7 +173,13 @@ fn run<B: Backend>(
                 _ => {}
             },
             Event::MainEventsCleared => {
-                state.frame += 1;
+                let ms = ms(&started);
+
+                {
+                    let mut state = state.lock().unwrap();
+                    state.frame += 1;
+                    state.t = ms;
+                }
 
                 window.request_redraw();
             }
@@ -171,13 +187,15 @@ fn run<B: Backend>(
                 factory.maintain(&mut families);
 
                 let before = std::time::Instant::now();
+
                 if let Some(ref mut graph) = graph {
                     graph.run(&mut factory, &mut families, &state);
                 }
-                let elapsed = before.elapsed();
-                let ms: f32 = elapsed.as_secs() as f32 * 1_000 as f32
-                    + elapsed.subsec_nanos() as f32 / 1_000_000 as f32;
-                log::trace!("Frame {}: {} ms", state.frame, ms);
+
+                let frame = { state.lock().unwrap().frame };
+                let ms = ms(&before);
+
+                log::trace!("Frame {}: {} ms", frame, ms);
             }
             _ => {}
         }
@@ -188,11 +206,13 @@ fn run<B: Backend>(
 
             graph.take().unwrap().dispose(&mut factory, &state);
 
+            let frame = { state.lock().unwrap().frame };
+
             log::info!(
                 "Elapsed: {:?}. Frames: {}. FPS: {}",
                 elapsed,
-                state.frame,
-                state.frame as u64 * 1_000_000_000 / elapsed_ns
+                frame,
+                frame as u64 * 1_000_000_000 / elapsed_ns
             );
         }
     });
@@ -202,7 +222,7 @@ fn main() {
     let config: factory::Config = Default::default();
     let event_loop = EventLoop::new();
 
-    let args = init::init(&event_loop);
+    let args = init::args(&event_loop);
 
     env_logger::Builder::from_default_env()
         .filter_module("phantoma", args.log_level)

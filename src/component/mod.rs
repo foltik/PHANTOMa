@@ -14,6 +14,8 @@ use rendy::{
     shader::{ShaderSetBuilder, SpirvReflection},
 };
 
+use std::sync::{Arc, Mutex};
+
 use pipeline::PipelineDescBuilder;
 
 pub struct ComponentState {
@@ -25,7 +27,7 @@ pub struct ComponentState {
 }
 
 pub trait ComponentBuilder<B: Backend> {
-    type For: RenderGroup<B, ComponentState>;
+    type For: RenderGroup<B, Arc<Mutex<ComponentState>>>;
 
     fn depth(&self) -> bool {
         false
@@ -60,7 +62,7 @@ pub trait ComponentBuilder<B: Backend> {
         ctx: &GraphContext<B>,
         factory: &mut Factory<B>,
         queue: QueueId,
-        aux: &ComponentState,
+        aux: &Arc<Mutex<ComponentState>>,
         pipeline: B::GraphicsPipeline,
         layout: B::PipelineLayout,
         buffers: Vec<NodeBuffer>,
@@ -75,7 +77,7 @@ pub trait Component<B: Backend> {
         queue: QueueId,
         index: usize,
         subpass: Subpass<'_, B>,
-        aux: &ComponentState,
+        aux: &Arc<Mutex<ComponentState>>,
     ) -> PrepareResult;
 
     fn draw(
@@ -83,7 +85,7 @@ pub trait Component<B: Backend> {
         encoder: RenderPassEncoder<'_, B>,
         index: usize,
         subpass: Subpass<'_, B>,
-        aux: &ComponentState,
+        aux: &Arc<Mutex<ComponentState>>,
     );
 
     fn dispose(self: Box<Self>, factory: &mut Factory<B>);
@@ -92,8 +94,9 @@ pub trait Component<B: Backend> {
 macro_rules! component {
     ($builder:ident, $comp:ident) => {
         use rendy::graph::{BufferAccess, ImageAccess};
+        use std::sync::{Arc, Mutex};
 
-        impl<B: Backend> RenderGroupDesc<B, ComponentState> for $builder
+        impl<B: Backend> RenderGroupDesc<B, Arc<Mutex<ComponentState>>> for $builder
         where
             $builder: ComponentBuilder<B>,
         {
@@ -114,13 +117,13 @@ macro_rules! component {
                 ctx: &GraphContext<B>,
                 factory: &mut Factory<B>,
                 queue: QueueId,
-                aux: &ComponentState,
+                aux: &Arc<Mutex<ComponentState>>,
                 framebuffer_width: u32,
                 framebuffer_height: u32,
                 subpass: Subpass<'_, B>,
                 buffers: Vec<NodeBuffer>,
                 images: Vec<NodeImage>,
-            ) -> Result<Box<dyn RenderGroup<B, ComponentState>>, pso::CreationError> {
+            ) -> Result<Box<dyn RenderGroup<B, Arc<Mutex<ComponentState>>>>, pso::CreationError> {
                 let shader_set = ComponentBuilder::shaders(&self);
 
                 let reflect = shader_set.reflect().unwrap();
@@ -179,7 +182,7 @@ macro_rules! component {
             }
         }
 
-        impl<B: Backend> RenderGroup<B, ComponentState> for $comp<B>
+        impl<B: Backend> RenderGroup<B, Arc<Mutex<ComponentState>>> for $comp<B>
         where
             $comp<B>: Component<B>,
         {
@@ -189,7 +192,7 @@ macro_rules! component {
                 queue: QueueId,
                 index: usize,
                 subpass: Subpass<'_, B>,
-                aux: &ComponentState,
+                aux: &Arc<Mutex<ComponentState>>,
             ) -> PrepareResult {
                 Component::prepare(self, factory, queue, index, subpass, aux)
             }
@@ -199,12 +202,12 @@ macro_rules! component {
                 encoder: RenderPassEncoder<'_, B>,
                 index: usize,
                 subpass: Subpass<'_, B>,
-                aux: &ComponentState,
+                aux: &Arc<Mutex<ComponentState>>,
             ) {
                 Component::draw(self, encoder, index, subpass, aux)
             }
 
-            fn dispose(self: Box<Self>, factory: &mut Factory<B>, _aux: &ComponentState) {
+            fn dispose(self: Box<Self>, factory: &mut Factory<B>, _aux: &Arc<Mutex<ComponentState>>) {
                 Component::dispose(self, factory)
             }
         }

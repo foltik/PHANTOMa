@@ -36,7 +36,7 @@ pub struct Args {
     pub log_level: LevelFilter,
 }
 
-pub fn init(event_loop: &EventLoop<()>) -> Args {
+pub fn args(event_loop: &EventLoop<()>) -> Args {
     let cmd: CmdArgs = Docopt::new(USAGE)
         .and_then(|d| d.argv(std::env::args().into_iter()).deserialize())
         .unwrap_or_else(|e| e.exit());

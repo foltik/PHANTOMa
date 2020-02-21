@@ -67,7 +67,7 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
         _ctx: &GraphContext<B>,
         factory: &mut Factory<B>,
         queue: QueueId,
-        aux: &ComponentState,
+        aux: &Arc<Mutex<ComponentState>>,
         pipeline: B::GraphicsPipeline,
         layout: B::PipelineLayout,
         _buffers: Vec<NodeBuffer>,
@@ -78,7 +78,11 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
             .build(queue, factory)
             .unwrap();
 
-        let proj = Matrix4::new_perspective(aux.aspect, f32::frac_pi_2(), 0.001, 100.0);
+        let aspect = {
+            aux.lock().unwrap().aspect
+        };
+
+        let proj = Matrix4::new_perspective(aspect, f32::frac_pi_2(), 0.001, 100.0);
         let view = Matrix4::new_translation(&Vector3::new(0.0, 0.0, -2.0));
 
         Triangle::<B> {
@@ -128,12 +132,16 @@ impl<B: Backend> Component<B> for Triangle<B> {
         _queue: QueueId,
         index: usize,
         _subpass: Subpass<'_, B>,
-        aux: &ComponentState,
+        aux: &Arc<Mutex<ComponentState>>,
     ) -> PrepareResult {
+        let t = {
+            aux.lock().unwrap().t
+        };
+
         let model = Matrix4::new_rotation(Vector3::new(
-            aux.frame as f32 / 60.0,
-            aux.frame as f32 / 40.0,
-            0.0,
+            t as f32 / 600.0,
+            t as f32 / 400.0,
+            t as f32 / 2000.0,
         ));
         self.push.transform = convert_matrix(&(self.view_proj.clone() * model));
 
@@ -147,7 +155,7 @@ impl<B: Backend> Component<B> for Triangle<B> {
         mut encoder: RenderPassEncoder<'_, B>,
         index: usize,
         _subpass: Subpass<'_, B>,
-        _aux: &ComponentState,
+        _aux: &Arc<Mutex<ComponentState>>,
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
 
