@@ -89,7 +89,7 @@ impl<B: Backend> ComponentBuilder<B> for FilterDesc {
             factory,
             image,
             SamplerDesc::new(resource::Filter::Nearest, resource::WrapMode::Clamp),
-            pso::ShaderStageFlags::VERTEX,
+            pso::ShaderStageFlags::FRAGMENT,
         );
 
         Filter::<B> {
