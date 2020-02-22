@@ -31,9 +31,7 @@ lazy_static! {
 
 #[derive(Default, Clone, Copy, AsStd140, Debug)]
 pub struct TestPush {
-    t: f64,
-    w: u32,
-    h: u32,
+    t: f32,
 }
 
 #[derive(Default, Debug)]
@@ -86,7 +84,7 @@ impl<B: Backend> ComponentBuilder<B> for TestDesc {
             pipeline,
             layout,
             uniform: DynamicUniform::new(factory, pso::ShaderStageFlags::FRAGMENT),
-            push: TestPush { t: 0.0, w: 0, h: 0 }
+            push: TestPush { t: 0.0 }
         }
     }
 }
@@ -113,11 +111,9 @@ impl<B: Backend> Component<B> for Test<B> {
             (aux.t, aux.w, aux.h)
         };
 
-        self.push.t = t;
-        self.push.w = w;
-        self.push.h = h;
+        self.push.t = t as f32;
 
-        //self.uniform.write(factory, index, &self.push);
+        self.uniform.write(factory, index, &self.push);
 
         PrepareResult::DrawRecord
     }
@@ -131,7 +127,7 @@ impl<B: Backend> Component<B> for Test<B> {
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
 
-        //self.uniform.bind(index, &self.layout, 0, &mut encoder);
+        self.uniform.bind(index, &self.layout, 0, &mut encoder);
 
         unsafe {
             encoder.draw(0..3, 0..1);
