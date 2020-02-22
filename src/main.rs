@@ -3,9 +3,10 @@ extern crate lazy_static;
 #[macro_use]
 extern crate failure;
 
-mod component;
-mod error;
 mod init;
+mod component;
+mod audio;
+mod error;
 
 #[allow(unused_imports)]
 use rendy::{
@@ -28,7 +29,10 @@ use rendy::{
     wsi::Surface,
 };
 
+use jack;
+
 use std::sync::{Arc, Mutex};
+use std::thread;
 
 use component::{cube, filter, test, ComponentState};
 
@@ -63,11 +67,11 @@ fn build_graph<B: Backend>(
 
     let white = ClearValue {
         color: ClearColor {
-            float32: [1.0, 1.0, 1.0, 1.0],
+            float32: [0.0, 0.0, 0.0, 1.0],
         },
     };
 
-    let color = create_image(factory, &mut graph_builder, &surface, &size, None);
+    let color = create_image(factory, &mut graph_builder, &surface, &size, Some(white));
     /*
     let mesh = create_image(factory, &mut graph_builder, &surface, &size, Some(white));
 
@@ -95,7 +99,7 @@ fn build_graph<B: Backend>(
             .builder()
             .into_subpass()
             .with_color(color)
-            .into_pass()
+            .into_pass(),
     );
 
     let present = PresentNode::builder(&factory, surface, color)
@@ -228,8 +232,9 @@ fn run<B: Backend>(
         }
     });
 }
-
 fn main() {
+    audio();
+
     let config: factory::Config = Default::default();
     let event_loop = EventLoop::new();
 
