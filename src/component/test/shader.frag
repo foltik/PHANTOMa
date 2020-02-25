@@ -8,10 +8,11 @@ layout(location = 0) out vec4 color;
 
 layout(binding = 0, std140) uniform Uniforms {
     float t;
+    float aspect;
 } u;
 
 float mandelbrot(vec2 c) {
-    const bool smoo = true;
+    const bool smoo = false;
 
     float c2 = dot(c, c);
     if ((256.0 * c2 * c2) - (96.0 * c2) + (32.0 * c.x) - 3.0 < 0.0) return 0.0;
@@ -35,6 +36,7 @@ float mandelbrot(vec2 c) {
 
 void main() {
     vec2 p = (tex * 2.0) - 1.0;
+    p.x *= u.aspect;
 
     float time = u.t / 1000.0;
 
@@ -49,7 +51,7 @@ void main() {
 
     float fr = mandelbrot(target + pos * zoom);
 
-    vec3 col = vec3(0.5 + 0.5 * cos(2.5 + fr * 75. + vec3(1.000,0.395,0.152)));
+    vec3 col = vec3(0.5 + 0.5 * cos(2.5 + fr * 75. + vec3(1.000,0.295,0.152)));
 
     color = vec4(col, 1.0);
 }

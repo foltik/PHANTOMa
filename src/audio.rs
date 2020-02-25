@@ -1,3 +1,7 @@
+use std::sync::{Arc, Mutex};
+
+use crate::component::ComponentState;
+
 struct Notifications;
 
 impl jack::NotificationHandler for Notifications {
@@ -99,42 +103,38 @@ impl jack::NotificationHandler for Notifications {
     }
 }
 
-fn init() -> {
+pub fn init(state: Arc<Mutex<ComponentState>>) -> jack::AsyncClient<impl jack::NotificationHandler, impl jack::ProcessHandler> {
     let (client, _status) =
         jack::Client::new("PHANTOMa", jack::ClientOptions::NO_START_SERVER).unwrap();
 
     let in_a = client
-        .register_port("rust_in_l", jack::AudioIn::default())
+        .register_port("in_left", jack::AudioIn::default())
         .unwrap();
     let in_b = client
-        .register_port("rust_in_r", jack::AudioIn::default())
+        .register_port("in_right", jack::AudioIn::default())
         .unwrap();
+    /*
     let mut out_a = client
         .register_port("rust_out_l", jack::AudioOut::default())
         .unwrap();
     let mut out_b = client
         .register_port("rust_out_r", jack::AudioOut::default())
         .unwrap();
+    */
 
     let process_callback = move |_: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
-        let out_a_p = out_a.as_mut_slice(ps);
-        let out_b_p = out_b.as_mut_slice(ps);
-        let in_a_p = in_a.as_slice(ps);
-        let in_b_p = in_b.as_slice(ps);
-        out_a_p.clone_from_slice(&in_a_p);
-        out_b_p.clone_from_slice(&in_b_p);
+        //let out_a_p = out_a.as_mut_slice(ps);
+        //let out_b_p = out_b.as_mut_slice(ps);
+        //let in_a_p = in_a.as_slice(ps);
+        //let in_b_p = in_b.as_slice(ps);
+        //out_a_p.clone_from_slice(&in_a_p);
+        //out_b_p.clone_from_slice(&in_b_p);
         jack::Control::Continue
     };
     let process = jack::ClosureProcessHandler::new(process_callback);
 
-    // Activate the client, which starts the processing.
     let active_client = client.activate_async(Notifications, process).unwrap();
 
-    // Wait for user input to quit
-    println!("Press enter/return to quit...");
-    let mut user_input = String::new();
-    std::io::stdin().read_line(&mut user_input).ok();
-
-    active_client.deactivate().unwrap();
+    active_client
 }
 

@@ -29,6 +29,7 @@ lazy_static = "1.4.0"
 thread_profiler = { version = "0.3.0", optional = true }
 
 jack = "0.6.2"
+rustfft = "3.0.1"
 
 nalgebra = "0.19.0"
 glsl-layout = "0.3.2"

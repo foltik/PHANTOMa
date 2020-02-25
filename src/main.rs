@@ -130,6 +130,7 @@ fn build_graph<B: Backend>(
 }
 
 fn run<B: Backend>(
+    state: Arc<Mutex<ComponentState>>,
     args: init::Args,
     event_loop: EventLoop<()>,
     mut factory: Factory<B>,
@@ -143,14 +144,6 @@ fn run<B: Backend>(
     };
 
     let size = window.inner_size();
-
-    let state = Arc::new(Mutex::new(ComponentState {
-        frame: 0,
-        t: 0.0,
-        w: size.width,
-        h: size.height,
-        aspect: size.width as f32 / size.height as f32,
-    }));
 
     let mut graph = Some(build_graph(
         &args,
@@ -233,7 +226,15 @@ fn run<B: Backend>(
     });
 }
 fn main() {
-    audio();
+    let state = Arc::new(Mutex::new(ComponentState {
+        frame: 0,
+        t: 0.0,
+        w: 0,
+        h: 0,
+        aspect: 1.0,
+    }));
+
+    let audio_client = audio::init(Arc::clone(&state));
 
     let config: factory::Config = Default::default();
     let event_loop = EventLoop::new();
@@ -255,7 +256,9 @@ fn main() {
     let rendy = AnyWindowedRendy::init_auto(&config, window, &event_loop).unwrap();
     rendy::with_any_windowed_rendy!((rendy)
         (factory, families, _surface, window) => {
-            run(args, event_loop, factory, families, window);
+            run(Arc::clone(&state), args, event_loop, factory, families, window);
         }
     );
+
+    audio_client.deactivate().unwrap();
 }

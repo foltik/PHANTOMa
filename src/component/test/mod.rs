@@ -32,6 +32,7 @@ lazy_static! {
 #[derive(Default, Clone, Copy, AsStd140, Debug)]
 pub struct TestPush {
     t: f32,
+    aspect: f32,
 }
 
 #[derive(Default, Debug)]
@@ -84,7 +85,7 @@ impl<B: Backend> ComponentBuilder<B> for TestDesc {
             pipeline,
             layout,
             uniform: DynamicUniform::new(factory, pso::ShaderStageFlags::FRAGMENT),
-            push: TestPush { t: 0.0 }
+            push: TestPush { t: 0.0, aspect: 1.0 }
         }
     }
 }
@@ -106,12 +107,13 @@ impl<B: Backend> Component<B> for Test<B> {
         _subpass: Subpass<'_, B>,
         aux: &Arc<Mutex<ComponentState>>,
     ) -> PrepareResult {
-        let (t, w, h) = {
+        let (t, aspect) = {
             let aux = aux.lock().unwrap();
-            (aux.t, aux.w, aux.h)
+            (aux.t, aux.aspect)
         };
 
         self.push.t = t as f32;
+        self.push.aspect = aspect;
 
         self.uniform.write(factory, index, &self.push);
 
