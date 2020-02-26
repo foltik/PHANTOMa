@@ -29,12 +29,9 @@ use rendy::{
     wsi::Surface,
 };
 
-use jack;
-
 use std::sync::{Arc, Mutex};
-use std::thread;
 
-use component::{cube, filter, test, ComponentState};
+use component::{cube, filter, spectrum, test, ComponentState};
 
 fn create_image<B: Backend>(
     factory: &Factory<B>,
@@ -62,6 +59,13 @@ fn build_graph<B: Backend>(
 
     let surface = factory.create_surface(window).unwrap();
     let size = window.inner_size();
+
+    {
+        let mut state = state.lock().unwrap();
+        state.w = size.width;
+        state.h = size.height;
+        state.aspect = size.width as f32 / size.height as f32;
+    }
 
     log::debug!("Creating {}x{} surface", size.width, size.height);
 
@@ -95,7 +99,7 @@ fn build_graph<B: Backend>(
     */
 
     let test = graph_builder.add_node(
-        test::TestDesc::default()
+        spectrum::SpectrumDesc::default()
             .builder()
             .into_subpass()
             .with_color(color)
@@ -138,12 +142,6 @@ fn run<B: Backend>(
     window: Window,
 ) {
     let started = std::time::Instant::now();
-    let ms = |i: &std::time::Instant| {
-        let elapsed = i.elapsed();
-        elapsed.as_secs() as f64 * 1_000.0 + elapsed.subsec_nanos() as f64 / 1_000_000.0
-    };
-
-    let size = window.inner_size();
 
     let mut graph = Some(build_graph(
         &args,
@@ -160,15 +158,8 @@ fn run<B: Backend>(
                 WindowEvent::CloseRequested => {
                     *control_flow = ControlFlow::Exit;
                 }
-                WindowEvent::Resized(new) => {
+                WindowEvent::Resized(_) => {
                     graph.take().unwrap().dispose(&mut factory, &state);
-
-                    {
-                        let mut state = state.lock().unwrap();
-                        state.w = new.width;
-                        state.h = new.height;
-                        state.aspect = state.w as f32 / state.h as f32;
-                    }
 
                     graph = Some(build_graph(
                         &args,
@@ -181,7 +172,8 @@ fn run<B: Backend>(
                 _ => {}
             },
             Event::MainEventsCleared => {
-                let ms = ms(&started);
+                let elapsed = started.elapsed();
+                let ms = elapsed.as_secs() as f64 * 1_000.0 + elapsed.subsec_nanos() as f64 / 1_000_000.0;
 
                 {
                     let mut state = state.lock().unwrap();
@@ -201,9 +193,8 @@ fn run<B: Backend>(
                 }
 
                 let frame = { state.lock().unwrap().frame };
-                let ms = ms(&before);
 
-                log::trace!("Frame {}: {} ms", frame, ms);
+                log::trace!("Frame {}: {:?}", frame, before.elapsed());
             }
             _ => {}
         }
@@ -232,6 +223,8 @@ fn main() {
         w: 0,
         h: 0,
         aspect: 1.0,
+        amp: 0.0,
+        fft: Vec::with_capacity(512)
     }));
 
     let audio_client = audio::init(Arc::clone(&state));

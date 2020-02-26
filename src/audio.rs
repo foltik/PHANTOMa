@@ -1,3 +1,5 @@
+use rustfft::{num_complex::Complex32, num_traits::Zero, FFTplanner};
+
 use std::sync::{Arc, Mutex};
 
 use crate::component::ComponentState;
@@ -103,32 +105,68 @@ impl jack::NotificationHandler for Notifications {
     }
 }
 
-pub fn init(state: Arc<Mutex<ComponentState>>) -> jack::AsyncClient<impl jack::NotificationHandler, impl jack::ProcessHandler> {
+pub fn fft(samples: &[f32]) -> Vec<f32> {
+    let mut complex: Vec<Complex32> = samples.iter().map(|s| Complex32::new(*s, 0.0)).collect();
+
+    let len = samples.len();
+
+    let mut res: Vec<Complex32> = vec![Complex32::zero(); len];
+
+    let mut plan = FFTplanner::new(false);
+    let fft = plan.plan_fft(len);
+    fft.process(&mut complex, &mut res);
+
+    res.iter().take(len / 2).map(|&c| c.norm_sqr()).collect()
+}
+
+pub fn rms(samples: &[f32]) -> f32 {
+    let sum: f32 = samples.iter().map(|s| s.abs().powi(2)).sum();
+    (sum / samples.len() as f32).sqrt()
+}
+
+pub fn init(
+    state: Arc<Mutex<ComponentState>>,
+) -> jack::AsyncClient<impl jack::NotificationHandler, impl jack::ProcessHandler> {
     let (client, _status) =
         jack::Client::new("PHANTOMa", jack::ClientOptions::NO_START_SERVER).unwrap();
 
-    let in_a = client
+    println!(
+        "JACK: client started with sample rate {} and buffer size {}",
+        client.sample_rate(),
+        client.buffer_size()
+    );
+
+    let in_left = client
         .register_port("in_left", jack::AudioIn::default())
         .unwrap();
-    let in_b = client
+    let in_right = client
         .register_port("in_right", jack::AudioIn::default())
         .unwrap();
-    /*
-    let mut out_a = client
-        .register_port("rust_out_l", jack::AudioOut::default())
-        .unwrap();
-    let mut out_b = client
-        .register_port("rust_out_r", jack::AudioOut::default())
-        .unwrap();
-    */
 
     let process_callback = move |_: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
-        //let out_a_p = out_a.as_mut_slice(ps);
-        //let out_b_p = out_b.as_mut_slice(ps);
-        //let in_a_p = in_a.as_slice(ps);
-        //let in_b_p = in_b.as_slice(ps);
-        //out_a_p.clone_from_slice(&in_a_p);
-        //out_b_p.clone_from_slice(&in_b_p);
+        let raw_left = in_left.as_slice(ps);
+        let raw_right = in_right.as_slice(ps);
+
+        let mono: Vec<f32> = raw_left
+            .iter()
+            .zip(raw_right.iter())
+            .map(|(&x, &y)| (x + y) / 2.0)
+            .collect();
+
+        let bins = fft(&mono);
+        let amp = rms(&mono);
+
+        {
+            let mut state = state.lock().unwrap();
+
+            state.amp = amp;
+
+            if state.fft.len() != bins.len() {
+                state.fft.resize(bins.len(), 0.0);
+            }
+            state.fft.copy_from_slice(&bins);
+        }
+
         jack::Control::Continue
     };
     let process = jack::ClosureProcessHandler::new(process_callback);
@@ -137,4 +175,3 @@ pub fn init(state: Arc<Mutex<ComponentState>>) -> jack::AsyncClient<impl jack::N
 
     active_client
 }
-

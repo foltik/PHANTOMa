@@ -24,6 +24,8 @@ pub struct ComponentState {
     pub w: u32,
     pub h: u32,
     pub aspect: f32,
+    pub amp: f32,
+    pub fft: Vec<f32>,
 }
 
 pub trait ComponentBuilder<B: Backend> {
@@ -217,3 +219,4 @@ macro_rules! component {
 pub mod test;
 pub mod cube;
 pub mod filter;
+pub mod spectrum;
