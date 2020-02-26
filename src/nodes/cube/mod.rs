@@ -1,3 +1,5 @@
+use glsl_layout::{mat4x4, AsStd140};
+use nalgebra::{Matrix4, RealField, Vector3};
 use rendy::{
     command::{QueueId, RenderPassEncoder},
     factory::Factory,
@@ -6,15 +8,16 @@ use rendy::{
         GraphContext, NodeBuffer, NodeImage,
     },
     hal::{device::Device, pass::Subpass, pso, Backend},
+    mesh::{AsVertex, Mesh, PosTex},
 };
+use std::convert::TryInto;
 
-use glsl_layout::AsStd140;
-
-use super::{
+use crate::component::{
     pipeline::{PipelineDescBuilder, PipelinesBuilder},
     shader::{self, Shader, ShaderKind, ShaderSetBuilder},
+    shape::Shape,
+    uniform::{DynamicUniform, PushConstant},
     Component, ComponentBuilder, ComponentState,
-    uniform::{DynamicUniform},
 };
 
 lazy_static! {
@@ -29,21 +32,11 @@ lazy_static! {
         .unwrap();
 }
 
-#[derive(Default, Clone, Copy, AsStd140, Debug)]
-pub struct TestPush {
-    t: f32,
-    aspect: f32,
-}
-
 #[derive(Default, Debug)]
-pub struct TestDesc {}
+pub struct TriangleDesc {}
 
-impl<B: Backend> ComponentBuilder<B> for TestDesc {
-    type For = Test<B>;
-
-    fn input_rate(&self) -> Option<pso::VertexInputRate> {
-        None
-    }
+impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
+    type For = Triangle<B>;
 
     fn shaders(&self) -> &'static ShaderSetBuilder {
         &SHADERS
@@ -57,8 +50,8 @@ impl<B: Backend> ComponentBuilder<B> for TestDesc {
         builder
             .with_rasterizer(pso::Rasterizer {
                 polygon_mode: pso::PolygonMode::Fill,
-                cull_face: pso::Face::FRONT,
-                front_face: pso::FrontFace::CounterClockwise,
+                cull_face: pso::Face::BACK,
+                front_face: pso::FrontFace::Clockwise,
                 depth_clamping: false,
                 depth_bias: None,
                 conservative: false,
@@ -73,32 +66,66 @@ impl<B: Backend> ComponentBuilder<B> for TestDesc {
         self,
         _ctx: &GraphContext<B>,
         factory: &mut Factory<B>,
-        _queue: QueueId,
-        _aux: &Arc<Mutex<ComponentState>>,
+        queue: QueueId,
+        aux: &Arc<Mutex<ComponentState>>,
         pipeline: B::GraphicsPipeline,
         layout: B::PipelineLayout,
         _buffers: Vec<NodeBuffer>,
         _images: Vec<NodeImage>,
     ) -> Self::For {
+        let mesh = Shape::Cube
+            .generate::<Vec<PosTex>>(Some((0.5, 0.5, 0.5)))
+            .build(queue, factory)
+            .unwrap();
 
-        Test::<B> {
+        let aspect = {
+            aux.lock().unwrap().aspect
+        };
+
+        let proj = Matrix4::new_perspective(aspect, f32::frac_pi_2(), 0.001, 100.0);
+        let view = Matrix4::new_translation(&Vector3::new(0.0, 0.0, -2.0));
+
+        Triangle::<B> {
             pipeline,
             layout,
-            uniform: DynamicUniform::new(factory, pso::ShaderStageFlags::FRAGMENT),
-            push: TestPush { t: 0.0, aspect: 1.0 }
+            mesh,
+            view_proj: proj * view,
+            push: PushConstant::new(TrianglePush::default(), 0, pso::ShaderStageFlags::VERTEX),
+            ubo: DynamicUniform::new(factory, pso::ShaderStageFlags::VERTEX),
+        }
+    }
+}
+
+fn convert_matrix(mat: &Matrix4<f32>) -> mat4x4 {
+    let flat: [f32; 16] = mat.as_slice().try_into().unwrap();
+    let arr: [[f32; 4]; 4] = unsafe { std::mem::transmute(flat) };
+    arr.into()
+}
+
+#[derive(Clone, Copy, AsStd140, Debug)]
+pub struct TrianglePush {
+    transform: mat4x4,
+}
+
+impl std::default::Default for TrianglePush {
+    fn default() -> Self {
+        Self {
+            transform: convert_matrix(&Matrix4::identity()),
         }
     }
 }
 
 #[derive(Debug)]
-pub struct Test<B: Backend> {
+pub struct Triangle<B: Backend> {
     pipeline: B::GraphicsPipeline,
     layout: B::PipelineLayout,
-    uniform: DynamicUniform<B, TestPush>,
-    push: TestPush,
+    mesh: Mesh<B>,
+    view_proj: Matrix4<f32>,
+    push: PushConstant<TrianglePush>,
+    ubo: DynamicUniform<B, TrianglePush>,
 }
 
-impl<B: Backend> Component<B> for Test<B> {
+impl<B: Backend> Component<B> for Triangle<B> {
     fn prepare(
         &mut self,
         factory: &Factory<B>,
@@ -107,15 +134,18 @@ impl<B: Backend> Component<B> for Test<B> {
         _subpass: Subpass<'_, B>,
         aux: &Arc<Mutex<ComponentState>>,
     ) -> PrepareResult {
-        let (t, aspect) = {
-            let aux = aux.lock().unwrap();
-            (aux.t, aux.aspect)
+        let t = {
+            aux.lock().unwrap().t
         };
 
-        self.push.t = t as f32;
-        self.push.aspect = aspect;
+        let model = Matrix4::new_rotation(Vector3::new(
+            t as f32 / 600.0,
+            t as f32 / 400.0,
+            t as f32 / 2000.0,
+        ));
+        self.push.transform = convert_matrix(&(self.view_proj.clone() * model));
 
-        self.uniform.write(factory, index, &self.push);
+        self.ubo.write(factory, index, &self.push);
 
         PrepareResult::DrawRecord
     }
@@ -129,11 +159,11 @@ impl<B: Backend> Component<B> for Test<B> {
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
 
-        self.uniform.bind(index, &self.layout, 0, &mut encoder);
+        self.ubo.bind(index, &self.layout, 0, &mut encoder);
 
-        unsafe {
-            encoder.draw(0..3, 0..1);
-        }
+        self.mesh
+            .bind_and_draw(0, &[PosTex::vertex()], 0..1, &mut encoder)
+            .unwrap();
     }
 
     fn dispose(self: Box<Self>, factory: &mut Factory<B>) {
@@ -144,4 +174,4 @@ impl<B: Backend> Component<B> for Test<B> {
     }
 }
 
-component!(TestDesc, Test);
+component!(TriangleDesc, Triangle);

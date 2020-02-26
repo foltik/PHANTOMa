@@ -1,7 +1,7 @@
-mod pipeline;
-mod shader;
-mod shape;
-mod uniform;
+pub mod pipeline;
+pub mod shader;
+pub mod shape;
+pub mod uniform;
 
 use rendy::{
     command::{QueueId, RenderPassEncoder},
@@ -215,8 +215,3 @@ macro_rules! component {
         }
     };
 }
-
-pub mod test;
-pub mod cube;
-pub mod filter;
-pub mod spectrum;

@@ -12,7 +12,7 @@ use rendy::{
 };
 use std::convert::TryInto;
 
-use super::{
+use crate::component::{
     pipeline::{PipelineDescBuilder, PipelinesBuilder},
     shader::{self, Shader, ShaderKind, ShaderSetBuilder},
     shape::Shape,

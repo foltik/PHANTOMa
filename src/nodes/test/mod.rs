@@ -5,15 +5,16 @@ use rendy::{
         render::{PrepareResult, RenderGroup, RenderGroupDesc},
         GraphContext, NodeBuffer, NodeImage,
     },
-    hal::{self, device::Device, pass::Subpass, pso, Backend},
-    resource::{self, SamplerDesc},
+    hal::{device::Device, pass::Subpass, pso, Backend},
 };
 
-use super::{
+use glsl_layout::AsStd140;
+
+use crate::component::{
     pipeline::{PipelineDescBuilder, PipelinesBuilder},
     shader::{self, Shader, ShaderKind, ShaderSetBuilder},
-    uniform::Sampler,
     Component, ComponentBuilder, ComponentState,
+    uniform::{DynamicUniform},
 };
 
 lazy_static! {
@@ -28,23 +29,20 @@ lazy_static! {
         .unwrap();
 }
 
-#[derive(Default, Debug)]
-pub struct FilterDesc {}
+#[derive(Default, Clone, Copy, AsStd140, Debug)]
+pub struct TestPush {
+    t: f32,
+    aspect: f32,
+}
 
-impl<B: Backend> ComponentBuilder<B> for FilterDesc {
-    type For = Filter<B>;
+#[derive(Default, Debug)]
+pub struct TestDesc {}
+
+impl<B: Backend> ComponentBuilder<B> for TestDesc {
+    type For = Test<B>;
 
     fn input_rate(&self) -> Option<pso::VertexInputRate> {
         None
-    }
-
-    fn images(&self) -> Vec<ImageAccess> {
-        vec![ImageAccess {
-            access: hal::image::Access::SHADER_READ,
-            usage: hal::image::Usage::SAMPLED,
-            layout: hal::image::Layout::ShaderReadOnlyOptimal,
-            stages: pso::PipelineStage::FRAGMENT_SHADER,
-        }]
     }
 
     fn shaders(&self) -> &'static ShaderSetBuilder {
@@ -73,62 +71,65 @@ impl<B: Backend> ComponentBuilder<B> for FilterDesc {
 
     fn build(
         self,
-        ctx: &GraphContext<B>,
+        _ctx: &GraphContext<B>,
         factory: &mut Factory<B>,
         _queue: QueueId,
         _aux: &Arc<Mutex<ComponentState>>,
         pipeline: B::GraphicsPipeline,
         layout: B::PipelineLayout,
         _buffers: Vec<NodeBuffer>,
-        images: Vec<NodeImage>,
+        _images: Vec<NodeImage>,
     ) -> Self::For {
-        let image = images.get(0).expect("Filter requires an input image!");
 
-        let sampler = Sampler::new(
-            ctx,
-            factory,
-            image,
-            SamplerDesc::new(resource::Filter::Nearest, resource::WrapMode::Clamp),
-            pso::ShaderStageFlags::FRAGMENT,
-        );
-
-        Filter::<B> {
+        Test::<B> {
             pipeline,
             layout,
-            sampler,
+            uniform: DynamicUniform::new(factory, pso::ShaderStageFlags::FRAGMENT),
+            push: TestPush { t: 0.0, aspect: 1.0 }
         }
     }
 }
 
 #[derive(Debug)]
-pub struct Filter<B: Backend> {
+pub struct Test<B: Backend> {
     pipeline: B::GraphicsPipeline,
     layout: B::PipelineLayout,
-    sampler: Sampler<B>,
+    uniform: DynamicUniform<B, TestPush>,
+    push: TestPush,
 }
 
-impl<B: Backend> Component<B> for Filter<B> {
+impl<B: Backend> Component<B> for Test<B> {
     fn prepare(
         &mut self,
-        _factory: &Factory<B>,
+        factory: &Factory<B>,
         _queue: QueueId,
-        _index: usize,
+        index: usize,
         _subpass: Subpass<'_, B>,
-        _aux: &Arc<Mutex<ComponentState>>,
+        aux: &Arc<Mutex<ComponentState>>,
     ) -> PrepareResult {
-        PrepareResult::DrawReuse
+        let (t, aspect) = {
+            let aux = aux.lock().unwrap();
+            (aux.t, aux.aspect)
+        };
+
+        self.push.t = t as f32;
+        self.push.aspect = aspect;
+
+        self.uniform.write(factory, index, &self.push);
+
+        PrepareResult::DrawRecord
     }
 
     fn draw(
         &mut self,
         mut encoder: RenderPassEncoder<'_, B>,
-        _index: usize,
+        index: usize,
         _subpass: Subpass<'_, B>,
         _aux: &Arc<Mutex<ComponentState>>,
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
 
-        self.sampler.bind(&self.layout, 0, &mut encoder);
+        self.uniform.bind(index, &self.layout, 0, &mut encoder);
 
         unsafe {
             encoder.draw(0..3, 0..1);
@@ -143,4 +144,4 @@ impl<B: Backend> Component<B> for Filter<B> {
     }
 }
 
-component!(FilterDesc, Filter);
+component!(TestDesc, Test);

@@ -3,10 +3,13 @@ extern crate lazy_static;
 #[macro_use]
 extern crate failure;
 
+#[macro_use]
+pub mod component;
 mod init;
-mod component;
 mod audio;
 mod error;
+
+pub mod nodes;
 
 #[allow(unused_imports)]
 use rendy::{
@@ -31,7 +34,9 @@ use rendy::{
 
 use std::sync::{Arc, Mutex};
 
-use component::{cube, filter, spectrum, test, ComponentState};
+#[allow(unused_imports)]
+use nodes::{test, cube, filter, spectrum};
+use component::ComponentState;
 
 fn create_image<B: Backend>(
     factory: &Factory<B>,
