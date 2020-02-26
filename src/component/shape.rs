@@ -3,21 +3,29 @@ use rendy::mesh::{
 };
 
 use genmesh::{
-    generators::{self, IndexedPolygon, SharedVertex},
+    generators::{self as gen, IndexedPolygon, SharedVertex},
     EmitTriangles, MapVertex, Triangulate, Vertex, Vertices,
 };
 
 use nalgebra::Vector3;
 
 pub enum Shape {
-    /*Plane,
-    Polygon,*/
+    // Plane with XY subdivisions
+    Plane(Option<(usize, usize)>),
+    // Circle with subdivisions
+    Circle(usize),
+    // Unit cube
     Cube,
-    /*Sphere,
-    IcoSphere,
-    Cylinder,
-    Torus,
-    Cone*/
+    // Sphere with number of pole/equator points
+    Sphere(usize, usize),
+    // IcoSphere with number of subdivides
+    IcoSphere(Option<usize>),
+    // Cylinder with radial points and height subdivide
+    Cylinder(usize, Option<usize>),
+    // Cone with subdivisions
+    Cone(usize),
+    // Torus with radii, number of tube segments >= 3, points on tube
+    Torus(f32, f32, usize, usize),
 }
 
 impl Shape {
@@ -39,9 +47,28 @@ impl Shape {
     }
 
     fn generate_internal(&self, scale: Option<(f32, f32, f32)>) -> InternalShape {
-        let vertices = match *self {
-            Shape::Cube => generate_vertices(generators::Cube::new(), scale),
+        let generator = match *self {
+            Shape::Plane(sub) => match sub {
+                None => gen::Plane::new(),
+                Some((x, y)) => gen::Plane::subdivide(x, y),
+            },
+            Shape::Circle(u) => gen::Circle::new(u),
+            Shape::Cube => gen::Cube::new(),
+            Shape::Sphere(u, v) => gen::SphereUv::new(u, v),
+            Shape::IcoSphere(sub) => match sub {
+                None => gen::IcoSphere::new(),
+                Some(x) => gen::IcoSphere::subdivide(x),
+            },
+            Shape::Cylinder(u, sub) => match sub {
+                None => gen::Cylinder::new(u),
+                Some(x) => gen::Cylinder::subdivide(u, x),
+            },
+            Shape::Cone(u) => gen::Cone::new(u),
+            Shape::Torus(r, t, rseg, tseg) => gen::Torus::new(r, t, rseg, tseg),
         };
+
+        let vertices = generate_vertices(gen, scale);
+
         InternalShape(vertices)
     }
 }

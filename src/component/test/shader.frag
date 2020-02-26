@@ -18,11 +18,9 @@ float mandelbrot(vec2 c) {
     if ((256.0 * c2 * c2) - (96.0 * c2) + (32.0 * c.x) - 3.0 < 0.0) return 0.0;
     if (16.0 * (c2 + (2.0 * c.x) + 1.0) - 1.0 < 0.0) return 0.0;
 
-    float l = 0.0;
-    vec2 z  = vec2(0.0);
-
     const int iter = 512;
 
+    vec2 z  = vec2(0.0);
     int i = 0;
     for(int it = 0; it < iter; it++) {
         z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
