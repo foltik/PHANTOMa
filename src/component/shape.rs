@@ -47,28 +47,25 @@ impl Shape {
     }
 
     fn generate_internal(&self, scale: Option<(f32, f32, f32)>) -> InternalShape {
-        let generator = match *self {
+        let vertices = match *self {
             Shape::Plane(sub) => match sub {
-                None => gen::Plane::new(),
-                Some((x, y)) => gen::Plane::subdivide(x, y),
+                None => generate_vertices(gen::Plane::new(), scale),
+                Some((x, y)) => generate_vertices(gen::Plane::subdivide(x, y), scale),
             },
-            Shape::Circle(u) => gen::Circle::new(u),
-            Shape::Cube => gen::Cube::new(),
-            Shape::Sphere(u, v) => gen::SphereUv::new(u, v),
+            Shape::Circle(u) => generate_vertices(gen::Circle::new(u), scale),
+            Shape::Cube => generate_vertices(gen::Cube::new(), scale),
+            Shape::Sphere(u, v) => generate_vertices(gen::SphereUv::new(u, v), scale),
             Shape::IcoSphere(sub) => match sub {
-                None => gen::IcoSphere::new(),
-                Some(x) => gen::IcoSphere::subdivide(x),
+                None => generate_vertices(gen::IcoSphere::new(), scale),
+                Some(x) => generate_vertices(gen::IcoSphere::subdivide(x), scale),
             },
             Shape::Cylinder(u, sub) => match sub {
-                None => gen::Cylinder::new(u),
-                Some(x) => gen::Cylinder::subdivide(u, x),
+                None => generate_vertices(gen::Cylinder::new(u), scale),
+                Some(x) => generate_vertices(gen::Cylinder::subdivide(u, x), scale),
             },
-            Shape::Cone(u) => gen::Cone::new(u),
-            Shape::Torus(r, t, rseg, tseg) => gen::Torus::new(r, t, rseg, tseg),
+            Shape::Cone(u) => generate_vertices(gen::Cone::new(u), scale),
+            Shape::Torus(r, t, rseg, tseg) => generate_vertices(gen::Torus::new(r, t, rseg, tseg), scale),
         };
-
-        let vertices = generate_vertices(gen, scale);
-
         InternalShape(vertices)
     }
 }
