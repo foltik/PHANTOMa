@@ -10,6 +10,7 @@ use rendy::{
         render::{Layout, PrepareResult, RenderGroup},
         BufferAccess, GraphContext, ImageAccess, NodeBuffer, NodeImage,
     },
+    resource::{Handle, DescriptorSetLayout},
     hal::{pass::Subpass, pso, Backend},
     shader::{ShaderSetBuilder, SpirvReflection},
 };
@@ -67,6 +68,7 @@ pub trait ComponentBuilder<B: Backend> {
         aux: &Arc<Mutex<ComponentState>>,
         pipeline: B::GraphicsPipeline,
         layout: B::PipelineLayout,
+        set_layouts: Vec<Handle<DescriptorSetLayout<B>>>,
         buffers: Vec<NodeBuffer>,
         images: Vec<NodeImage>,
     ) -> Self::For;
@@ -178,6 +180,7 @@ macro_rules! component {
                     aux,
                     pipes.remove(0),
                     pipeline_layout,
+                    set_layouts,
                     buffers,
                     images,
                 )))

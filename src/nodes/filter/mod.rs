@@ -6,7 +6,7 @@ use rendy::{
         GraphContext, NodeBuffer, NodeImage,
     },
     hal::{self, device::Device, pass::Subpass, pso, Backend},
-    resource::{self, SamplerDesc},
+    resource::{self, Handle, DescriptorSetLayout, SamplerDesc},
 };
 
 use crate::component::{
@@ -79,6 +79,7 @@ impl<B: Backend> ComponentBuilder<B> for FilterDesc {
         _aux: &Arc<Mutex<ComponentState>>,
         pipeline: B::GraphicsPipeline,
         layout: B::PipelineLayout,
+        set_layouts: Vec<Handle<DescriptorSetLayout<B>>>,
         _buffers: Vec<NodeBuffer>,
         images: Vec<NodeImage>,
     ) -> Self::For {

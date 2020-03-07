@@ -7,6 +7,7 @@ use rendy::{
         render::{PrepareResult, RenderGroup, RenderGroupDesc},
         GraphContext, NodeBuffer, NodeImage,
     },
+    resource::{Handle, DescriptorSetLayout},
     hal::{device::Device, pass::Subpass, pso, Backend},
     mesh::{AsVertex, Mesh, PosTex},
 };
@@ -70,6 +71,7 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
         aux: &Arc<Mutex<ComponentState>>,
         pipeline: B::GraphicsPipeline,
         layout: B::PipelineLayout,
+        set_layouts: Vec<Handle<DescriptorSetLayout<B>>>,
         _buffers: Vec<NodeBuffer>,
         _images: Vec<NodeImage>,
     ) -> Self::For {

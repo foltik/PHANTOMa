@@ -75,28 +75,19 @@ where
 
 /// Provides per-image abstraction for an arbitrary `DescriptorSet`.
 #[derive(Debug)]
-pub struct DynamicUniform<B: Backend, T: AsStd140>
-where
-    T::Std140: Sized,
-{
+pub struct DynamicUniform<B: Backend, T: Sized> {
     layout: Handle<DescriptorSetLayout<B>>,
     per_image: Vec<PerImageDynamicUniform<B, T>>,
 }
 
 #[derive(Debug)]
-struct PerImageDynamicUniform<B: Backend, T: AsStd140>
-where
-    T::Std140: Sized,
-{
+struct PerImageDynamicUniform<B: Backend, T: Sized> {
     buffer: Escape<Buffer<B>>,
     set: Escape<DescriptorSet<B>>,
     marker: PhantomData<T>,
 }
 
-impl<B: Backend, T: AsStd140> DynamicUniform<B, T>
-where
-    T::Std140: Sized,
-{
+impl<B: Backend, T: Sized> DynamicUniform<B, T> {
     /// Create a new `DynamicUniform`, allocating descriptor set memory using the provided `Factory`
     pub fn new(factory: &Factory<B>, flags: pso::ShaderStageFlags) -> Self {
         let layout_binding = factory
@@ -115,8 +106,7 @@ where
         }
     }
 
-    /// Write `T` to this descriptor set memory
-    pub fn write(&mut self, factory: &Factory<B>, index: usize, item: &T) -> bool {
+    pub fn write_raw(&mut self, factory: &Factory<B>, index: usize, bytes: &[u8]) -> bool {
         let mut changed = false;
         let this_image = {
             while self.per_image.len() <= index {
@@ -130,20 +120,26 @@ where
         let mut mapped = this_image.map(factory);
         let mut writer = unsafe {
             mapped
-                .write::<u8>(factory.device(), 0..std::mem::size_of::<T::Std140>() as u64)
+                .write::<u8>(factory.device(), 0..std::mem::size_of::<T>() as u64)
                 .unwrap()
         };
-        let slice = unsafe { writer.slice() };
 
+        let slice = unsafe { writer.slice() };
+        slice.copy_from_slice(bytes);
+
+        changed
+    }
+
+    /// Write `T` to this descriptor set memory
+    pub fn write(&mut self, factory: &Factory<B>, index: usize, item: &T) -> bool {
         let bytes = unsafe {
             std::slice::from_raw_parts(
-                &item.std140() as *const T::Std140 as *const u8,
-                std::mem::size_of::<T::Std140>(),
+                item as *const T as *const u8,
+                std::mem::size_of::<T>(),
             )
         };
 
-        slice.copy_from_slice(bytes);
-        changed
+        self.write_raw(factory, index, bytes)
     }
 
     #[inline]
@@ -158,15 +154,12 @@ where
     }
 }
 
-impl<B: Backend, T: AsStd140> PerImageDynamicUniform<B, T>
-where
-    T::Std140: Sized,
-{
+impl<B: Backend, T: Sized> PerImageDynamicUniform<B, T> {
     fn new(factory: &Factory<B>, layout: &Handle<DescriptorSetLayout<B>>) -> Self {
         let buffer = factory
             .create_buffer(
                 BufferInfo {
-                    size: std::mem::size_of::<T::Std140>() as u64,
+                    size: std::mem::size_of::<T>() as u64,
                     usage: hal::buffer::Usage::UNIFORM,
                 },
                 rendy::memory::Dynamic,
