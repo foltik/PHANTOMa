@@ -124,7 +124,7 @@ pub struct Triangle<B: Backend> {
     mesh: Mesh<B>,
     view_proj: Matrix4<f32>,
     push: PushConstant<TrianglePush>,
-    ubo: DynamicUniform<B, TrianglePush>,
+    ubo: DynamicUniform<B, <TrianglePush as AsStd140>::Std140>,
 }
 
 impl<B: Backend> Component<B> for Triangle<B> {
@@ -147,7 +147,7 @@ impl<B: Backend> Component<B> for Triangle<B> {
         ));
         self.push.transform = convert_matrix(&(self.view_proj.clone() * model));
 
-        self.ubo.write(factory, index, &self.push);
+        self.ubo.write(factory, index, &self.push.std140());
 
         PrepareResult::DrawRecord
     }

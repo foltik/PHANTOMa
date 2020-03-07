@@ -6,13 +6,12 @@ layout(location = 1) in vec2 tex;
 
 layout(location = 0) out vec2 tex_out;
 
-layout(binding = 0, std140) uniform PushConstants {
-    mat4 transform;
-} push;
-
+layout(binding = 0, std140) uniform Uniforms {
+    //float fft[256];
+    float fft;
+} u;
 
 void main() {
     tex_out = tex;
-
-    gl_Position = push.transform * vec4(pos + gl_InstanceIndex * 0.05, 1.0);
+    gl_Position = vec4(pos + gl_InstanceIndex * 0.05, 1.0);
 }
