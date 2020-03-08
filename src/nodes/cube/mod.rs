@@ -4,12 +4,13 @@ use rendy::{
     command::{QueueId, RenderPassEncoder},
     factory::Factory,
     graph::{
-        render::{PrepareResult, RenderGroup, RenderGroupDesc},
+        render::{PrepareResult, RenderGroup, RenderGroupDesc, Layout, SetLayout},
         GraphContext, NodeBuffer, NodeImage,
     },
-    resource::{Handle, DescriptorSetLayout},
-    hal::{device::Device, pass::Subpass, pso, Backend},
+    hal::{device::Device, pass::Subpass, pso::{self, DescriptorSetLayoutBinding}, Backend},
     mesh::{AsVertex, Mesh, PosTex},
+    descriptor::DescriptorType,
+    shader::SpirvReflection,
 };
 use std::convert::TryInto;
 
@@ -41,6 +42,21 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
 
     fn shaders(&self) -> &'static ShaderSetBuilder {
         &SHADERS
+    }
+
+    fn layout(&self, _reflect: &SpirvReflection) -> Layout {
+        Layout {
+            sets: vec![SetLayout {
+                bindings: vec![DescriptorSetLayoutBinding {
+                    binding: 0,
+                    ty: DescriptorType::UniformBuffer,
+                    count: 1,
+                    stage_flags: pso::ShaderStageFlags::VERTEX,
+                    immutable_samplers: false
+                }]
+            }],
+            push_constants: vec![]
+        }
     }
 
     fn pipeline_builder<'a>(
@@ -87,13 +103,15 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
         let proj = Matrix4::new_perspective(aspect, f32::frac_pi_2(), 0.001, 100.0);
         let view = Matrix4::new_translation(&Vector3::new(0.0, 0.0, -2.0));
 
+        let uniform_layout = set_layouts[0].clone();
+
         Triangle::<B> {
             pipeline,
             layout,
             mesh,
             view_proj: proj * view,
             push: PushConstant::new(TrianglePush::default(), 0, pso::ShaderStageFlags::VERTEX),
-            ubo: DynamicUniform::new(factory, pso::ShaderStageFlags::VERTEX),
+            ubo: DynamicUniform::new_from_layout(uniform_layout),
         }
     }
 }
