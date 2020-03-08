@@ -1,26 +1,30 @@
-use glsl_layout::{mat4x4, AsStd140};
-use rendy_shader::SpirvReflection;
-use nalgebra::{Matrix4, RealField, Vector3};
+use glsl_layout::{AsStd140, Std140};
 use rendy::{
     command::{QueueId, RenderPassEncoder},
+    descriptor::DescriptorType,
     factory::Factory,
     graph::{
-        render::{PrepareResult, RenderGroup, RenderGroupDesc, Layout, SetLayout},
+        render::{Layout, PrepareResult, RenderGroup, RenderGroupDesc, SetLayout},
         GraphContext, NodeBuffer, NodeImage,
     },
-    hal::{device::Device, pass::Subpass, pso::{self, DescriptorSetLayoutBinding}, Backend},
+    hal::{
+        device::Device,
+        pass::Subpass,
+        pso::{self, DescriptorSetLayoutBinding},
+        Backend,
+    },
     mesh::{AsVertex, Mesh, PosTex},
+    shader::SpirvReflection,
 };
-use std::convert::TryInto;
 
 use crate::component::{
     pipeline::{PipelineDescBuilder, PipelinesBuilder},
     shader::{self, Shader, ShaderKind, ShaderSetBuilder},
     shape::Shape,
-    uniform::{DynamicUniform},
+    uniform::DynamicUniform,
     Component, ComponentBuilder, ComponentState,
 };
-use failure::_core::fmt::{Formatter, Error};
+use failure::_core::fmt::Formatter;
 
 lazy_static! {
     static ref VERTEX: Shader =
@@ -44,19 +48,19 @@ impl<B: Backend> ComponentBuilder<B> for SpectrumDesc {
         &SHADERS
     }
 
-    fn layout(&self, reflect: &SpirvReflection) -> Layout {
-        println!("Layout: {:#?}", reflect.layout().unwrap());
+    fn layout(&self, _reflect: &SpirvReflection) -> Layout {
         Layout {
-            /*
             sets: vec![SetLayout {
                 bindings: vec![DescriptorSetLayoutBinding {
                     binding: 0,
-
-                }]
+                    ty: DescriptorType::UniformBuffer,
+                    count: 1,
+                    stage_flags: pso::ShaderStageFlags::VERTEX,
+                    immutable_samplers: false,
+                }],
             }],
-            */
-            sets: vec![],
-            push_constants: vec![]
+            //sets: vec![],
+            push_constants: vec![],
         }
     }
 
@@ -88,61 +92,65 @@ impl<B: Backend> ComponentBuilder<B> for SpectrumDesc {
         aux: &Arc<Mutex<ComponentState>>,
         pipeline: B::GraphicsPipeline,
         layout: B::PipelineLayout,
+        set_layouts: Vec<Handle<DescriptorSetLayout<B>>>,
         _buffers: Vec<NodeBuffer>,
         _images: Vec<NodeImage>,
     ) -> Self::For {
-        let (aspect, len) = {
+        let (_aspect, len) = {
             let aux = aux.lock().unwrap();
             (aux.aspect, aux.fft.len())
         };
 
-        let s = 0.8 / len as f32;
+        let s = 1.8 / len as f32;
         let mesh = Shape::Plane(None)
             .generate::<Vec<PosTex>>(Some((s, s, s)))
             .build(queue, factory)
             .unwrap();
 
-        //let proj = Matrix4::new_perspective(aspect, f32::frac_pi_2(), 0.001, 100.0);
-        //let view = Matrix4::new_translation(&Vector3::new(0.0, 0.0, -2.0));
+        let uniform_layout = set_layouts[0].clone();
 
         Spectrum::<B> {
             pipeline,
             layout,
             mesh,
-            //view_proj: proj * view,
             push: SpectrumPush::default(),
-            ubo: DynamicUniform::new(factory, pso::ShaderStageFlags::VERTEX),
+            ubo: DynamicUniform::new_from_layout(uniform_layout),
         }
     }
 }
 
-fn convert_matrix(mat: &Matrix4<f32>) -> mat4x4 {
-    let flat: [f32; 16] = mat.as_slice().try_into().unwrap();
-    let arr: [[f32; 4]; 4] = unsafe { std::mem::transmute(flat) };
-    arr.into()
+#[derive(Debug, Copy, Clone)]
+#[repr(C, align(16))]
+struct PushValue(f32);
+
+#[derive(Copy, Clone)]
+pub struct SpectrumPush {
+    fft: [PushValue; 256],
 }
 
-#[repr(C)]
-#[derive(Copy, Clone, AsStd140)]
-pub struct SpectrumPush {
-    //transform: mat4x4,
-    //fft: [f32; 256],
-    fft: f32
+unsafe impl Std140 for SpectrumPush {}
+unsafe impl AsStd140 for SpectrumPush {
+    type Align = glsl_layout::align::Align16;
+    type Std140 = SpectrumPush;
+
+    fn std140(&self) -> Self::Std140
+    where
+        Self::Std140: Sized,
+    {
+        *self
+    }
 }
 
 impl std::fmt::Debug for SpectrumPush {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        //write!(f, "SpectrumPush {{ &[f32; {}]... }}", self.fft.len())
-        write!(f, "SpectrumPush {{ {} }}", self.fft)
+        write!(f, "SpectrumPush {{ &[f32; {}]... }}", self.fft.len())
     }
 }
 
 impl std::default::Default for SpectrumPush {
     fn default() -> Self {
         Self {
-            //fft: [0.0; 256],
-            fft: 0.0,
-            //transform: convert_matrix(&Matrix4::identity()),
+            fft: [PushValue(0.0); 256],
         }
     }
 }
@@ -152,9 +160,8 @@ pub struct Spectrum<B: Backend> {
     pipeline: B::GraphicsPipeline,
     layout: B::PipelineLayout,
     mesh: Mesh<B>,
-    //view_proj: Matrix4<f32>,
     push: SpectrumPush,
-    ubo: DynamicUniform<B, <SpectrumPush as AsStd140>::Std140>,
+    ubo: DynamicUniform<B, SpectrumPush>,
 }
 
 impl<B: Backend> Component<B> for Spectrum<B> {
@@ -166,28 +173,25 @@ impl<B: Backend> Component<B> for Spectrum<B> {
         _subpass: Subpass<'_, B>,
         aux: &Arc<Mutex<ComponentState>>,
     ) -> PrepareResult {
-        let t = {
-            aux.lock().unwrap().t
-        };
+        let aux = aux.lock().unwrap();
 
-        /*
-        let model = Matrix4::new_rotation(Vector3::new(
-            t as f32 / 600.0,
-            t as f32 / 400.0,
-            t as f32 / 2000.0,
-        ));
-        */
-        //self.push.transform = convert_matrix(&(self.view_proj.clone() * model));
+        let avg = aux.fft.iter().take(256).sum::<f32>() / aux.fft.len() as f32;
+        let max = aux
+            .fft
+            .iter()
+            .take(256)
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap();
 
-        {
-            let aux = aux.lock().unwrap();
-            let avg = aux.fft.iter().sum::<f32>() / aux.fft.len() as f32;
-            self.push.fft = avg / 200.0;
-            println!("{}", avg);
-            self.ubo.write(factory, index, &self.push.std140());
-        }
+        let vals = aux
+            .fft
+            .iter()
+            .take(256)
+            .map(|v| PushValue(*v))
+            .collect::<Vec<_>>();
 
-        //self.ubo.write(factory, index, &self.push);
+        self.push.fft.copy_from_slice(&vals);
+        self.ubo.write(factory, index, &self.push);
 
         PrepareResult::DrawRecord
     }
@@ -201,10 +205,10 @@ impl<B: Backend> Component<B> for Spectrum<B> {
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
 
-        //self.ubo.bind(index, &self.layout, 0, &mut encoder);
+        self.ubo.bind(index, &self.layout, 0, &mut encoder);
 
         self.mesh
-            .bind_and_draw(0, &[PosTex::vertex()], 0..10, &mut encoder)
+            .bind_and_draw(0, &[PosTex::vertex()], 0..256, &mut encoder)
             .unwrap();
     }
 
