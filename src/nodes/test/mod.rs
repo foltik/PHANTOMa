@@ -6,7 +6,6 @@ use rendy::{
         GraphContext, NodeBuffer, NodeImage,
     },
     hal::{device::Device, pass::Subpass, pso, Backend},
-    resource::{Handle, DescriptorSetLayout}
 };
 
 use glsl_layout::AsStd140;
@@ -78,7 +77,7 @@ impl<B: Backend> ComponentBuilder<B> for TestDesc {
         _aux: &Arc<Mutex<ComponentState>>,
         pipeline: B::GraphicsPipeline,
         layout: B::PipelineLayout,
-        set_layouts: Vec<Handle<DescriptorSetLayout<B>>>,
+        _set_layouts: Vec<Handle<DescriptorSetLayout<B>>>,
         _buffers: Vec<NodeBuffer>,
         _images: Vec<NodeImage>,
     ) -> Self::For {

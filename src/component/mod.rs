@@ -98,6 +98,7 @@ pub trait Component<B: Backend> {
 macro_rules! component {
     ($builder:ident, $comp:ident) => {
         use rendy::graph::{BufferAccess, ImageAccess};
+        use rendy::resource::{Handle, DescriptorSetLayout};
         use std::sync::{Arc, Mutex};
 
         impl<B: Backend> RenderGroupDesc<B, Arc<Mutex<ComponentState>>> for $builder
@@ -139,6 +140,7 @@ macro_rules! component {
                     .sets
                     .into_iter()
                     .map(|set| factory.create_descriptor_set_layout(set.bindings).unwrap())
+                    .map(Handle::from)
                     .collect::<Vec<_>>();
 
                 let pipeline_layout = unsafe {

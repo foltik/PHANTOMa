@@ -75,19 +75,28 @@ where
 
 /// Provides per-image abstraction for an arbitrary `DescriptorSet`.
 #[derive(Debug)]
-pub struct DynamicUniform<B: Backend, T: Sized> {
+pub struct DynamicUniform<B: Backend, T: AsStd140>
+where
+    T::Std140: Sized,
+{
     layout: Handle<DescriptorSetLayout<B>>,
     per_image: Vec<PerImageDynamicUniform<B, T>>,
 }
 
 #[derive(Debug)]
-struct PerImageDynamicUniform<B: Backend, T: Sized> {
+struct PerImageDynamicUniform<B: Backend, T: AsStd140>
+where
+    T::Std140: Sized,
+{
     buffer: Escape<Buffer<B>>,
     set: Escape<DescriptorSet<B>>,
     marker: PhantomData<T>,
 }
 
-impl<B: Backend, T: Sized> DynamicUniform<B, T> {
+impl<B: Backend, T: AsStd140> DynamicUniform<B, T>
+where
+    T::Std140: Sized,
+{
     /// Create a new `DynamicUniform`, allocating descriptor set memory using the provided `Factory`
     pub fn new(factory: &Factory<B>, flags: pso::ShaderStageFlags) -> Self {
         let layout_binding = factory
@@ -102,6 +111,14 @@ impl<B: Backend, T: Sized> DynamicUniform<B, T> {
 
         Self {
             layout: layout_binding.into(),
+            per_image: Vec::new(),
+        }
+    }
+
+    /// Create a new `DynamicUniform`, using a handle to an already allocated descriptor set
+    pub fn new_from_layout(layout: Handle<DescriptorSetLayout<B>>) -> Self {
+        Self {
+            layout,
             per_image: Vec::new(),
         }
     }
@@ -133,10 +150,7 @@ impl<B: Backend, T: Sized> DynamicUniform<B, T> {
     /// Write `T` to this descriptor set memory
     pub fn write(&mut self, factory: &Factory<B>, index: usize, item: &T) -> bool {
         let bytes = unsafe {
-            std::slice::from_raw_parts(
-                item as *const T as *const u8,
-                std::mem::size_of::<T>(),
-            )
+            std::slice::from_raw_parts(item as *const T as *const u8, std::mem::size_of::<T>())
         };
 
         self.write_raw(factory, index, bytes)
@@ -154,7 +168,10 @@ impl<B: Backend, T: Sized> DynamicUniform<B, T> {
     }
 }
 
-impl<B: Backend, T: Sized> PerImageDynamicUniform<B, T> {
+impl<B: Backend, T: AsStd140> PerImageDynamicUniform<B, T>
+where
+    T::Std140: Sized,
+{
     fn new(factory: &Factory<B>, layout: &Handle<DescriptorSetLayout<B>>) -> Self {
         let buffer = factory
             .create_buffer(
