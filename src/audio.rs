@@ -1,8 +1,6 @@
-use rustfft::{num_complex::Complex32, num_traits::Zero, FFTplanner};
-
-use std::sync::{Arc, Mutex};
-
 use crate::component::ComponentState;
+use rustfft::{num_complex::Complex32, num_traits::Zero, FFTplanner};
+use std::sync::{Arc, Mutex};
 
 struct Notifications;
 
@@ -106,9 +104,8 @@ impl jack::NotificationHandler for Notifications {
 }
 
 pub fn fft(samples: &[f32]) -> Vec<f32> {
-    let mut complex: Vec<Complex32> = samples.iter().map(|s| Complex32::new(*s, 0.0)).collect();
-
     let len = samples.len();
+    let mut complex: Vec<Complex32> = samples.iter().map(|s| Complex32::new(*s, 0.0)).collect();
 
     let mut res: Vec<Complex32> = vec![Complex32::zero(); len];
 
@@ -116,7 +113,10 @@ pub fn fft(samples: &[f32]) -> Vec<f32> {
     let fft = plan.plan_fft(len);
     fft.process(&mut complex, &mut res);
 
-    res.iter().take(len / 2).map(|&c| c.norm_sqr()).collect()
+    res.iter()
+        .take(len / 2)
+        .map(|&c| (c.norm_sqr().sqrt() * 2.0) / (len as f32 * 2.0))
+        .collect()
 }
 
 pub fn rms(samples: &[f32]) -> f32 {
@@ -130,12 +130,6 @@ pub fn init(
     let (client, _status) =
         jack::Client::new("PHANTOMa", jack::ClientOptions::NO_START_SERVER).unwrap();
 
-    println!(
-        "JACK: client started with sample rate {} and buffer size {}",
-        client.sample_rate(),
-        client.buffer_size()
-    );
-
     let in_left = client
         .register_port("in_left", jack::AudioIn::default())
         .unwrap();
@@ -143,7 +137,7 @@ pub fn init(
         .register_port("in_right", jack::AudioIn::default())
         .unwrap();
 
-    let process_callback = move |_: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
+    let process_callback = move |j: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
         let raw_left = in_left.as_slice(ps);
         let raw_right = in_right.as_slice(ps);
 
@@ -152,6 +146,10 @@ pub fn init(
             .zip(raw_right.iter())
             .map(|(&x, &y)| (x + y) / 2.0)
             .collect();
+
+        let rate = j.sample_rate();
+        let size = j.buffer_size();
+        let t = size as f32 / rate as f32;
 
         let bins = fft(&mono);
         let amp = rms(&mono);
