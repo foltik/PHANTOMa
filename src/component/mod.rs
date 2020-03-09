@@ -22,9 +22,12 @@ use pipeline::PipelineDescBuilder;
 pub struct ComponentState {
     pub frame: u32,
     pub t: f64,
+
     pub w: u32,
     pub h: u32,
     pub aspect: f32,
+
+    pub nyq: f32,
     pub amp: f32,
     pub fft: Vec<f32>,
 }

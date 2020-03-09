@@ -2,7 +2,9 @@ use crate::component::ComponentState;
 use rustfft::{num_complex::Complex32, num_traits::Zero, FFTplanner};
 use std::sync::{Arc, Mutex};
 
-struct Notifications;
+struct Notifications {
+    state: Arc<Mutex<ComponentState>>,
+}
 
 impl jack::NotificationHandler for Notifications {
     fn thread_init(&self, _: &jack::Client) {
@@ -30,6 +32,7 @@ impl jack::NotificationHandler for Notifications {
 
     fn sample_rate(&mut self, _: &jack::Client, srate: jack::Frames) -> jack::Control {
         println!("JACK: sample rate changed to {}", srate);
+        self.state.lock().unwrap().nyq = srate as f32 / 2.0;
         jack::Control::Continue
     }
 
@@ -137,7 +140,11 @@ pub fn init(
         .register_port("in_right", jack::AudioIn::default())
         .unwrap();
 
-    let process_callback = move |j: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
+    let notifs = Notifications {
+        state: Arc::clone(&state),
+    };
+
+    let process_fn = move |j: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
         let raw_left = in_left.as_slice(ps);
         let raw_right = in_right.as_slice(ps);
 
@@ -167,9 +174,9 @@ pub fn init(
 
         jack::Control::Continue
     };
-    let process = jack::ClosureProcessHandler::new(process_callback);
+    let process = jack::ClosureProcessHandler::new(process_fn);
 
-    let active_client = client.activate_async(Notifications, process).unwrap();
+    let active_client = client.activate_async(notifs, process).unwrap();
 
     active_client
 }
