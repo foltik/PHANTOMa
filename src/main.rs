@@ -11,7 +11,6 @@ mod error;
 
 pub mod nodes;
 
-#[allow(unused_imports)]
 use rendy::{
     command::Families,
     factory::{self, Factory},
@@ -35,7 +34,7 @@ use rendy::{
 use std::sync::{Arc, Mutex};
 
 #[allow(unused_imports)]
-use nodes::{test, cube, filter, spectrum};
+use nodes::{test, cube, filter, spectrum, octaves};
 use component::ComponentState;
 
 fn create_image<B: Backend>(
@@ -104,7 +103,7 @@ fn build_graph<B: Backend>(
     */
 
     let test = graph_builder.add_node(
-        spectrum::SpectrumDesc::default()
+        octaves::OctavesDesc::default()
             .builder()
             .into_subpass()
             .with_color(color)
@@ -229,6 +228,7 @@ fn main() {
         h: 0,
         aspect: 1.0,
         amp: 0.0,
+        nyq: 44100.0,
         fft: Vec::with_capacity(512)
     }));
 
