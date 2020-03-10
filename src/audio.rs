@@ -1,10 +1,10 @@
 use crate::component::ComponentState;
 use rustfft::{num_complex::Complex32, num_traits::Zero, FFTplanner};
+use spsc_bip_buffer::{bip_buffer_with_len, BipBufferReader, BipBufferWriter};
 use std::sync::{Arc, Mutex};
+use std::thread;
 
-struct Notifications {
-    state: Arc<Mutex<ComponentState>>,
-}
+struct Notifications;
 
 impl jack::NotificationHandler for Notifications {
     fn thread_init(&self, _: &jack::Client) {
@@ -32,7 +32,6 @@ impl jack::NotificationHandler for Notifications {
 
     fn sample_rate(&mut self, _: &jack::Client, srate: jack::Frames) -> jack::Control {
         println!("JACK: sample rate changed to {}", srate);
-        self.state.lock().unwrap().nyq = srate as f32 / 2.0;
         jack::Control::Continue
     }
 
@@ -140,43 +139,67 @@ pub fn init(
         .register_port("in_right", jack::AudioIn::default())
         .unwrap();
 
-    let notifs = Notifications {
-        state: Arc::clone(&state),
-    };
+    let (mut tx, mut rx) = bip_buffer_with_len(65536);
 
-    let process_fn = move |j: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
-        let raw_left = in_left.as_slice(ps);
-        let raw_right = in_right.as_slice(ps);
+    let process = jack::ClosureProcessHandler::new(
+        move |j: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
+            process(j, ps, Arc::clone(&state), tx)
+        },
+    );
 
-        let mono: Vec<f32> = raw_left
-            .iter()
-            .zip(raw_right.iter())
-            .map(|(&x, &y)| (x + y) / 2.0)
-            .collect();
+    let analyze = thread::spawn(move || {
+        analyze(Arc::clone(&state), rx);
+    });
 
-        let rate = j.sample_rate();
-        let size = j.buffer_size();
-        let t = size as f32 / rate as f32;
-
-        let bins = fft(&mono);
-        let amp = rms(&mono);
-
-        {
-            let mut state = state.lock().unwrap();
-
-            state.amp = amp;
-
-            if state.fft.len() != bins.len() {
-                state.fft.resize(bins.len(), 0.0);
-            }
-            state.fft.copy_from_slice(&bins);
-        }
-
-        jack::Control::Continue
-    };
-    let process = jack::ClosureProcessHandler::new(process_fn);
-
-    let active_client = client.activate_async(notifs, process).unwrap();
+    let active_client = client.activate_async(Notifications, process).unwrap();
 
     active_client
+}
+
+pub fn process(
+    j: &jack::Client,
+    ps: &jack::ProcessScope,
+    state: Arc<Mutex<ComponentState>>,
+    mut tx: BipBufferWriter,
+) -> jack::Control {
+    let raw_left = in_left.as_slice(ps);
+    let raw_right = in_right.as_slice(ps);
+
+    let mono: Vec<f32> = raw_left
+        .iter()
+        .zip(raw_right.iter())
+        .map(|(&x, &y)| (x + y) / 2.0)
+        .collect();
+
+    let raw: &[u8] = unsafe { std::slice::from_raw_parts(mono.as_ptr() as *const u8, mono.len()) };
+
+    let mut res = tx.spin_reserve(mono.len());
+    res.copy_from_slice(raw);
+    res.send();
+
+    //let rate = j.sample_rate();
+    //let size = j.buffer_size();
+    //let t = size as f32 / rate as f32;
+
+    let bins = fft(&mono);
+    let amp = rms(&mono);
+
+    {
+        let mut state = state.lock().unwrap();
+
+        state.amp = amp;
+
+        if state.fft.len() != bins.len() {
+            state.fft.resize(bins.len(), 0.0);
+        }
+        state.fft.copy_from_slice(&bins);
+    }
+
+    jack::Control::Continue
+}
+
+pub fn analyze(state: Arc<Mutex<ComponentState>>, mut rx: BipBufferReader) {
+    loop {
+        while rx.valid().len() < 512 {}
+    }
 }
