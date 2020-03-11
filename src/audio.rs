@@ -136,10 +136,8 @@ pub fn analyze(state: Arc<Mutex<ComponentState>>, mut rx: Consumer<u8>) {
         let samples =
             unsafe { std::slice::from_raw_parts(bytes.as_ptr() as *const f32, FFT_SIZE * 2) };
 
-        let before = std::time::Instant::now();
         let bins = fft(fft_fn.as_ref(), samples);
         let amp = rms(samples);
-        println!("{:?}", before.elapsed());
 
         {
             let mut state = state.lock().unwrap();

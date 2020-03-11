@@ -34,7 +34,7 @@ use rendy::{
 use std::sync::{Arc, Mutex};
 
 #[allow(unused_imports)]
-use nodes::{test, cube, filter, spectrum, octaves};
+use nodes::{mandelbrot, cube, filter, spectrum, octaves};
 use component::ComponentState;
 
 fn create_image<B: Backend>(
@@ -103,7 +103,7 @@ fn build_graph<B: Backend>(
     */
 
     let test = graph_builder.add_node(
-        octaves::OctavesDesc::default()
+        mandelbrot::MandelbrotDesc::default()
             .builder()
             .into_subpass()
             .with_color(color)
