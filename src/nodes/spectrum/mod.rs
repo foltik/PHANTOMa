@@ -24,6 +24,7 @@ use crate::component::{
     uniform::DynamicUniform,
     Component, ComponentBuilder, ComponentState,
 };
+use crate::audio::FFT_SIZE;
 use failure::_core::fmt::Formatter;
 
 lazy_static! {
@@ -59,7 +60,6 @@ impl<B: Backend> ComponentBuilder<B> for SpectrumDesc {
                     immutable_samplers: false,
                 }],
             }],
-            //sets: vec![],
             push_constants: vec![],
         }
     }
@@ -125,7 +125,7 @@ struct PushValue(f32);
 
 #[derive(Copy, Clone)]
 pub struct SpectrumPush {
-    fft: [PushValue; 256],
+    fft: [PushValue; FFT_SIZE],
 }
 
 unsafe impl Std140 for SpectrumPush {}
@@ -150,7 +150,7 @@ impl std::fmt::Debug for SpectrumPush {
 impl std::default::Default for SpectrumPush {
     fn default() -> Self {
         Self {
-            fft: [PushValue(0.0); 256],
+            fft: [PushValue(0.0); FFT_SIZE],
         }
     }
 }
@@ -175,18 +175,10 @@ impl<B: Backend> Component<B> for Spectrum<B> {
     ) -> PrepareResult {
         let aux = aux.lock().unwrap();
 
-        let avg = aux.fft.iter().take(256).sum::<f32>() / aux.fft.len() as f32;
-        let max = aux
-            .fft
-            .iter()
-            .take(256)
-            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .unwrap();
-
         let vals = aux
             .fft
             .iter()
-            .take(256)
+            .take(FFT_SIZE)
             .map(|v| PushValue(*v))
             .collect::<Vec<_>>();
 
@@ -208,7 +200,7 @@ impl<B: Backend> Component<B> for Spectrum<B> {
         self.ubo.bind(index, &self.layout, 0, &mut encoder);
 
         self.mesh
-            .bind_and_draw(0, &[PosTex::vertex()], 0..256, &mut encoder)
+            .bind_and_draw(0, &[PosTex::vertex()], 0..FFT_SIZE as u32, &mut encoder)
             .unwrap();
     }
 

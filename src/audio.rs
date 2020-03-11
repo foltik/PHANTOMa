@@ -1,8 +1,13 @@
 use crate::component::ComponentState;
-use rustfft::{num_complex::Complex32, num_traits::Zero, FFTplanner};
-use spsc_bip_buffer::{bip_buffer_with_len, BipBufferReader, BipBufferWriter};
+use jack::{AudioIn, Port};
+use ringbuf::{Consumer, Producer, RingBuffer};
+use rustfft::{num_complex::Complex32, num_traits::Zero, FFTplanner, FFT};
 use std::sync::{Arc, Mutex};
 use std::thread;
+
+pub const FFT_SIZE: usize = 256;
+const BUFFER_FACTOR: usize = 2;
+const BUFFER_SIZE: usize = FFT_SIZE * BUFFER_FACTOR;
 
 struct Notifications;
 
@@ -105,27 +110,6 @@ impl jack::NotificationHandler for Notifications {
     }
 }
 
-pub fn fft(samples: &[f32]) -> Vec<f32> {
-    let len = samples.len();
-    let mut complex: Vec<Complex32> = samples.iter().map(|s| Complex32::new(*s, 0.0)).collect();
-
-    let mut res: Vec<Complex32> = vec![Complex32::zero(); len];
-
-    let mut plan = FFTplanner::new(false);
-    let fft = plan.plan_fft(len);
-    fft.process(&mut complex, &mut res);
-
-    res.iter()
-        .take(len / 2)
-        .map(|&c| (c.norm_sqr().sqrt() * 2.0) / (len as f32 * 2.0))
-        .collect()
-}
-
-pub fn rms(samples: &[f32]) -> f32 {
-    let sum: f32 = samples.iter().map(|s| s.abs().powi(2)).sum();
-    (sum / samples.len() as f32).sqrt()
-}
-
 pub fn init(
     state: Arc<Mutex<ComponentState>>,
 ) -> jack::AsyncClient<impl jack::NotificationHandler, impl jack::ProcessHandler> {
@@ -139,15 +123,17 @@ pub fn init(
         .register_port("in_right", jack::AudioIn::default())
         .unwrap();
 
-    let (mut tx, mut rx) = bip_buffer_with_len(65536);
+    let buf = RingBuffer::<u8>::new(BUFFER_SIZE * 64);
+    let (mut tx, rx) = buf.split();
 
     let process = jack::ClosureProcessHandler::new(
         move |j: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
-            process(j, ps, Arc::clone(&state), tx)
+            process(j, ps, &in_left, &in_right, &mut tx)
         },
     );
 
-    let analyze = thread::spawn(move || {
+    // TODO: Return a struct that has a deactivate method for this thread!
+    /*let analyze = */thread::spawn(move || {
         analyze(Arc::clone(&state), rx);
     });
 
@@ -157,10 +143,11 @@ pub fn init(
 }
 
 pub fn process(
-    j: &jack::Client,
+    _j: &jack::Client,
     ps: &jack::ProcessScope,
-    state: Arc<Mutex<ComponentState>>,
-    mut tx: BipBufferWriter,
+    in_left: &Port<AudioIn>,
+    in_right: &Port<AudioIn>,
+    tx: &mut Producer<u8>,
 ) -> jack::Control {
     let raw_left = in_left.as_slice(ps);
     let raw_right = in_right.as_slice(ps);
@@ -171,35 +158,92 @@ pub fn process(
         .map(|(&x, &y)| (x + y) / 2.0)
         .collect();
 
-    let raw: &[u8] = unsafe { std::slice::from_raw_parts(mono.as_ptr() as *const u8, mono.len()) };
+    let sz = mono.len();
 
-    let mut res = tx.spin_reserve(mono.len());
-    res.copy_from_slice(raw);
-    res.send();
+    let mut raw: &[u8] = unsafe { std::slice::from_raw_parts(mono.as_ptr() as *const u8, sz) };
 
-    //let rate = j.sample_rate();
-    //let size = j.buffer_size();
-    //let t = size as f32 / rate as f32;
+    let mut count = 0;
 
-    let bins = fft(&mono);
-    let amp = rms(&mono);
-
-    {
-        let mut state = state.lock().unwrap();
-
-        state.amp = amp;
-
-        if state.fft.len() != bins.len() {
-            state.fft.resize(bins.len(), 0.0);
+    loop {
+        if tx.is_full() {
+            thread::sleep(std::time::Duration::from_millis(1));
+        } else {
+            let n = tx.read_from(&mut raw, None).unwrap();
+            count += n;
+            if n == 0 {
+                break;
+            }
         }
-        state.fft.copy_from_slice(&bins);
     }
+
+    assert_eq!(count, mono.len());
+
+    // TODO: Sleep?
+    /*
+    while tx.is_full() || tx.remaining() <= sz {
+        //println!("Waiting: {} with remaining {}", if tx.is_full() { "FULL" } else { "OPEN" }, tx.remaining());
+    }
+    // TODO: Handle error?
+    //println!("{} with remaining {}", if tx.is_full() { "FULL" } else { "OPEN" }, tx.remaining());
+    let n = tx.read_from(&mut raw, Some(sz)).unwrap();
+    */
+    //assert_eq!(n, sz);
 
     jack::Control::Continue
 }
 
-pub fn analyze(state: Arc<Mutex<ComponentState>>, mut rx: BipBufferReader) {
+pub fn fft(fft: &dyn FFT<f32>, samples: &[f32]) -> Vec<f32> {
+    let len = samples.len();
+    let mut complex: Vec<Complex32> = samples.iter().map(|s| Complex32::new(*s, 0.0)).collect();
+
+    let mut res: Vec<Complex32> = vec![Complex32::zero(); len];
+
+    //let fft = planner.plan_fft(BUFFER_SIZE);
+    fft.process(&mut complex, &mut res);
+
+    res.iter()
+        .take(len / 2)
+        .map(|&c| (c.norm_sqr().sqrt() * 2.0) / (len as f32 * 2.0))
+        .collect()
+}
+
+pub fn rms(samples: &[f32]) -> f32 {
+    let sum: f32 = samples.iter().map(|s| s.abs().powi(2)).sum();
+    (sum / samples.len() as f32).sqrt()
+}
+
+pub fn analyze(state: Arc<Mutex<ComponentState>>, mut rx: Consumer<u8>) {
+    let mut planner = FFTplanner::new(false);
+    let fft_fn = planner.plan_fft(BUFFER_SIZE);
+
     loop {
-        while rx.valid().len() < 512 {}
+        let mut bytes = Vec::with_capacity(BUFFER_SIZE);
+
+        while bytes.len() < BUFFER_SIZE {
+            if rx.is_empty() {
+                thread::sleep(std::time::Duration::from_millis(1));
+            } else {
+                rx.write_into(&mut bytes, Some(1)).unwrap();
+            }
+        }
+
+        assert_eq!(bytes.len(), BUFFER_SIZE);
+
+        let samples =
+            unsafe { std::slice::from_raw_parts(bytes.as_ptr() as *const f32, bytes.len()) };
+
+        let bins = fft(fft_fn.as_ref(), samples);
+        let amp = rms(samples);
+
+        {
+            let mut state = state.lock().unwrap();
+
+            state.amp = amp;
+
+            if state.fft.len() != bins.len() {
+                state.fft.resize(bins.len(), 0.0);
+            }
+            state.fft.copy_from_slice(&bins);
+        }
     }
 }

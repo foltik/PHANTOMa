@@ -24,6 +24,7 @@ use crate::component::{
     uniform::DynamicUniform,
     Component, ComponentBuilder, ComponentState,
 };
+use crate::audio::FFT_SIZE;
 use failure::_core::fmt::Formatter;
 
 lazy_static! {
@@ -92,7 +93,6 @@ impl<B: Backend> ComponentBuilder<B> for OctavesDesc {
                     immutable_samplers: false,
                 }],
             }],
-            //sets: vec![],
             push_constants: vec![],
         }
     }
@@ -129,14 +129,10 @@ impl<B: Backend> ComponentBuilder<B> for OctavesDesc {
         _buffers: Vec<NodeBuffer>,
         _images: Vec<NodeImage>,
     ) -> Self::For {
-        let (nyq, fft_len) = {
-            let aux = aux.lock().unwrap();
-            (aux.nyq, aux.fft.len())
-        };
+        let nyq = aux.lock().unwrap().nyq;
 
         let len = octave_bands(nyq, 3.0, 15.625).len();
 
-        //let s = 1.8 / fft_len as f32;
         let s = 1.8 / (2.0 * len as f32);
         let mesh = Shape::Plane(None)
             .generate::<Vec<PosTex>>(Some((s, s, s)))
@@ -162,7 +158,7 @@ struct PushValue(f32);
 #[derive(Copy, Clone)]
 pub struct OctavesPush {
     n: PushValue,
-    fft: [PushValue; 256],
+    fft: [PushValue; FFT_SIZE],
 }
 
 unsafe impl Std140 for OctavesPush {}
@@ -188,7 +184,7 @@ impl std::default::Default for OctavesPush {
     fn default() -> Self {
         Self {
             n: PushValue(0.0),
-            fft: [PushValue(0.0); 256],
+            fft: [PushValue(0.0); FFT_SIZE],
         }
     }
 }
@@ -213,27 +209,6 @@ impl<B: Backend> Component<B> for Octaves<B> {
     ) -> PrepareResult {
         let aux = aux.lock().unwrap();
 
-        /*
-        let avg = aux.fft.iter().take(256).sum::<f32>() / aux.fft.len() as f32;
-        let max = aux
-            .fft
-            .iter()
-            .take(256)
-            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .unwrap();
-        */
-
-        /*
-        let vals = aux
-            .fft
-            .iter()
-            .take(256)
-            .map(|v| PushValue(*v))
-            .collect::<Vec<_>>();
-        */
-
-        //self.push.fft.copy_from_slice(&vals);
-
         let bands = octave_bands(aux.nyq, 3.0, 15.625);
 
         let energy = band_energy(&aux.fft, aux.nyq, &bands)
@@ -245,7 +220,6 @@ impl<B: Backend> Component<B> for Octaves<B> {
         for (i, e) in energy.iter().enumerate() {
             self.push.fft[i] = *e;
         }
-        //self.push.fft.copy_from_slice(&energy);
 
         self.ubo.write(factory, index, &self.push);
 
@@ -260,8 +234,6 @@ impl<B: Backend> Component<B> for Octaves<B> {
         _aux: &Arc<Mutex<ComponentState>>,
     ) {
         encoder.bind_graphics_pipeline(&self.pipeline);
-
-        let f = vec![1.0_f32];
 
         self.ubo.bind(index, &self.layout, 0, &mut encoder);
 
