@@ -1,114 +1,15 @@
 use crate::component::ComponentState;
+use apodize::{hanning_iter, CosineWindowIter};
 use jack::{AudioIn, Port};
 use ringbuf::{Consumer, Producer, RingBuffer};
 use rustfft::{num_complex::Complex32, num_traits::Zero, FFTplanner, FFT};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-pub const FFT_SIZE: usize = 256;
-const BUFFER_FACTOR: usize = 2;
-const BUFFER_SIZE: usize = FFT_SIZE * BUFFER_FACTOR;
-
-struct Notifications;
-
-impl jack::NotificationHandler for Notifications {
-    fn thread_init(&self, _: &jack::Client) {
-        println!("JACK: thread init");
-    }
-
-    fn shutdown(&mut self, status: jack::ClientStatus, reason: &str) {
-        println!(
-            "JACK: shutdown with status {:?} because \"{}\"",
-            status, reason
-        );
-    }
-
-    fn freewheel(&mut self, _: &jack::Client, is_enabled: bool) {
-        println!(
-            "JACK: freewheel mode is {}",
-            if is_enabled { "on" } else { "off" }
-        );
-    }
-
-    fn buffer_size(&mut self, _: &jack::Client, sz: jack::Frames) -> jack::Control {
-        println!("JACK: buffer size changed to {}", sz);
-        jack::Control::Continue
-    }
-
-    fn sample_rate(&mut self, _: &jack::Client, srate: jack::Frames) -> jack::Control {
-        println!("JACK: sample rate changed to {}", srate);
-        jack::Control::Continue
-    }
-
-    fn client_registration(&mut self, _: &jack::Client, name: &str, is_reg: bool) {
-        println!(
-            "JACK: {} client with name \"{}\"",
-            if is_reg { "registered" } else { "unregistered" },
-            name
-        );
-    }
-
-    fn port_registration(&mut self, _: &jack::Client, port_id: jack::PortId, is_reg: bool) {
-        println!(
-            "JACK: {} port with id {}",
-            if is_reg { "registered" } else { "unregistered" },
-            port_id
-        );
-    }
-
-    fn port_rename(
-        &mut self,
-        _: &jack::Client,
-        port_id: jack::PortId,
-        old_name: &str,
-        new_name: &str,
-    ) -> jack::Control {
-        println!(
-            "JACK: port with id {} renamed from {} to {}",
-            port_id, old_name, new_name
-        );
-        jack::Control::Continue
-    }
-
-    fn ports_connected(
-        &mut self,
-        _: &jack::Client,
-        port_id_a: jack::PortId,
-        port_id_b: jack::PortId,
-        are_connected: bool,
-    ) {
-        println!(
-            "JACK: ports with id {} and {} are {}",
-            port_id_a,
-            port_id_b,
-            if are_connected {
-                "connected"
-            } else {
-                "disconnected"
-            }
-        );
-    }
-
-    fn graph_reorder(&mut self, _: &jack::Client) -> jack::Control {
-        println!("JACK: graph reordered");
-        jack::Control::Continue
-    }
-
-    fn xrun(&mut self, _: &jack::Client) -> jack::Control {
-        println!("JACK: xrun occurred");
-        jack::Control::Continue
-    }
-
-    fn latency(&mut self, _: &jack::Client, mode: jack::LatencyType) {
-        println!(
-            "JACK: {} latency has changed",
-            match mode {
-                jack::LatencyType::Capture => "capture",
-                jack::LatencyType::Playback => "playback",
-            }
-        );
-    }
-}
+pub const FFT_SIZE: usize = 2048;
+pub const FFT_BYTES: usize = FFT_SIZE * std::mem::size_of::<f32>();
+const BUFFER_SIZE: usize = 512;
+const BUFFER_BYTES: usize = BUFFER_SIZE * std::mem::size_of::<f32>();
 
 pub fn init(
     state: Arc<Mutex<ComponentState>>,
@@ -133,7 +34,8 @@ pub fn init(
     );
 
     // TODO: Return a struct that has a deactivate method for this thread!
-    /*let analyze = */thread::spawn(move || {
+    /*let analyze = */
+    thread::spawn(move || {
         analyze(Arc::clone(&state), rx);
     });
 
@@ -158,7 +60,7 @@ pub fn process(
         .map(|(&x, &y)| (x + y) / 2.0)
         .collect();
 
-    let sz = mono.len();
+    let sz = mono.len() * std::mem::size_of::<f32>();
 
     let mut raw: &[u8] = unsafe { std::slice::from_raw_parts(mono.as_ptr() as *const u8, sz) };
 
@@ -176,34 +78,32 @@ pub fn process(
         }
     }
 
-    assert_eq!(count, mono.len());
-
-    // TODO: Sleep?
-    /*
-    while tx.is_full() || tx.remaining() <= sz {
-        //println!("Waiting: {} with remaining {}", if tx.is_full() { "FULL" } else { "OPEN" }, tx.remaining());
-    }
-    // TODO: Handle error?
-    //println!("{} with remaining {}", if tx.is_full() { "FULL" } else { "OPEN" }, tx.remaining());
-    let n = tx.read_from(&mut raw, Some(sz)).unwrap();
-    */
-    //assert_eq!(n, sz);
+    assert_eq!(count, sz);
 
     jack::Control::Continue
 }
 
 pub fn fft(fft: &dyn FFT<f32>, samples: &[f32]) -> Vec<f32> {
     let len = samples.len();
-    let mut complex: Vec<Complex32> = samples.iter().map(|s| Complex32::new(*s, 0.0)).collect();
+
+    let window_fn = hanning_iter;
+
+    let window: CosineWindowIter = window_fn(len);
+    let window_factor = window_fn(len).map(|x| x as f32).sum::<f32>();
+
+    let mut complex: Vec<Complex32> = samples
+        .iter()
+        .zip(window)
+        .map(|(x, c)| Complex32::new(*x * c as f32, 0.0))
+        .collect();
 
     let mut res: Vec<Complex32> = vec![Complex32::zero(); len];
 
-    //let fft = planner.plan_fft(BUFFER_SIZE);
     fft.process(&mut complex, &mut res);
 
     res.iter()
         .take(len / 2)
-        .map(|&c| (c.norm_sqr().sqrt() * 2.0) / (len as f32 * 2.0))
+        .map(|&c| (c.norm_sqr().sqrt() / window_factor.sqrt()))
         .collect()
 }
 
@@ -214,12 +114,12 @@ pub fn rms(samples: &[f32]) -> f32 {
 
 pub fn analyze(state: Arc<Mutex<ComponentState>>, mut rx: Consumer<u8>) {
     let mut planner = FFTplanner::new(false);
-    let fft_fn = planner.plan_fft(BUFFER_SIZE);
+    let fft_fn = planner.plan_fft(FFT_SIZE * 2);
 
     loop {
-        let mut bytes = Vec::with_capacity(BUFFER_SIZE);
+        let mut bytes = Vec::with_capacity(BUFFER_BYTES);
 
-        while bytes.len() < BUFFER_SIZE {
+        while bytes.len() < BUFFER_BYTES {
             if rx.is_empty() {
                 thread::sleep(std::time::Duration::from_millis(1));
             } else {
@@ -227,23 +127,52 @@ pub fn analyze(state: Arc<Mutex<ComponentState>>, mut rx: Consumer<u8>) {
             }
         }
 
-        assert_eq!(bytes.len(), BUFFER_SIZE);
+        assert_eq!(bytes.len(), BUFFER_BYTES);
+
+        bytes.extend(
+            std::iter::repeat(0).take((FFT_BYTES * 2) - BUFFER_BYTES),
+        );
 
         let samples =
-            unsafe { std::slice::from_raw_parts(bytes.as_ptr() as *const f32, bytes.len()) };
+            unsafe { std::slice::from_raw_parts(bytes.as_ptr() as *const f32, FFT_SIZE * 2) };
 
+        let before = std::time::Instant::now();
         let bins = fft(fft_fn.as_ref(), samples);
         let amp = rms(samples);
+        println!("{:?}", before.elapsed());
 
         {
             let mut state = state.lock().unwrap();
 
             state.amp = amp;
-
-            if state.fft.len() != bins.len() {
-                state.fft.resize(bins.len(), 0.0);
-            }
             state.fft.copy_from_slice(&bins);
         }
     }
 }
+
+struct Notifications;
+
+impl jack::NotificationHandler for Notifications {
+    fn shutdown(&mut self, status: jack::ClientStatus, reason: &str) {
+        println!(
+            "JACK: shutdown with status {:?} because \"{}\"",
+            status, reason
+        );
+    }
+
+    fn buffer_size(&mut self, _: &jack::Client, sz: jack::Frames) -> jack::Control {
+        println!("JACK: buffer size changed to {}", sz);
+        jack::Control::Continue
+    }
+
+    fn sample_rate(&mut self, _: &jack::Client, srate: jack::Frames) -> jack::Control {
+        println!("JACK: sample rate changed to {}", srate);
+        jack::Control::Continue
+    }
+
+    fn xrun(&mut self, _: &jack::Client) -> jack::Control {
+        println!("JACK: xrun occurred");
+        jack::Control::Continue
+    }
+}
+

@@ -229,7 +229,7 @@ fn main() {
         aspect: 1.0,
         amp: 0.0,
         nyq: 44100.0,
-        fft: Vec::with_capacity(512)
+        fft: vec![0.0; audio::FFT_SIZE]
     }));
 
     let audio_client = audio::init(Arc::clone(&state));
