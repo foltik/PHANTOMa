@@ -34,7 +34,7 @@ use rendy::{
 use std::sync::{Arc, Mutex};
 
 #[allow(unused_imports)]
-use nodes::{mandelbrot, cube, filter, spectrum, octaves};
+use nodes::{mandelbrot, cube, filter, glitch, spectrum, octaves};
 use component::ComponentState;
 
 fn create_image<B: Backend>(
@@ -73,15 +73,15 @@ fn build_graph<B: Backend>(
 
     log::debug!("Creating {}x{} surface", size.width, size.height);
 
-    let white = ClearValue {
+    let clear = ClearValue {
         color: ClearColor {
-            float32: [0.0, 0.0, 0.0, 1.0],
+            float32: [1.0, 1.0, 1.0, 1.0],
         },
     };
 
-    let color = create_image(factory, &mut graph_builder, &surface, &size, Some(white));
-    /*
-    let mesh = create_image(factory, &mut graph_builder, &surface, &size, Some(white));
+
+    let color = create_image(factory, &mut graph_builder, &surface, &size, None);
+    let mesh = create_image(factory, &mut graph_builder, &surface, &size, Some(clear));
 
     let cube = graph_builder.add_node(
         cube::TriangleDesc::default()
@@ -92,7 +92,7 @@ fn build_graph<B: Backend>(
     );
 
     let post = graph_builder.add_node(
-        filter::FilterDesc::default()
+        glitch::GlitchDesc::default()
             .builder()
             .with_image(mesh)
             .with_dependency(cube)
@@ -100,8 +100,8 @@ fn build_graph<B: Backend>(
             .with_color(color)
             .into_pass(),
     );
-    */
 
+    /*
     let test = graph_builder.add_node(
         mandelbrot::MandelbrotDesc::default()
             .builder()
@@ -109,10 +109,11 @@ fn build_graph<B: Backend>(
             .with_color(color)
             .into_pass(),
     );
+    */
 
     let present = PresentNode::builder(&factory, surface, color)
-        //.with_dependency(post)
-        .with_dependency(test)
+        .with_dependency(post)
+        //.with_dependency(test)
         .with_present_modes_priority(|m| match args.vsync {
             true => match m {
                 PresentMode::RELAXED => Some(2),
