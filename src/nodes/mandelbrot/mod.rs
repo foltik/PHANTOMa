@@ -30,16 +30,16 @@ lazy_static! {
 }
 
 #[derive(Default, Clone, Copy, AsStd140, Debug)]
-pub struct MandelbrotPush {
+pub struct TestPush {
     t: f32,
     aspect: f32,
 }
 
 #[derive(Default, Debug)]
-pub struct MandelbrotDesc {}
+pub struct TestDesc {}
 
-impl<B: Backend> ComponentBuilder<B> for MandelbrotDesc {
-    type For = Mandelbrot<B>;
+impl<B: Backend> ComponentBuilder<B> for TestDesc {
+    type For = Test<B>;
 
     fn input_rate(&self) -> Option<pso::VertexInputRate> {
         None
@@ -82,24 +82,24 @@ impl<B: Backend> ComponentBuilder<B> for MandelbrotDesc {
         _images: Vec<NodeImage>,
     ) -> Self::For {
 
-        Mandelbrot::<B> {
+        Test::<B> {
             pipeline,
             layout,
             uniform: DynamicUniform::new(factory, pso::ShaderStageFlags::FRAGMENT),
-            push: MandelbrotPush { t: 0.0, aspect: 1.0 }
+            push: TestPush { t: 0.0, aspect: 1.0 }
         }
     }
 }
 
 #[derive(Debug)]
-pub struct Mandelbrot<B: Backend> {
+pub struct Test<B: Backend> {
     pipeline: B::GraphicsPipeline,
     layout: B::PipelineLayout,
-    uniform: DynamicUniform<B, MandelbrotPush>,
-    push: MandelbrotPush,
+    uniform: DynamicUniform<B, TestPush>,
+    push: TestPush,
 }
 
-impl<B: Backend> Component<B> for Mandelbrot<B> {
+impl<B: Backend> Component<B> for Test<B> {
     fn prepare(
         &mut self,
         factory: &Factory<B>,
@@ -145,4 +145,4 @@ impl<B: Backend> Component<B> for Mandelbrot<B> {
     }
 }
 
-component!(MandelbrotDesc, Mandelbrot);
+component!(TestDesc, Test);
