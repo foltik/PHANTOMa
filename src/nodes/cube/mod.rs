@@ -112,6 +112,7 @@ impl<B: Backend> ComponentBuilder<B> for TriangleDesc {
             view_proj: proj * view,
             push: PushConstant::new(TrianglePush::default(), 0, pso::ShaderStageFlags::VERTEX),
             ubo: DynamicUniform::new_from_layout(uniform_layout),
+            t: 0.0,
         }
     }
 }
@@ -143,6 +144,7 @@ pub struct Triangle<B: Backend> {
     view_proj: Matrix4<f32>,
     push: PushConstant<TrianglePush>,
     ubo: DynamicUniform<B, <TrianglePush as AsStd140>::Std140>,
+    t: f32,
 }
 
 impl<B: Backend> Component<B> for Triangle<B> {
@@ -154,14 +156,13 @@ impl<B: Backend> Component<B> for Triangle<B> {
         _subpass: Subpass<'_, B>,
         aux: &Arc<Mutex<ComponentState>>,
     ) -> PrepareResult {
-        let t = {
-            aux.lock().unwrap().t
-        };
+        self.t += aux.lock().unwrap().amp;
+        let t = self.t * 0.19;
 
         let model = Matrix4::new_rotation(Vector3::new(
-            t as f32 / 600.0,
-            t as f32 / 400.0,
-            t as f32 / 2000.0,
+            t * 1.1,
+            t * 0.8,
+            t * 1.2,
         ));
         self.push.transform = convert_matrix(&(self.view_proj.clone() * model));
 
