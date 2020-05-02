@@ -13,3 +13,7 @@ Merge reality with the virtual world.
 The visual component of PHANTOMa. A high performance scene compositor
 and bare metal renderer enabling ultimate control of the graphics
 pipeline, while still providing abstractions for quick prototyping.
+** Stuff
+[[https://www.saschawillems.de/creations/vulkan-examples/]]
+[[https://github.com/pcwalton/rust-media]]
+[[https://github.com/RazrFalcon/resvg]]

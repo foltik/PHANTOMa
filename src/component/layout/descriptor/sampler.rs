@@ -1,17 +1,22 @@
+/*
 use rendy::{
     factory::Factory,
     graph::{GraphContext, NodeImage},
     hal::{self, pso, Backend},
     resource::{Escape, Handle, Image, ImageView, ImageViewInfo, Sampler as RSampler, ViewKind},
 };
-use super::{Descriptor, DescriptorBinding, ShaderStageFlags};
+use super::{DescriptorBinding, ShaderStageFlags};
 
 pub use rendy::resource::SamplerDesc;
 
-pub struct Sampler<B: Backend> {
-    pub binding: DescriptorBinding,
-    pub stage: pso::ShaderStageFlags,
+pub struct SamplerInfo {
+    binding: DescriptorBinding,
+    stage: pso::ShaderStageFlags,
     desc: SamplerDesc,
+}
+
+pub struct Sampler<B: Backend> {
+    info: SamplerInfo,
 
     image_info: Option<ImageViewInfo>,
     image: Option<Handle<Image<B>>>,
@@ -21,11 +26,9 @@ pub struct Sampler<B: Backend> {
 }
 
 impl<B: Backend> Sampler<B> {
-    pub fn new(binding: DescriptorBinding, stage: ShaderStageFlags, desc: SamplerDesc) -> Self {
+    pub fn new(info: SamplerInfo) -> Self {
         Self {
-            binding,
-            desc,
-            stage,
+            info,
             image_info: None,
             image: None,
             sampler: None,
@@ -47,9 +50,7 @@ impl<B: Backend> Sampler<B> {
         self.image = Some(Handle::clone(handle));
         self
     }
-}
 
-impl<B: Backend> Descriptor<B> for Sampler<B> {
     fn binding(&self) -> DescriptorBinding {
         self.binding
     }
@@ -62,7 +63,7 @@ impl<B: Backend> Descriptor<B> for Sampler<B> {
             .create_image_view(Handle::clone(image), image_info.clone())
             .unwrap();
 
-        let sampler = factory.create_sampler(self.desc.clone()).unwrap();
+        let sampler = factory.create_sampler(self.info.desc.clone()).unwrap();
 
         self.view = Some(view);
         self.sampler = Some(sampler);
@@ -70,10 +71,10 @@ impl<B: Backend> Descriptor<B> for Sampler<B> {
 
     fn set_layout(&self) -> pso::DescriptorSetLayoutBinding {
         pso::DescriptorSetLayoutBinding {
-            binding: self.binding,
+            binding: self.info.binding,
             ty: pso::DescriptorType::CombinedImageSampler,
             count: 1,
-            stage_flags: self.stage,
+            stage_flags: self.info.stage,
             immutable_samplers: false,
         }
     }
@@ -87,7 +88,7 @@ impl<B: Backend> Descriptor<B> for Sampler<B> {
 
         pso::DescriptorSetWrite {
             set,
-            binding: self.binding,
+            binding: self.info.binding,
             array_offset: 0,
             descriptors: Some(pso::Descriptor::CombinedImageSampler(
                 view.raw(),
@@ -97,3 +98,4 @@ impl<B: Backend> Descriptor<B> for Sampler<B> {
         }
     }
 }
+*/

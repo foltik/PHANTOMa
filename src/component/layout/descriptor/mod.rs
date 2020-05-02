@@ -1,25 +1,25 @@
+/*
 use rendy::{
     factory::Factory,
     hal::{device::Device, pso, Backend},
     resource::{DescriptorSet as RDescriptorSet, Escape, Handle},
 };
 use std::collections::BTreeSet;
+use enum_dispatch::enum_dispatch;
 
 pub use pso::DescriptorBinding;
 pub use pso::ShaderStageFlags;
 
-pub trait Descriptor<B: Backend> {
-    fn binding(&self) -> DescriptorBinding;
-    fn alloc(&mut self, factory: &Factory<B>);
-    fn set_layout(&self) -> pso::DescriptorSetLayoutBinding;
-    fn set_write<'a>(
-        &'a self,
-        set: &'a B::DescriptorSet,
-    ) -> pso::DescriptorSetWrite<'a, B, Option<pso::Descriptor<'a, B>>>;
-}
-
 pub mod buffer;
 pub mod sampler;
+
+use buffer::{Uniform, UniformInfo};
+use sampler::{Sampler, SamplerInfo};
+
+pub enum DescriptorType {
+    Uniform(Box<dyn UniformInfo>),
+    Sampler(SamplerInfo)
+}
 
 pub struct DescriptorSet<B: Backend> {
     descriptors: Vec<Box<dyn Descriptor<B>>>,
@@ -67,3 +67,4 @@ impl<B: Backend> DescriptorSet<B> {
         self.set = Some(set);
     }
 }
+*/

@@ -71,6 +71,8 @@ impl<B: Backend> ComponentBuilder<B> for GlitchDesc {
     }
 
     fn layout(&self, _reflect: &SpirvReflection) -> Layout {
+        println!("{:#?}", _reflect.layout().unwrap());
+
         Layout {
             sets: vec![SetLayout {
                 bindings: vec![

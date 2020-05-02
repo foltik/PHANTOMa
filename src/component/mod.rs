@@ -2,6 +2,7 @@ pub mod pipeline;
 pub mod shader;
 pub mod shape;
 pub mod uniform;
+pub mod layout;
 
 use rendy::{
     command::{QueueId, RenderPassEncoder},
