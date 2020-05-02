@@ -25,6 +25,7 @@ Merge reality with the virtual world.
 - [ ] WebGPU Wrappers
 - [ ] Render Graph Builder
 - [ ] Data driven pipelines with spirv-reflect
+- [ ] Data driven UI generation
 ** Links
 - [[https://www.saschawillems.de/creations/vulkan-examples/]]
 - [[https://github.com/pcwalton/rust-media]]
