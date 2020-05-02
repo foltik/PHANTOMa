@@ -1,0 +1,9 @@
+[package]
+name = "modulate"
+version = "0.1.0"
+authors = ["Jack Foltz <jack@foltz.io>"]
+edition = "2018"
+
+[dependencies]
+nannou = "0.14.0"
+modulator = "0.1.0"

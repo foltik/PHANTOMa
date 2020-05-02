@@ -1,0 +1,20 @@
+[package]
+name = "lib"
+version = "0.1.0"
+authors = ["Jack Foltz <jack@foltz.io>"]
+edition = "2018"
+
+[dependencies]
+# Lib
+nannou = "0.14.0"
+log = "0.4.8"
+pretty_env_logger = "0.4.0"
+wavefront_obj = "7.0.0"
+# Audio
+jack = "0.6.2"
+apodize = "1.0.0"
+ringbuf = "0.2.1"
+rustfft = "3.0.1"
+# MIDI
+midir = { version = "0.5.0", features = ["jack"] }
+crossbeam-queue = "0.2.1"
