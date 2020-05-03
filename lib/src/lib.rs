@@ -1,6 +1,8 @@
 pub mod audio;
 pub mod midi;
+pub mod osc;
 pub mod gfx;
+pub mod interp;
 
 use nannou::geom::pt2;
 use nannou::wgpu;

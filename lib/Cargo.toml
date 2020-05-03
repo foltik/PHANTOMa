@@ -10,11 +10,14 @@ nannou = "0.14.0"
 log = "0.4.8"
 pretty_env_logger = "0.4.0"
 wavefront_obj = "7.0.0"
+splines = { version = "3.3.0", features = ["impl-cgmath"] }
 # Audio
 jack = "0.6.2"
 apodize = "1.0.0"
 ringbuf = "0.2.1"
 rustfft = "3.0.1"
-# MIDI
+# MIDI / OSC
 midir = { version = "0.5.0", features = ["jack"] }
+nannou_osc = "0.14.0"
 crossbeam-queue = "0.2.1"
+

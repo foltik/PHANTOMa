@@ -11,46 +11,25 @@ layout(location = 0) out vec4 color;
 
 
 struct PointLight {
-    vec3 pos;
+    vec4 pos;
 
-    float constant;
-    float linear;
-    float quadratic;
+    vec4 ambient;
+    vec4 diffuse;
+    vec4 specular;
 
-    float ambient;
-    float diffuse;
-    float specular;
+    vec4 attenuation;
 };
 
 layout(set = 1, binding = 0) uniform texture2D img;
 layout(set = 1, binding = 1) uniform sampler samp;
-layout(set = 1, binding = 2) uniform Uniforms {
+layout(set = 1, binding = 2, std140) uniform Uniforms {
     PointLight light;
+    vec3 eye;
 } u;
-
-const PointLight light = {
-    vec3(0.0, 0.0, 2.0),
-    1.0,
-    1.0,
-    0.5,
-    1.0,
-    1.0,
-    1.0,
-};
-
-const PointLight light2 = {
-    vec3(0.0, 0.0, 1.0),
-    100.0,
-    1.0,
-    8.0,
-    10.0,
-    1.0,
-    1.0,
-};
 
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 color)
 {
-    vec3 lightDir = normalize(light.pos - fragPos);
+    vec3 lightDir = normalize(light.pos.xyz - fragPos);
     // diffuse shading
     float diff = max(dot(normal, lightDir), 0.0);
     // specular shading
@@ -58,13 +37,13 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, v
     float shininess = 0.5;
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
     // attenuation
-    float distance    = length(light.pos - fragPos);
-    float attenuation = 1.0 / (light.constant + light.linear * distance +
-                               light.quadratic * (distance * distance));
+    float distance    = length(light.pos.xyz - fragPos);
+    float attenuation = 1.0 / (light.attenuation.z + light.attenuation.y * distance +
+                               light.attenuation.x * (distance * distance));
     // combine results
-    vec3 ambient  = vec3(light.ambient)  * color;
-    vec3 diffuse  = vec3(light.diffuse)  * diff * color;
-    vec3 specular = vec3(light.specular) * spec * color;
+    vec3 ambient  = light.ambient.xyz * color;
+    vec3 diffuse  = light.diffuse.xyz * diff * color;
+    vec3 specular = light.specular.xyz * spec * color;
     ambient  *= attenuation;
     diffuse  *= attenuation;
     specular *= attenuation;
@@ -75,16 +54,13 @@ void main() {
     vec3 mat = texture(sampler2D(img, samp), tex).rgb;
     vec3 c = vec3(0.0);
 
-    float ambient = 0.001;
-    c += ambient * mat;
+    //float ambient = 0.001;
+    //c += ambient * mat;
 
     vec3 n = normalize(norm);
-    vec3 viewPos = vec3(0.0, 0.75, -2.0);
-    vec3 viewDir = normalize(viewPos - pos);
+    vec3 viewDir = normalize(u.eye - pos);
 
     c += CalcPointLight(u.light, n, pos, viewDir, mat);
-    //c += CalcPointLight(light, n, pos, viewDir, mat);
-    //c += CalcPointLight(light2, n, pos, viewDir, mat);
 
     color = vec4(c, 1.0);
 }

@@ -19,9 +19,11 @@ void main() {
 
     //tex = (pos.xy / 2.0) + 0.5;
     tex = itex;
-    norm = mat3(transpose(inverse(model))) * inorm;
-    pos = vec3(model * vec4(ipos, 1.0));
-    gl_Position = u.proj * u.view * vec4(ipos, 1.0);
+    //norm = mat3(transpose(inverse(model))) * inorm;
+    norm = inorm;
+    //pos = vec3(model * vec4(ipos, 1.0));
+    pos = ipos + (-inorm * 0.3);
+    gl_Position = u.proj * u.view * vec4(pos, 1.0);
 
     //tex = pos.xy;
     //gl_Position = vec4(pos.xy, 0.0, 0.0);
