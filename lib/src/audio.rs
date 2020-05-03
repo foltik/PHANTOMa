@@ -73,8 +73,13 @@ pub trait Audio {
 
 impl<N, P> Audio for AudioClient<N, P> {
     fn update(&mut self) {
-        receive_buffer(&mut self.samples_rx, &mut self.samples);
-        receive_buffer(&mut self.fft_rx, &mut self.fft);
+        if self.samples_rx.len() >= FFT_BYTES {
+            receive_buffer(&mut self.samples_rx, &mut self.samples);
+        }
+
+        if self.fft_rx.len() >= FFT_BYTES {
+            receive_buffer(&mut self.fft_rx, &mut self.fft);
+        }
     }
 
     fn fft(&self) -> &Vec<f32> {
