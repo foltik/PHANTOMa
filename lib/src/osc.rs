@@ -73,7 +73,7 @@ fn receive(receiver: &osc::Receiver, queue: OscQueue) {
         let mut bpm = (None, None, None);
 
         for (packet, _addr) in receiver.try_iter() {
-            for (i, msg) in packet.into_msgs().into_iter().enumerate() {
+            for msg in packet.into_msgs() {
                 if let Some(mixxx) = parse_mixxx(msg.clone()) {
                     match mixxx {
                         MixxxMessage::BpmHigh(hi) => {
