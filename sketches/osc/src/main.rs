@@ -1,14 +1,14 @@
 use nannou::prelude::*;
 use nannou::ui::prelude::*;
-use nannou_osc as osc;
+use lib::osc::{Osc, OscMessage};
 
 fn main() {
     nannou::app(model).update(update).run();
 }
 
 struct Model {
-    receiver: osc::Receiver,
-    received_packets: Vec<(std::net::SocketAddr, osc::Packet)>,
+    osc: Osc,
+    received: Vec<OscMessage>,
     ui: Ui,
     text: widget::Id,
 }
@@ -24,58 +24,37 @@ fn model(app: &App) -> Model {
         .build()
         .unwrap();
 
-    // Bind an `osc::Receiver` to a port.
-    let receiver = osc::receiver(PORT).unwrap();
+    let osc = Osc::init(PORT);
 
     // A vec for collecting packets and their source address.
-    let received_packets = vec![];
+    let received = vec![];
 
     // Create a simple UI to display received messages.
     let mut ui = app.new_ui().build().unwrap();
     let text = ui.generate_widget_id();
 
     Model {
-        receiver,
-        received_packets,
+        osc,
+        received,
         ui,
         text,
     }
 }
 
-/*
-enum MixxxMessage {
-    Beat,
-    Unknown,
-}
-
-fn parse(message: osc::Message) -> MixxxMessage {
-    println!("{:?}", message);
-
-    match message {
-        osc::OscMessage(m) => {
-            MixxxMessage::Beat
-        }
-        _ => MixxxMessage::Unknown,
-    }
-}
-*/
-
 fn update(_app: &App, model: &mut Model, _update: Update) {
     // Receive any pending osc packets.
-    for (packet, addr) in model.receiver.try_iter() {
-        model.received_packets.push((addr, packet));
-    }
+    model.received.extend(model.osc.poll().into_iter());
 
     // We'll display 10 packets at a time, so remove any excess.
     let max_packets = 20;
-    while model.received_packets.len() > max_packets {
-        model.received_packets.remove(0);
+    while model.received.len() > max_packets {
+        model.received.drain(..);
     }
 
     // Create a string showing all the packets.
     let mut packets_text = format!("Listening on port {}\nReceived packets:\n", PORT);
-    for &(addr, ref packet) in model.received_packets.iter().rev() {
-        packets_text.push_str(&format!("{}: {:?}\n", addr, packet));
+    for message in model.received.iter().rev() {
+        packets_text.push_str(&format!("{:?}\n", message));
     }
 
     // Use the UI to display the packet string.
