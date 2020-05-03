@@ -258,7 +258,7 @@ impl MeshData {
 
         let v = |i: usize| {
             let v = o.vertices[i];
-            [v.x as f32, v.y as f32, v.z as f32]
+            [-v.x as f32, v.y as f32, v.z as f32]
         };
 
         let t = |i: usize| {
@@ -268,7 +268,7 @@ impl MeshData {
 
         let n = |i: usize| {
             let n = o.normals[i];
-            [n.x as f32, n.y as f32, n.z as f32]
+            [-n.x as f32, n.y as f32, n.z as f32]
         };
 
         for s in &g.shapes {
