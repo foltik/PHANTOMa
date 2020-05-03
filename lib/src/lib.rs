@@ -3,21 +3,28 @@ pub mod midi;
 pub mod osc;
 pub mod gfx;
 pub mod interp;
+pub mod time;
 
 use nannou::geom::pt2;
 use nannou::wgpu;
 use log::*;
-use audio::Audio;
 
 use wavefront_obj::{mtl, mtl::Material, obj};
 
-use std::cmp;
 use std::path::{Path, PathBuf};
 use std::env;
 
 // TODO: Put this shit in multiple files
 
 // TODO: Global font store
+
+pub fn bpm_ms(bpm: f32) -> f32 {
+    (1.0 / bpm) * 60.0 * 1000.0
+}
+
+pub fn ms_bpm(ms: f32) -> f32 {
+    1.0 / (ms / 1000.0 / 60.0)
+}
 
 pub const RESOURCES_PATH: &'static str = "resources/";
 pub fn resource(file: &str) -> PathBuf {
@@ -133,88 +140,6 @@ impl Iterator for CharsIter {
 
 pub fn chars(seed: f32) -> impl Iterator<Item = &'static str> {
     CharsIter { seed }
-}
-
-pub struct Decay {
-    t: i32,
-}
-
-impl Decay {
-    // 6 place fixed-point [0.0, 1.0]
-    const MAX: i32 = 1_000_000_000;
-
-    pub fn new() -> Self {
-        Self { t: 0 }
-    }
-
-    pub fn v(&self) -> f32 {
-        self.t as f32 / Self::MAX as f32
-    }
-
-    fn clamp(&mut self) {
-        self.t = cmp::max(0, cmp::min(self.t, Self::MAX));
-    }
-
-    pub fn update(&mut self, mut delta: f32) {
-        // TODO: BAD!!!
-        if delta > 1.0 {
-            delta = 1.0;
-        }
-        self.t -= (delta * Self::MAX as f32).round() as i32;
-        self.clamp();
-    }
-
-    pub fn set(&mut self, t: f32) {
-        self.t = (t * Self::MAX as f32).round() as i32;
-        self.clamp();
-    }
-
-    pub fn set_max(&mut self) {
-        self.t = Self::MAX;
-    }
-
-    pub fn is_zero(&self) -> bool {
-        self.t == 0
-    }
-}
-
-pub struct BeatDecay {
-    pub f0: f32,
-    pub f1: f32,
-    pub thres: f32,
-    pub sens: f32,
-    pub overlap: bool,
-    decay: Decay,
-    e0: f32,
-}
-
-impl BeatDecay {
-    pub fn new(f0: f32, f1: f32, thres: f32, overlap: bool, bpm: f32) -> Self {
-        Self {
-            f0,
-            f1,
-            thres,
-            overlap,
-            sens: 1.0 / (bpm / 60.0) * 1000.0,
-            e0: 0.0,
-            decay: Decay::new(),
-        }
-    }
-
-    pub fn update(&mut self, delta: f32, audio: &dyn Audio) {
-        let (e, e0) = (audio.rms_range(self.f0, self.f1), self.e0);
-        self.e0 = e;
-
-        self.decay.update(delta / self.sens);
-
-        if e - e0 > self.thres && (self.overlap || self.decay.is_zero()) {
-            self.decay.set_max();
-        }
-    }
-
-    pub fn v(&self) -> f32 {
-        self.decay.v()
-    }
 }
 
 // TODO: Move this to its own module
