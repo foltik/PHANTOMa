@@ -1026,9 +1026,11 @@ dependencies = [
  "log",
  "midir",
  "nannou",
+ "nannou_osc",
  "pretty_env_logger",
  "ringbuf",
  "rustfft",
+ "splines",
  "wavefront_obj",
 ]
 
@@ -1316,6 +1318,15 @@ dependencies = [
  "walkdir",
  "wgpu",
  "winit",
+]
+
+[[package]]
+name = "nannou_osc"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f96fddd5d4540dc78336dc0bff64acb75d502a2867284b2f4ad564089e9bd6ac"
+dependencies = [
+ "rosc",
 ]
 
 [[package]]
@@ -2067,6 +2078,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c2b29d87cfbdce39849012bb5020fff88b8f01f4f5b55846a0b6ef360774eae"
 
 [[package]]
+name = "rosc"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39332ba44e0804497d958f692a3fbb7dd993cc996070189f40577de87ff1b8d9"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2273,6 +2293,15 @@ dependencies = [
  "cc",
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "splines"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d03bd145cc7bebfe8906d6628693c7d2946ca675ce478c4148422d1885e373ed"
+dependencies = [
+ "cgmath",
 ]
 
 [[package]]

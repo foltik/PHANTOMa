@@ -1,4 +1,4 @@
-use nannou::math::cgmath::{Point3, Vector3};
+use nannou::math::cgmath::{Point3, Vector2, Vector3};
 use nannou::prelude::*;
 use nannou::ui::prelude::*;
 use nannou::text::{font, Font};
@@ -8,6 +8,7 @@ use lib::{
     audio::{self, Audio},
     midi::{Midi, MidiMessage},
     gfx::{Camera, CameraDesc, CameraUniform, Effect, Mesh, Present, Uniform, Drawer},
+    interp::{self, Spline},
 };
 
 fn main() {
@@ -85,13 +86,11 @@ impl Composite {
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 struct PointLight {
-    pos: Point3<f32>,
-    constant: f32,
-    linear: f32,
-    quadratic: f32,
-    ambient: f32,
-    diffuse: f32,
-    specular: f32,
+    pos: Vector4<f32>,
+    ambient: Vector4<f32>,
+    diffuse: Vector4<f32>,
+    specular: Vector4<f32>,
+    attenuation: Vector4<f32>,
 }
 
 // Vertex, Texture, Normal
@@ -117,6 +116,13 @@ impl wgpu::VertexDescriptor for MazeVertex {
     ];
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+struct MazeUniform {
+    light: PointLight,
+    eye: Vector3<f32>,
+}
+
 struct Maze {
     floor: Mesh,
     wall: Mesh,
@@ -124,7 +130,7 @@ struct Maze {
     depth: wgpu::TextureView,
 
     camera: Camera,
-    lights: Uniform<PointLight>,
+    lights: Uniform<MazeUniform>,
 
     vertex_group: wgpu::BindGroup,
     floor_group: wgpu::BindGroup,
@@ -137,7 +143,7 @@ impl Maze {
         let vs_mod = read_shader(device, "maze.vert.spv");
         let fs_mod = read_shader(device, "maze.frag.spv");
 
-        let mut objects = read_model("maze-tex.obj");
+        let mut objects = read_model("maze-big.obj");
 
         let floor_data = objects.remove(0).meshes.remove(0);
         let wall_data = objects.remove(0).meshes.remove(0);
@@ -148,8 +154,8 @@ impl Maze {
         let camera = Camera::new(
             device,
             CameraDesc {
-                eye: (0.0, 0.75, -2.0).into(),
-                target: (0.0, 0.75, 0.0).into(),
+                eye: (0.0, 0.75, 0.0).into(),
+                target: (0.0, 0.75, 1.0).into(),
                 up: -Vector3::unit_y(),
                 fov: 90.0,
                 near: 0.1,
@@ -188,13 +194,13 @@ impl Maze {
         let floor_group = wgpu::BindGroupBuilder::new()
             .texture_view(&floor.texture.clone().unwrap())
             .sampler(&floor_sampler)
-            .buffer::<PointLight>(lights.buffer(), 0..1)
+            .buffer::<MazeUniform>(lights.buffer(), 0..1)
             .build(device, &tex_layout);
 
         let wall_group = wgpu::BindGroupBuilder::new()
             .texture_view(&wall.texture.clone().unwrap())
             .sampler(&wall_sampler)
-            .buffer::<PointLight>(lights.buffer(), 0..1)
+            .buffer::<MazeUniform>(lights.buffer(), 0..1)
             .build(device, &tex_layout);
 
         let depth = gfx::depth_builder().build(device);
@@ -231,7 +237,10 @@ impl Maze {
         light: &PointLight,
     ) {
         self.camera.update(device, encoder);
-        self.lights.upload(device, encoder, light.clone());
+        self.lights.upload(device, encoder, MazeUniform {
+            light: light.clone(),
+            eye: self.camera.desc.eye.to_vec(),
+        });
     }
 
     fn encode(&self, encoder: &mut wgpu::CommandEncoder, texture: &wgpu::TextureView) {
@@ -268,9 +277,9 @@ struct Ids {
     constant: widget::Id,
     linear: widget::Id,
     quadratic: widget::Id,
-    ambient: widget::Id,
-    diffuse: widget::Id,
-    specular: widget::Id,
+    red: widget::Id,
+    green: widget::Id,
+    blue: widget::Id,
 }
 
 struct Model {
@@ -287,7 +296,8 @@ struct Model {
     decay_fov: Decay,
     decay_glitch: Decay,
     light: PointLight,
-    glitch_state: EffectState,
+    effect_state: EffectState,
+    path: Spline<f32, Vector2<f32>>,
 
     maze: Maze,
     drawer: Drawer,
@@ -329,20 +339,37 @@ fn model(app: &App) -> Model {
         constant: ui.generate_widget_id(),
         linear: ui.generate_widget_id(),
         quadratic: ui.generate_widget_id(),
-        ambient: ui.generate_widget_id(),
-        diffuse: ui.generate_widget_id(),
-        specular: ui.generate_widget_id(),
+        red: ui.generate_widget_id(),
+        green: ui.generate_widget_id(),
+        blue: ui.generate_widget_id(),
     };
 
+    // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
     let light = PointLight {
-        pos: Point3::new(0.0, 0.5, 3.0),
-        constant: 0.0,
-        linear: 1.325,
-        quadratic: 0.55,
-        ambient: 1.5,
-        diffuse: 7.5,
-        specular: 1.5,
+        pos: Vector4::new(0.0, 0.0, 0.0, 0.0),
+        ambient: Vector4::new(0.0, 0.0, 0.0, 0.0),
+        diffuse: Vector4::new(1.0, 1.0, 1.0, 0.0),
+        specular: Vector4::new(0.0, 0.0, 0.0, 0.0),
+        attenuation: Vector4::new(0.55, 0.7, 1.0, 0.0),
     };
+
+    let path = interp::catmull_loop(&vec![
+        Vector2::new(0.0, 0.0),
+        Vector2::new(0.0, 6.0),
+        Vector2::new(8.0, 6.0),
+        Vector2::new(8.0, 10.0),
+        Vector2::new(14.0, 10.0),
+        Vector2::new(14.0, 16.0),
+        Vector2::new(0.0, 16.0),
+        Vector2::new(0.0, 6.0),
+        Vector2::new(8.0, 6.0),
+        Vector2::new(8.0, 10.0),
+        Vector2::new(18.0, 10.0),
+        Vector2::new(18.0, 0.0),
+        Vector2::new(12.0, 0.0),
+        Vector2::new(12.0, -6.0),
+        Vector2::new(0.0, -6.0),
+    ], 25.0);
 
     window
         .swap_chain_queue()
@@ -364,7 +391,8 @@ fn model(app: &App) -> Model {
         decay_fov: Decay::new(),
         decay_glitch: Decay::new(),
         light,
-        glitch_state: state,
+        effect_state: state,
+        path,
 
         maze,
         drawer: Drawer::new(device, 4),
@@ -391,11 +419,11 @@ fn update(_app: &App, model: &mut Model, update: Update) {
     let t_mod = 50.0 * ms * model.audio.rms();
 
     model.t += t_mod;
-    model.t_pause += t_mod * (1.0 - model.glitch_state.pause);
-    model.glitch_state.t = model.t;
+    model.t_pause += t_mod * (1.0 - model.effect_state.pause);
+    model.effect_state.t = model.t;
 
 
-    model.glitch_state.red = (1.0 + model.red * 2.0) * model.decay_red.v();
+    model.effect_state.red = (1.0 + model.red * 2.0) * model.decay_red.v();
 
 
     let cam = &mut model.maze.camera.desc;
@@ -405,11 +433,17 @@ fn update(_app: &App, model: &mut Model, update: Update) {
         cam.fov = 90.0 + 10.0 * (1.0 - model.decay_fov.v());
     }
 
+    let pos_t = model.t_pause / 100.0;
+    let pos = model.path.sample(pos_t % 25.0).unwrap();
+    let pos_next = model.path.sample((pos_t + 0.1) % 25.0).unwrap();
+    cam.eye = Point3::new(pos.x, 0.75, pos.y);
+    cam.target = Point3::new(pos_next.x, 0.75, pos_next.y);
+    model.light.pos = Vector4::new(pos.x, 0.75, pos.y, 0.0);
 
     for (_, message) in model.midi.poll() {
         match message {
-            MidiMessage::Knob(0, f) => model.glitch_state.pause = f,
-            MidiMessage::Knob(1, f) => model.glitch_state.glitch = f,
+            MidiMessage::Knob(0, f) => model.effect_state.pause = f,
+            MidiMessage::Knob(1, f) => model.effect_state.glitch = f,
             MidiMessage::Knob(2, f) => model.red = f,
             MidiMessage::MainButton(0, true) => model.decay_fov.set_max(),
             MidiMessage::MainButton(0, false) => model.decay_fov.set(0.0),
@@ -432,52 +466,54 @@ fn update(_app: &App, model: &mut Model, update: Update) {
 
     let ids = &model.ids;
     let l = &mut model.light;
-    for v in slider(l.constant, 0.0, 5.0)
+
+    for v in slider(l.attenuation.x, 0.0, 3.0)
         .top_left_with_margin(20.0)
-        .label(&format!("constant: {}", l.constant))
-        .set(ids.constant, ui)
-    {
-        l.constant = v;
-    }
-
-    for v in slider(l.linear, 0.0, 5.0)
-        .down(10.0)
-        .label(&format!("linear: {}", l.linear))
-        .set(ids.linear, ui)
-    {
-        l.linear = v;
-    }
-
-    for v in slider(l.quadratic, 0.0, 5.0)
-        .down(10.0)
-        .label(&format!("quadratic: {}", l.quadratic))
+        .label(&format!("quadratic: {}", l.attenuation.x))
         .set(ids.quadratic, ui)
     {
-        l.quadratic = v;
+        l.attenuation.x = v;
     }
 
-    for v in slider(l.ambient, 0.0, 300.0)
+    for v in slider(l.attenuation.y, 0.0, 1.0)
         .down(10.0)
-        .label(&format!("ambient: {}", l.ambient))
-        .set(ids.ambient, ui)
+        .label(&format!("linear: {}", l.attenuation.y))
+        .set(ids.linear, ui)
     {
-        l.ambient = v;
+        l.attenuation.y = v;
     }
 
-    for v in slider(l.diffuse, 0.0, 300.0)
+    for v in slider(l.attenuation.z, 0.0, 5.0)
         .down(10.0)
-        .label(&format!("diffuse: {}", l.diffuse))
-        .set(ids.diffuse, ui)
+        .label(&format!("constant: {}", l.attenuation.z))
+        .set(ids.constant, ui)
     {
-        l.diffuse = v;
+        l.attenuation.z = v;
     }
 
-    for v in slider(l.specular, 0.0, 300.0)
+
+    for v in slider(l.diffuse.x, 0.0, 1.0)
         .down(10.0)
-        .label(&format!("specular: {}", l.specular))
-        .set(ids.specular, ui)
+        .label(&format!("red: {}", l.diffuse.x))
+        .set(ids.red, ui)
     {
-        l.specular = v;
+        l.diffuse.x = v;
+    }
+
+    for v in slider(l.diffuse.y, 0.0, 1.0)
+        .down(10.0)
+        .label(&format!("green: {}", l.diffuse.y))
+        .set(ids.green, ui)
+    {
+        l.diffuse.y = v;
+    }
+
+    for v in slider(l.diffuse.z, 0.0, 1.0)
+        .down(10.0)
+        .label(&format!("blue: {}", l.diffuse.z))
+        .set(ids.blue, ui)
+    {
+        l.diffuse.z = v;
     }
 }
 
@@ -515,9 +551,9 @@ fn demon1(draw: &Draw, font: Font, p: &Point2, r: f32, t: f32) {
     });
 
     // Triangle point rune circles
-    tri0.iter().zip("AFH".chars()).for_each(|(p, ch)| {
+    tri0.iter().zip(/*"AFH".chars()*/chars(5.123)).for_each(|(p, ch)| {
         draw.ellipse().xy(*p).radius(r * 0.133).color(BLACK).stroke(WHITE).stroke_weight(1.0);
-        draw.text(&ch.to_string()).font(font.clone())
+        draw.text(ch).font(font.clone())
             .font_size((r * 0.12).round() as u32)
             .xy(*p)
             .color(WHITE);
@@ -580,7 +616,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
         model.maze.encode(&mut encoder, &model.composite.view1);
         model.drawer.encode(device, &mut encoder, &model.composite.view2, &draw);
         model.composite.encode(&mut encoder, model.glitch.view());
-        model.glitch.update(device, &mut encoder, &model.glitch_state);
+        model.glitch.update(device, &mut encoder, &model.effect_state);
         model.glitch.encode(&mut encoder, model.present.view());
 
         model.present.encode(&mut encoder, &frame);
