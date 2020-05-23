@@ -1,6 +1,11 @@
 use nannou::prelude::*;
 use nannou::ui::prelude::*;
-use lib::{BeatDecay, audio, audio::Audio, osc::{Osc, OscMessage}, midi::{Midi, MidiMessage}};
+use lib::{
+    audio::{self, Audio},
+    osc::{Osc, OscMessage},
+    midi::{Midi, MidiMessage},
+    time::{DecayEnv, BeatDetect, BeatClock}
+};
 
 fn main() {
     nannou::app(model)
@@ -12,15 +17,18 @@ fn main() {
 struct Model {
     ui: Ui,
     ids: Ids,
+
     audio: Box<dyn Audio>,
     midi: Midi,
     osc: Osc,
-    beat: BeatDecay,
-    sync: bool,
-    toggle: bool,
-    acc: f32,
-    offset: f32,
-    bpm: f32,
+
+    beat_detect: BeatDetect,
+    beat_clock: BeatClock,
+    beat_pause: bool,
+    beat_net: bool,
+
+    decay: DecayEnv,
+
     t: f32,
 }
 
@@ -28,8 +36,7 @@ struct Ids {
     f0: widget::Id,
     f1: widget::Id,
     thres: widget::Id,
-    bpm: widget::Id,
-    overlap: widget::Id,
+    bpm_max: widget::Id,
 }
 
 fn model(app: &App) -> Model {
@@ -39,64 +46,78 @@ fn model(app: &App) -> Model {
         f0: ui.generate_widget_id(),
         f1: ui.generate_widget_id(),
         thres: ui.generate_widget_id(),
-        bpm: ui.generate_widget_id(),
-        overlap: ui.generate_widget_id(),
+        bpm_max: ui.generate_widget_id(),
     };
 
     let audio = Box::new(audio::init());
     let osc = Osc::init(34254);
     let midi = Midi::init();
 
-    let beat = BeatDecay::new(40.0, 120.0, 0.005, false, 250.0);
+    let beat_detect = BeatDetect::new(40.0, 120.0, 0.005, 200.0);
+    let beat_clock = BeatClock::new(120.0);
+
+    let decay = DecayEnv::new()
+        .with("beat", 340.0);
 
     Model {
         ui,
         ids,
+
         audio,
         midi,
         osc,
-        beat,
-        toggle: false,
-        acc: 0.0,
-        sync: false,
-        offset: 0.0,
-        bpm: 250.0,
+
+        beat_detect,
+        beat_clock,
+        beat_pause: false,
+        beat_net: false,
+
+        decay,
+
         t: 0.0,
     }
 }
 
 fn update(_app: &App, model: &mut Model, update: Update) {
-    let ui = &mut model.ui.set_widgets();
+    model.audio.update();
 
-    let ms = update.since_last.as_nanos() as f32 / 1_000_000.0;
-    model.acc += ms;
-
-    for (_, message) in model.midi.poll() {
+    for (_bank, message) in model.midi.poll() {
         match message {
-            MidiMessage::MainButton(0, t) => model.toggle = t,
-            MidiMessage::MainButton(1, true) => model.sync = true,
+            MidiMessage::CtrlButton(3, t) => model.beat_pause = t,
+            MidiMessage::CtrlButton(4, t) => model.beat_pause = t,
+            MidiMessage::CtrlButton(5, t) => model.beat_net = t,
+            MidiMessage::MainButton(0, true) => model.beat_clock.sync(),
+            MidiMessage::Knob(6, f) => model.decay.t("beat", 50.0 + f * 200.0),
+            MidiMessage::Knob(7, f) => model.beat_detect.bpm_max = 200.0 + f * 200.0,
+            MidiMessage::Knob(8, f) => model.beat_detect.thres = 0.1 * f,
             _ => {}
         }
-    }
-
-    let next_beat = (1.0 / model.bpm) * 60.0 * 1000.0;
-    if model.acc >= next_beat && !model.toggle {
-        model.acc = model.acc - next_beat;
-        model.beat.decay.set_max();
-    }
-
-    if (model.sync) {
-        model.sync = false;
-        model.acc = 0.0;
-        model.beat.decay.set_max();
     }
 
     for msg in model.osc.poll() {
         match msg {
-            OscMessage::Bpm(bpm) => model.bpm = bpm,
+            OscMessage::Bpm(bpm) => model.beat_clock.bpm = bpm,
             _ => {}
         }
     }
+
+
+    model.t += model.audio.rms();
+
+    let ms = update.since_last.as_nanos() as f32 / 1_000_000.0;
+    model.decay.update(ms);
+
+    let audio_beat = model.beat_detect.update(ms, &*model.audio);
+    let clock_beat = model.beat_clock.update(ms);
+
+
+    let beat = if model.beat_net { clock_beat } else { audio_beat };
+
+    if beat && !model.beat_pause {
+        model.decay.set("beat");
+    }
+
+    let ui = &mut model.ui.set_widgets();
 
     fn slider(v: f32, min: f32, max: f32) -> widget::Slider<'static, f32> {
         widget::Slider::new(v, min, max)
@@ -107,55 +128,37 @@ fn update(_app: &App, model: &mut Model, update: Update) {
             .border(0.0)
     }
 
-    for v in slider(model.beat.f0, 0.0, 1000.0)
+    for v in slider(model.beat_detect.f0, 0.0, 1000.0)
         .top_left_with_margin(20.0)
-        .label(&format!("f0: {}Hz [{}]", model.beat.f0, audio::bin(model.beat.f0)))
+        .label(&format!("f0: {}Hz [{}]", model.beat_detect.f0, audio::bin(model.beat_detect.f0)))
         .set(model.ids.f0, ui)
     {
-        model.beat.f0 = v;
+        model.beat_detect.f0 = v;
     }
 
-    for v in slider(model.beat.f1, 0.0, 1000.0)
+    for v in slider(model.beat_detect.f1, 0.0, 1000.0)
         .down(10.0)
-        .label(&format!("f1: {}Hz [{}]", model.beat.f1, audio::bin(model.beat.f1)))
+        .label(&format!("f1: {}Hz [{}]", model.beat_detect.f1, audio::bin(model.beat_detect.f1)))
         .set(model.ids.f1, ui)
     {
-        model.beat.f1 = v;
+        model.beat_detect.f1 = v;
     }
 
-    for v in slider(model.beat.thres, 0.001, 0.1)
+    for v in slider(model.beat_detect.thres, 0.001, 0.1)
         .down(10.0)
-        .label(&format!("thres: {}", model.beat.thres))
+        .label(&format!("thres: {}", model.beat_detect.thres))
         .set(model.ids.thres, ui)
     {
-        model.beat.thres = v;
+        model.beat_detect.thres = v;
     }
 
-    for v in slider(model.offset, -100.0, 100.0)
+    for v in slider(model.beat_detect.bpm_max, 200.0, 400.0)
         .down(10.0)
-        .label(&format!("offset: {}", model.offset))
-        .set(model.ids.bpm, ui)
+        .label(&format!("bpm_max: {}", model.beat_detect.bpm_max))
+        .set(model.ids.bpm_max, ui)
     {
-        //model.bpm = v;
-        //model.beat.sens = 1.0 / (v / 60.0) * 1000.0;
-        model.offset = v;
+        model.beat_detect.bpm_max = v;
     }
-
-    for v in widget::Toggle::new(model.beat.overlap)
-        .down(10.0)
-        .label("overlap")
-        .set(model.ids.overlap, ui)
-    {
-        //model.beat.overlap = v;
-        model.sync = true;
-    }
-
-    model.audio.update();
-
-    let ms = update.since_last.as_nanos() as f32 / 1_000_000.0;
-
-    model.beat.update(ms, &*model.audio);
-    model.t += model.audio.rms();
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
@@ -168,26 +171,26 @@ fn view(app: &App, model: &Model, frame: Frame) {
         .y(200.0)
         .x(400.0)
         .color(WHITE)
-        .radius(100.0 * model.beat.v());
+        .radius(100.0 * model.decay.v("beat"));
 
     draw.ellipse()
         .y(200.0)
         .x(-400.0)
         .color(WHITE)
-        .radius(100.0 * model.beat.v());
+        .radius(100.0 * model.decay.v("beat"));
 
     draw.rect()
         .w_h(500.0, 500.0)
         .no_fill()
         .stroke(WHITE)
-        .stroke_weight(1.0 + 4.0 * model.beat.v())
+        .stroke_weight(1.0 + 4.0 * model.decay.v("beat"))
         .rotate(model.t * TAU);
 
     draw.rect()
         .w_h(500.0 / 2.0f32.sqrt(), 500.0 / 2.0f32.sqrt())
         .no_fill()
         .stroke(WHITE)
-        .stroke_weight(1.0 + 4.0 * model.beat.v())
+        .stroke_weight(1.0 + 4.0 * model.decay.v("beat"))
         .rotate(model.t * -TAU + TAU / 4.0);
 
     draw.text(&format!("RMS: {:.5}", model.audio.rms()))
@@ -198,7 +201,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
         .y(400.0)
         .color(WHITE);
 
-    draw.text(&format!("BPM: {:.2}", model.bpm))
+    draw.text(&format!("OSC BPM: {:.2}", model.beat_clock.bpm))
         .y(380.0)
         .color(WHITE);
 
