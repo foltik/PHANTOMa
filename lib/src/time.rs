@@ -1,5 +1,5 @@
-use crate::bpm_ms;
 use crate::audio::Audio;
+use crate::bpm_ms;
 
 use std::collections::HashMap;
 
@@ -13,10 +13,7 @@ impl Decay {
     const MAX: u32 = 1_000_000_000;
 
     pub fn new(t: f32) -> Self {
-        Self {
-            c: 0,
-            t
-        }
+        Self { c: 0, t }
     }
 
     pub fn v(&self) -> f32 {
@@ -43,7 +40,6 @@ impl Decay {
     }
 }
 
-
 pub struct DecayEnv {
     map: HashMap<&'static str, Decay>,
 }
@@ -64,6 +60,10 @@ impl DecayEnv {
         self.map.get(key).unwrap().v()
     }
 
+    pub fn t(&mut self, key: &'static str, t: f32) {
+        self.map.get_mut(key).unwrap().t = t;
+    }
+
     pub fn update(&mut self, delta: f32) {
         self.map.values_mut().for_each(|decay| {
             decay.update(delta);
@@ -79,9 +79,9 @@ impl DecayEnv {
     }
 }
 
-
 pub struct BeatClock {
     pub bpm: f32,
+    pub mul: f32,
     acc: f32,
 }
 
@@ -89,13 +89,14 @@ impl BeatClock {
     pub fn new(bpm: f32) -> Self {
         Self {
             bpm,
+            mul: 1.0,
             acc: 0.0,
         }
     }
 
     pub fn update(&mut self, delta: f32) -> bool {
         self.acc += delta;
-        let ms = bpm_ms(self.bpm);
+        let ms = bpm_ms(self.bpm) * self.mul;
 
         if self.acc >= ms {
             self.acc = self.acc - ms;
@@ -104,26 +105,29 @@ impl BeatClock {
             false
         }
     }
-}
 
+    pub fn sync(&mut self) {
+        self.acc = 0.0;
+    }
+}
 
 pub struct BeatDetect {
     pub f0: f32,
     pub f1: f32,
     pub thres: f32,
+    pub bpm_max: f32,
     decay: Decay,
     e0: f32,
 }
 
 impl BeatDetect {
-    const BPM_MAX: f32 = 400.0;
-
-    pub fn new(f0: f32, f1: f32, thres: f32) -> Self {
+    pub fn new(f0: f32, f1: f32, thres: f32, bpm_max: f32) -> Self {
         Self {
             f0,
             f1,
             thres,
-            decay: Decay::new(bpm_ms(Self::BPM_MAX)),
+            bpm_max,
+            decay: Decay::new(1.0),
             e0: 0.0,
         }
     }
@@ -132,7 +136,7 @@ impl BeatDetect {
         let (e, e0) = (audio.rms_range(self.f0, self.f1), self.e0);
         self.e0 = e;
 
-        self.decay.update(delta);
+        self.decay.update(delta / bpm_ms(self.bpm_max));
 
         if e - e0 > self.thres && self.decay.off() {
             self.decay.set();

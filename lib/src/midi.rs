@@ -68,7 +68,7 @@ impl Midi {
 
                             match cc {
                                 1..=2 => MidiMessage::BankButton(cc, on),
-                                9     => MidiMessage::Fader((state - 1) as f32 / 126.0),
+                                9     => MidiMessage::Fader((std::cmp::max(state, 1) - 1) as f32 / 126.0),
                                 14..=22 => MidiMessage::Knob(cc - 14, fl),
                                 23..=31 => MidiMessage::MainButton(cc - 23, on),
                                 32..=40 => MidiMessage::Slider(cc - 32, fl),

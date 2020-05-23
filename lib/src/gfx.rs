@@ -269,7 +269,7 @@ impl Mesh {
         encoder.copy_buffer_to_buffer(&staging, 0, &buffer, 0, size);
 
         let texture = mesh.material.uv_map.as_ref().map(|file| {
-            let image = nannou::image::open(super::resource(file)).unwrap();
+            let image = nannou::image::open(super::resource(file)).expect(&format!("{} not found", file));
             let texture = wgpu::Texture::from_image(window, &image);
             texture.view().build()
         });

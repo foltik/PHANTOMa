@@ -46,6 +46,7 @@ pub fn resource(file: &str) -> PathBuf {
                 "obj" => "models",
                 "mtl" => "models",
                 "dds" => "textures",
+                "png" => "textures",
                 _ => "",
             }
         }
@@ -93,7 +94,8 @@ pub fn init_logging(level: u8) {
             _ => "trace",
         }
     };
-    std::env::set_var("RUST_LOG", verbosity);
+
+    std::env::set_var("RUST_LOG", format!("lib=trace,maze=trace,{}", verbosity));
 
     pretty_env_logger::init();
 
@@ -178,7 +180,6 @@ pub struct MeshData {
 
 impl MeshData {
     fn from(o: &obj::Object, g: &obj::Geometry, material: Material) -> Self {
-        println!("{}: {:?}", o.name, material);
         let mut data = vec![];
 
         let v = |i: usize| {
@@ -188,7 +189,7 @@ impl MeshData {
 
         let t = |i: usize| {
             let t = o.tex_vertices[i];
-            [t.u as f32, t.v as f32]
+            [t.u as f32, -t.v as f32]
         };
 
         let n = |i: usize| {
