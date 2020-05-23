@@ -22,7 +22,7 @@ void main() {
     //norm = mat3(transpose(inverse(model))) * inorm;
     norm = inorm;
     //pos = vec3(model * vec4(ipos, 1.0));
-    pos = ipos + (-inorm * 0.3);
+    pos = ipos;// + (-inorm * 0.3);
     gl_Position = u.proj * u.view * vec4(pos, 1.0);
 
     //tex = pos.xy;
