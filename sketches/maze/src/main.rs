@@ -668,6 +668,7 @@ fn model(app: &App) -> Model {
 
 fn update(app: &App, model: &mut Model, update: Update) {
     let ms = update.since_last.as_nanos() as f32 / 1_000_000.0;
+    let start = Instant::now();
 
     model.audio.update();
 
@@ -757,7 +758,6 @@ fn update(app: &App, model: &mut Model, update: Update) {
 
     let cam = &mut model.maze.camera.desc;
     let pos_t = model.t_pause / 100.0;
-    log::trace!("{} -> {}", pos_t, pos_t % 25.0);
     let pos = model.path.sample(pos_t % 25.0).unwrap();
     let pos_next = model.path.sample((pos_t + 0.1) % 25.0).unwrap();
     cam.eye = Point3::new(pos.x, 0.75, pos.y);
@@ -858,6 +858,9 @@ fn update(app: &App, model: &mut Model, update: Update) {
         l.diffuse.z = v;
     }
     */
+
+    let elapsed = start.elapsed();
+    log::trace!("Update in {:?} / {}ups", elapsed, 1.0 / (elapsed.as_micros() as f32 / 1_000_000.0));
 }
 
 fn circle_pt(angle: f32) -> Point2 {
@@ -1005,7 +1008,7 @@ fn demon1(draw: &Draw, font: Font, p: &Point2, r: f32, t: f32) {
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
-    let tframe = Instant::now();
+    let start = Instant::now();
 
     // Scope our draw code so we can clean it up and later render the UI, which eeds to mutably
     // borrow the Frame as well
@@ -1026,7 +1029,6 @@ fn view(app: &App, model: &Model, frame: Frame) {
         let device = window.swap_chain_device();
         let mut encoder = frame.command_encoder();
 
-        let before = Instant::now();
         if model.param.pillars {
             model.pillars.update(device, &mut encoder);
             model.pillars.encode(&mut encoder, &model.composite.view1);
@@ -1034,34 +1036,24 @@ fn view(app: &App, model: &Model, frame: Frame) {
             model.maze.update(device, &mut encoder, &model.light);
             model.maze.encode(&mut encoder, &model.composite.view1);
         }
-        log::trace!("Geometry in {:?}", before.elapsed());
 
-        let before = Instant::now();
         model
             .drawer
             .encode(device, &mut encoder, &model.composite.view2, &draw);
-        log::trace!("Overdraw in {:?}", before.elapsed());
 
-        let before = Instant::now();
         model.composite.encode(&mut encoder, model.glitch.view());
         model
             .glitch
             .update(device, &mut encoder, &model.effect_state);
         model.glitch.encode(&mut encoder, model.present.view());
-        log::trace!("Shaders in {:?}", before.elapsed());
 
-        let before = Instant::now();
         model.present.encode(&mut encoder, &frame);
-        log::trace!("Present in {:?}", before.elapsed());
     }
 
     if model.monitor {
-        let before = Instant::now();
         model.ui.draw_to_frame(app, &frame).unwrap();
-        log::trace!("UI in {:?}", before.elapsed());
     }
 
-    let eframe = tframe.elapsed();
-    let seconds = eframe.as_nanos() as f32 / 1_000_000.0;
-    log::trace!("Frame in {:?} / {}", tframe.elapsed(), 1.0 / seconds);
+    let elapsed = start.elapsed();
+    log::trace!("Frame in {:?} / {}fps", elapsed, 1.0 / (elapsed.as_micros() as f32 / 1_000_000.0));
 }

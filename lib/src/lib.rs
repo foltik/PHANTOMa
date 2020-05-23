@@ -95,7 +95,7 @@ pub fn init_logging(level: u8) {
         }
     };
 
-    std::env::set_var("RUST_LOG", format!("lib=trace,maze=trace,{}", verbosity));
+    std::env::set_var("RUST_LOG", format!("lib=debug,maze=debug,{}", verbosity));
 
     pretty_env_logger::init();
 
