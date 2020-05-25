@@ -7,7 +7,10 @@ use std::time::Instant;
 
 use lib::{
     audio::{self, Audio},
-    gfx::{Camera, CameraDesc, CameraUniform, Drawer, Effect, Mesh, Present, Uniform},
+    gfx::{
+        model::Model, scene::Scene, Camera, CameraDesc, CameraUniform, Drawer, Effect, Mesh,
+        Present, Uniform,
+    },
     interp::{self, Spline},
     midi::{Midi, MidiMessage},
     osc::{Osc, OscMessage},
@@ -64,7 +67,7 @@ impl Composite {
         let pipeline_layout = wgpu::create_pipeline_layout(device, &[&bind_group_layout]);
         let pipeline = wgpu::RenderPipelineBuilder::from_layout(&pipeline_layout, &vs_mod)
             .fragment_shader(&fs_mod)
-            .color_format(gfx::TEXTURE_FORMAT)
+            .color_format(gfx::FORMAT)
             .build(device);
 
         Self {
@@ -213,7 +216,7 @@ impl Maze {
         let pipeline_layout = wgpu::create_pipeline_layout(device, &[&vertex_layout, &tex_layout]);
         let pipeline = wgpu::RenderPipelineBuilder::from_layout(&pipeline_layout, &vs_mod)
             .fragment_shader(&fs_mod)
-            .color_format(gfx::TEXTURE_FORMAT)
+            .color_format(gfx::FORMAT)
             .add_vertex_buffer::<MazeVertex>()
             .depth_format(gfx::DEPTH_FORMAT)
             .build(device);
@@ -403,7 +406,7 @@ impl Pillars {
             wgpu::create_pipeline_layout(device, &[&vertex_layout, &transform_layout, &tex_layout]);
         let pipeline = wgpu::RenderPipelineBuilder::from_layout(&pipeline_layout, &vs_mod)
             .fragment_shader(&fs_mod)
-            .color_format(gfx::TEXTURE_FORMAT)
+            .color_format(gfx::FORMAT)
             .add_vertex_buffer::<MazeVertex>()
             .depth_format(gfx::DEPTH_FORMAT)
             .build(device);
@@ -481,6 +484,240 @@ impl Pillars {
     }
 }
 
+struct Temple {
+    wall: Mesh,
+    rings: Mesh,
+    doors: Mesh,
+    emissive: Mesh,
+    circles: Mesh,
+    spikes: Mesh,
+
+    depth: wgpu::TextureView,
+
+    camera: Camera,
+    lights: Uniform<MazeUniform>,
+
+    vertex_group: wgpu::BindGroup,
+    wall_group: wgpu::BindGroup,
+    rings_group: wgpu::BindGroup,
+    doors_group: wgpu::BindGroup,
+    emissive_group: wgpu::BindGroup,
+    circles_group: wgpu::BindGroup,
+    spikes_group: wgpu::BindGroup,
+    pipeline: wgpu::RenderPipeline,
+}
+
+impl Temple {
+    fn new(device: &wgpu::Device, window: &Window, encoder: &mut wgpu::CommandEncoder) -> Self {
+        let vs_mod = read_shader(device, "temple.vert.spv");
+        let fs_mod = read_shader(device, "temple.frag.spv");
+
+        let mut temple_objs = read_model("temple.obj");
+
+        for (i, o) in temple_objs.iter().enumerate() {
+            log::debug!("{}: {}", i, o.name);
+        }
+
+        let emissive_data = temple_objs.remove(0).meshes.remove(0);
+        let spikes_data = temple_objs.remove(0).meshes.remove(0);
+
+        temple_objs.remove(0);
+
+        let circles_data = temple_objs.remove(0).meshes.remove(0);
+        let wall_data = temple_objs.remove(0).meshes.remove(0);
+        let rings_data = temple_objs.remove(0).meshes.remove(0);
+        let doors_data = temple_objs.remove(0).meshes.remove(0);
+
+        let wall = Mesh::new(device, window, encoder, &wall_data);
+        let rings = Mesh::new(device, window, encoder, &rings_data);
+        let doors = Mesh::new(device, window, encoder, &doors_data);
+        let emissive = Mesh::new(device, window, encoder, &emissive_data);
+        let circles = Mesh::new(device, window, encoder, &circles_data);
+        let spikes = Mesh::new(device, window, encoder, &spikes_data);
+
+        let camera = Camera::new(
+            device,
+            CameraDesc {
+                eye: (0.0, 2.0, -8.0).into(),
+                target: (0.0, 0.0, 0.0).into(),
+                up: -Vector3::unit_y(),
+                fov: 90.0,
+                near: 0.1,
+                far: 100.0,
+            },
+        );
+
+        let lights = Uniform::new(device);
+
+        let vertex_layout = wgpu::BindGroupLayoutBuilder::new()
+            .uniform_buffer(wgpu::ShaderStage::VERTEX, false)
+            .build(device);
+
+        let vertex_group = wgpu::BindGroupBuilder::new()
+            .buffer::<CameraUniform>(camera.buffer(), 0..1)
+            .build(device, &vertex_layout);
+
+        let wall_sampler = wgpu::SamplerBuilder::new()
+            .mag_filter(wgpu::FilterMode::Nearest)
+            .address_mode(wgpu::AddressMode::Repeat)
+            .build(&device);
+
+        let rings_sampler = wgpu::SamplerBuilder::new()
+            .mag_filter(wgpu::FilterMode::Nearest)
+            .address_mode(wgpu::AddressMode::Repeat)
+            .build(&device);
+
+        let doors_sampler = wgpu::SamplerBuilder::new()
+            .mag_filter(wgpu::FilterMode::Nearest)
+            .address_mode(wgpu::AddressMode::Repeat)
+            .build(&device);
+
+        let emissive_sampler = wgpu::SamplerBuilder::new()
+            .mag_filter(wgpu::FilterMode::Nearest)
+            .address_mode(wgpu::AddressMode::Repeat)
+            .build(&device);
+
+        let circles_sampler = wgpu::SamplerBuilder::new()
+            .mag_filter(wgpu::FilterMode::Nearest)
+            .address_mode(wgpu::AddressMode::Repeat)
+            .build(&device);
+
+        let spikes_sampler = wgpu::SamplerBuilder::new()
+            .mag_filter(wgpu::FilterMode::Nearest)
+            .address_mode(wgpu::AddressMode::Repeat)
+            .build(&device);
+
+        let dim = wgpu::TextureViewDimension::D2;
+
+        let tex_layout = wgpu::BindGroupLayoutBuilder::new()
+            .sampled_texture(wgpu::ShaderStage::FRAGMENT, false, dim)
+            .sampler(wgpu::ShaderStage::FRAGMENT)
+            .uniform_buffer(wgpu::ShaderStage::FRAGMENT, false)
+            .build(device);
+
+        let wall_group = wgpu::BindGroupBuilder::new()
+            .texture_view(&wall.texture.clone().unwrap())
+            .sampler(&wall_sampler)
+            .buffer::<MazeUniform>(lights.buffer(), 0..1)
+            .build(device, &tex_layout);
+
+        let rings_group = wgpu::BindGroupBuilder::new()
+            .texture_view(&rings.texture.clone().unwrap())
+            .sampler(&rings_sampler)
+            .buffer::<MazeUniform>(lights.buffer(), 0..1)
+            .build(device, &tex_layout);
+
+        let doors_group = wgpu::BindGroupBuilder::new()
+            .texture_view(&doors.texture.clone().unwrap())
+            .sampler(&doors_sampler)
+            .buffer::<MazeUniform>(lights.buffer(), 0..1)
+            .build(device, &tex_layout);
+
+        let emissive_group = wgpu::BindGroupBuilder::new()
+            .texture_view(&emissive.texture.clone().unwrap())
+            .sampler(&emissive_sampler)
+            .buffer::<MazeUniform>(lights.buffer(), 0..1)
+            .build(device, &tex_layout);
+
+        let circles_group = wgpu::BindGroupBuilder::new()
+            .texture_view(&circles.texture.clone().unwrap())
+            .sampler(&circles_sampler)
+            .buffer::<MazeUniform>(lights.buffer(), 0..1)
+            .build(device, &tex_layout);
+
+        let spikes_group = wgpu::BindGroupBuilder::new()
+            .texture_view(&spikes.texture.clone().unwrap())
+            .sampler(&spikes_sampler)
+            .buffer::<MazeUniform>(lights.buffer(), 0..1)
+            .build(device, &tex_layout);
+
+        let depth = gfx::depth_builder().build(device);
+        let depth_view = depth.view().build();
+
+        let pipeline_layout = wgpu::create_pipeline_layout(device, &[&vertex_layout, &tex_layout]);
+        let pipeline = wgpu::RenderPipelineBuilder::from_layout(&pipeline_layout, &vs_mod)
+            .fragment_shader(&fs_mod)
+            .color_format(gfx::FORMAT)
+            .add_vertex_buffer::<MazeVertex>()
+            .depth_format(gfx::DEPTH_FORMAT)
+            .build(device);
+
+        Self {
+            rings,
+            wall,
+            doors,
+            emissive,
+            circles,
+            spikes,
+
+            depth: depth_view,
+
+            camera,
+            lights,
+
+            vertex_group,
+            rings_group,
+            wall_group,
+            doors_group,
+            emissive_group,
+            circles_group,
+            spikes_group,
+            pipeline,
+        }
+    }
+
+    fn update(
+        &self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        light: &PointLight,
+    ) {
+        self.camera.update(device, encoder);
+        self.lights.upload(
+            device,
+            encoder,
+            MazeUniform {
+                light: light.clone(),
+                eye: self.camera.desc.eye.to_vec(),
+            },
+        );
+    }
+
+    fn encode(&self, encoder: &mut wgpu::CommandEncoder, texture: &wgpu::TextureView) {
+        let mut pass = wgpu::RenderPassBuilder::new()
+            .color_attachment(texture, |c| c)
+            .depth_stencil_attachment(&self.depth, |d| d)
+            .begin(encoder);
+
+        pass.set_bind_group(0, &self.vertex_group, &[]);
+        pass.set_pipeline(&self.pipeline);
+
+        pass.set_bind_group(1, &self.wall_group, &[]);
+        pass.set_vertex_buffers(0, &[(&self.wall.buffer, 0)]);
+        pass.draw(0..self.wall.len as u32, 0..1);
+
+        pass.set_bind_group(1, &self.rings_group, &[]);
+        pass.set_vertex_buffers(0, &[(&self.rings.buffer, 0)]);
+        pass.draw(0..self.rings.len as u32, 0..1);
+
+        pass.set_bind_group(1, &self.doors_group, &[]);
+        pass.set_vertex_buffers(0, &[(&self.doors.buffer, 0)]);
+        pass.draw(0..self.doors.len as u32, 0..1);
+
+        pass.set_bind_group(1, &self.emissive_group, &[]);
+        pass.set_vertex_buffers(0, &[(&self.emissive.buffer, 0)]);
+        pass.draw(0..self.emissive.len as u32, 0..1);
+
+        pass.set_bind_group(1, &self.circles_group, &[]);
+        pass.set_vertex_buffers(0, &[(&self.circles.buffer, 0)]);
+        pass.draw(0..self.circles.len as u32, 0..1);
+
+        pass.set_bind_group(1, &self.spikes_group, &[]);
+        pass.set_vertex_buffers(0, &[(&self.spikes.buffer, 0)]);
+        pass.draw(0..self.spikes.len as u32, 0..1);
+    }
+}
+
 // Uniform to control the Glitch shader parameters
 #[derive(Copy, Clone, Debug)]
 struct EffectState {
@@ -516,7 +753,7 @@ struct Params {
     zoom: f32,
 }
 
-struct Model {
+struct AppModel {
     audio: Box<dyn Audio>,
     midi: Midi,
     osc: Osc,
@@ -535,8 +772,10 @@ struct Model {
     font: Font,
     path: Spline<f32, Vector2<f32>>,
 
+    test: Scene,
     maze: Maze,
     pillars: Pillars,
+    temple: Temple,
     drawer: Drawer,
     composite: Composite,
     glitch: Effect<EffectState>,
@@ -547,7 +786,7 @@ struct Model {
     monitor: bool,
 }
 
-fn model(app: &App) -> Model {
+fn model(app: &App) -> AppModel {
     let window_id = app
         .new_window()
         .size(1920, 1080)
@@ -562,8 +801,32 @@ fn model(app: &App) -> Model {
 
     let maze = Maze::new(device, &window, &mut encoder);
     let pillars = Pillars::new(device, &window, &mut encoder);
+    let temple = Temple::new(device, &window, &mut encoder);
     let glitch = Effect::new(device, "glitch.frag.spv");
     let present = Present::new(device, window.msaa_samples());
+
+    let model = Model::new(device, &window, &mut encoder, "temple.obj");
+
+    let test = Scene::new(
+        device,
+        &mut encoder,
+        vec![model],
+        CameraDesc {
+            eye: (12.0, -1.0, -0.0).into(),
+            target: (0.0, -1.5, 0.0).into(),
+            up: -Vector3::unit_y(),
+            fov: 90.0,
+            near: 0.1,
+            far: 100.0,
+        },
+        vec![],
+    );
+
+    window
+        .swap_chain_queue()
+        .lock()
+        .unwrap()
+        .submit(&[encoder.finish()]);
 
     let mut ui = app.new_ui().build().unwrap();
     let ids = Ids {
@@ -605,14 +868,6 @@ fn model(app: &App) -> Model {
         25.0,
     );
 
-    println!("{:?}", path);
-
-    window
-        .swap_chain_queue()
-        .lock()
-        .unwrap()
-        .submit(&[encoder.finish()]);
-
     let state = EffectState {
         t: 0.0,
         tc: 0.0,
@@ -634,7 +889,7 @@ fn model(app: &App) -> Model {
         .with("flash", 200.0)
         .with("light", 1000.0);
 
-    Model {
+    AppModel {
         audio: Box::new(audio::init()),
         midi: Midi::init(),
         osc: Osc::init(34254),
@@ -653,8 +908,10 @@ fn model(app: &App) -> Model {
         font: font::from_file("../../resources/fonts/magi.ttf").unwrap(),
         path,
 
+        test,
         maze,
         pillars,
+        temple,
         drawer: Drawer::new(device, 4),
         composite: Composite::new(device),
         glitch,
@@ -666,7 +923,7 @@ fn model(app: &App) -> Model {
     }
 }
 
-fn update(app: &App, model: &mut Model, update: Update) {
+fn update(app: &App, model: &mut AppModel, update: Update) {
     let ms = update.since_last.as_nanos() as f32 / 1_000_000.0;
     let start = Instant::now();
 
@@ -720,7 +977,7 @@ fn update(app: &App, model: &mut Model, update: Update) {
 
     model.decay.update(ms);
 
-    let t_mod = (10.0 + model.param.t_mul * 75.0) * ms * model.audio.rms();
+    let t_mod = (model.param.t_mul * 75.0) * ms * model.audio.rms();
     model.t += t_mod;
     model.t_pause += t_mod * (1.0 - model.effect_state.pause);
 
@@ -768,6 +1025,17 @@ fn update(app: &App, model: &mut Model, update: Update) {
     if model.light.attenuation.z < 0.0 {
         model.light.attenuation.z = 0.0
     }
+
+    let tcam = &mut model.temple.camera.desc;
+    tcam.eye = Point3::new(pos_t.cos() * 12.0, -1.0, pos_t.sin() * 12.0);
+    tcam.target = Point3::new(0.0, -1.5, 0.0);
+
+    /*
+    model.light.pos = Vector4::new(0.0, 2.0, 2.0, 0.0);
+    model.light.attenuation = Vector4::new(0.25, 0.1, 1.0, 0.0),
+    */
+    model.light.attenuation.x = 0.1;
+    model.light.pos = Vector4::new(tcam.eye.x, -1.0, tcam.eye.z, 0.0);
 
     // -- Here be long and repetitive UI code --
     let ui = &mut model.ui.set_widgets();
@@ -860,7 +1128,11 @@ fn update(app: &App, model: &mut Model, update: Update) {
     */
 
     let elapsed = start.elapsed();
-    log::trace!("Update in {:?} / {}ups", elapsed, 1.0 / (elapsed.as_micros() as f32 / 1_000_000.0));
+    log::trace!(
+        "Update in {:?} / {}ups",
+        elapsed,
+        1.0 / (elapsed.as_micros() as f32 / 1_000_000.0)
+    );
 }
 
 fn circle_pt(angle: f32) -> Point2 {
@@ -1007,7 +1279,7 @@ fn demon1(draw: &Draw, font: Font, p: &Point2, r: f32, t: f32) {
     draw.ellipse().color(WHITE).radius(r * 0.033);
 }
 
-fn view(app: &App, model: &Model, frame: Frame) {
+fn view(app: &App, model: &AppModel, frame: Frame) {
     let start = Instant::now();
 
     // Scope our draw code so we can clean it up and later render the UI, which eeds to mutably
@@ -1015,7 +1287,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
     {
         let draw = app.draw();
         draw.background().color(BLACK);
-        if !model.param.pillars {
+        if !model.param.pillars && false {
             demon1(
                 &draw,
                 model.font.clone(),
@@ -1029,13 +1301,17 @@ fn view(app: &App, model: &Model, frame: Frame) {
         let device = window.swap_chain_device();
         let mut encoder = frame.command_encoder();
 
-        if model.param.pillars {
-            model.pillars.update(device, &mut encoder);
-            model.pillars.encode(&mut encoder, &model.composite.view1);
-        } else {
-            model.maze.update(device, &mut encoder, &model.light);
-            model.maze.encode(&mut encoder, &model.composite.view1);
-        }
+        // if model.param.pillars {
+        //     model.pillars.update(device, &mut encoder);
+        //     model.pillars.encode(&mut encoder, &model.composite.view1);
+        // } else {
+        //     model.maze.update(device, &mut encoder, &model.light);
+        //     model.maze.encode(&mut encoder, &model.composite.view1);
+        // }
+        // model.temple.update(device, &mut encoder, &model.light);
+        // model.temple.encode(&mut encoder, &model.composite.view1);
+        model.test.update(device, &mut encoder);
+        model.test.encode(&mut encoder, &model.composite.view1);
 
         model
             .drawer
@@ -1055,5 +1331,9 @@ fn view(app: &App, model: &Model, frame: Frame) {
     }
 
     let elapsed = start.elapsed();
-    log::trace!("Frame in {:?} / {}fps", elapsed, 1.0 / (elapsed.as_micros() as f32 / 1_000_000.0));
+    log::trace!(
+        "Frame in {:?} / {}fps",
+        elapsed,
+        1.0 / (elapsed.as_micros() as f32 / 1_000_000.0)
+    );
 }
