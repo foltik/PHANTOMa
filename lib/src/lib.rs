@@ -1,9 +1,12 @@
 pub mod audio;
 pub mod midi;
 pub mod osc;
+pub mod wavefront;
 pub mod gfx;
 pub mod interp;
 pub mod time;
+
+pub use wavefront::read_obj;
 
 use nannou::geom::pt2;
 use nannou::wgpu;
@@ -34,8 +37,8 @@ pub fn resource(file: &str) -> PathBuf {
         .parent().unwrap() // sketches/___/target/debug/
         .parent().unwrap() // sketches/___/target/
         .parent().unwrap() // sketches/___/
-        .parent().unwrap() // sketches/
-        .parent().unwrap() // /
+        //.parent().unwrap() // sketches/
+        //.parent().unwrap() // /
         .join(RESOURCES_PATH); // sketches/resources/
     let file = Path::new(Path::new(file).file_name().unwrap());
 
@@ -47,6 +50,7 @@ pub fn resource(file: &str) -> PathBuf {
                 "mtl" => "models",
                 "dds" => "textures",
                 "png" => "textures",
+                "jpg" => "textures",
                 _ => "",
             }
         }
@@ -57,11 +61,16 @@ pub fn resource(file: &str) -> PathBuf {
 }
 
 pub fn read_resource(file: &str) -> String {
-    std::fs::read_to_string(resource(file)).unwrap()
+    std::fs::read_to_string(resource(file)).expect(&format!("{} not found", file))
 }
 
 pub fn read_resource_raw(file: &str) -> Vec<u8> {
-    std::fs::read(resource(file)).unwrap()
+    std::fs::read(resource(file)).expect(&format!("{} not found", file))
+}
+
+pub fn read_resource_buffered(file: &str) -> impl std::io::BufRead {
+    let file = std::fs::File::open(resource(file)).expect(&format!("{} not found", file));
+    std::io::BufReader::new(file)
 }
 
 pub fn read_model(file: &str) -> Vec<ObjectData> {
@@ -144,7 +153,6 @@ pub fn chars(seed: f32) -> impl Iterator<Item = &'static str> {
     CharsIter { seed }
 }
 
-// TODO: Move this to its own module
 #[derive(Debug)]
 pub struct ObjectData {
     pub name: String,
@@ -174,6 +182,7 @@ pub type VertTexNorm = ([f32; 3], [f32; 2], [f32; 3]);
 
 #[derive(Debug)]
 pub struct MeshData {
+    name: String,
     pub data: Vec<VertTexNorm>,
     pub material: Material,
 }
@@ -208,6 +217,6 @@ impl MeshData {
             }
         }
 
-        Self { data, material }
+        Self { name: o.name.clone(), data, material }
     }
 }

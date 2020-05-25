@@ -1,29 +1,40 @@
+#![feature(associated_type_defaults)]
+
+pub mod scene;
+pub mod camera;
+pub mod mesh;
+pub mod model;
+pub mod lights;
+pub mod material;
+
 use nannou::wgpu;
-use nannou::math::cgmath::{self, Deg, Matrix4, Point3, Vector3};
 
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::marker::PhantomData;
+
+pub use camera::{Camera, CameraDesc, CameraUniform};
+pub use mesh::Mesh;
 
 // TODO: put this shit in multiple files
 
 pub const BILLBOARD_SHADER: &'static str = "../resources/shaders/billboard.vert.spv";
 pub const PASSTHROUGH_SHADER: &'static str = "../resources/shaders/passthrough.frag.spv";
 
-pub const TEXTURE_SIZE: [u32; 2] = [1920, 1080];
-pub const TEXTURE_ASPECT: f32 = 1920.0 / 1080.0;
-pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Unorm;
+pub const RESOLUTION: [u32; 2] = [1920, 1080];
+pub const ASPECT: f32 = 1920.0 / 1080.0;
+pub const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Unorm;
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
 pub fn texture_builder() -> wgpu::TextureBuilder {
     wgpu::TextureBuilder::new()
-        .size(TEXTURE_SIZE)
-        .format(TEXTURE_FORMAT)
+        .size(RESOLUTION)
+        .format(FORMAT)
 }
 
 pub fn depth_builder() -> wgpu::TextureBuilder {
     wgpu::TextureBuilder::new()
-        .size(TEXTURE_SIZE)
+        .size(RESOLUTION)
         .format(DEPTH_FORMAT)
         .usage(wgpu::TextureUsage::OUTPUT_ATTACHMENT)
 }
@@ -81,7 +92,7 @@ impl<T: Debug + Copy + Clone + 'static> Effect<T> {
         let pipeline_layout = wgpu::create_pipeline_layout(device, &[&bind_group_layout]);
         let pipeline = wgpu::RenderPipelineBuilder::from_layout(&pipeline_layout, &vs_mod)
             .fragment_shader(&fs_mod)
-            .color_format(TEXTURE_FORMAT)
+            .color_format(FORMAT)
             .sample_count(samples)
             .build(device);
 
@@ -163,7 +174,7 @@ impl Drawer {
             .build_from_texture_descriptor(device, texture.descriptor());
 
         let reshaper =
-            wgpu::TextureReshaper::new(device, &texture_view, samples, 1, TEXTURE_FORMAT);
+            wgpu::TextureReshaper::new(device, &texture_view, samples, 1, FORMAT);
 
         Self {
             renderer: RefCell::new(renderer),
@@ -186,6 +197,13 @@ impl Drawer {
         self.reshaper.encode_render_pass(target, encoder);
     }
 }
+
+/*
+pub trait UniformData {
+    type Data;
+    fn uniform(&self) -> Self::Data;
+}
+*/
 
 pub struct Uniform<T: Copy + Clone + 'static> {
     buffer: wgpu::Buffer,
@@ -239,101 +257,5 @@ impl<T: Copy + Clone + 'static> UniformStorage<T> {
 
     pub fn buffer(&self) -> &wgpu::Buffer {
         self.uniform.buffer()
-    }
-}
-
-pub struct Mesh {
-    pub buffer: wgpu::Buffer,
-    pub texture: Option<wgpu::TextureView>,
-    pub len: u32,
-}
-
-impl Mesh {
-    pub fn new(
-        device: &wgpu::Device,
-        window: &nannou::window::Window,
-        encoder: &mut wgpu::CommandEncoder,
-        mesh: &super::MeshData,
-    ) -> Self {
-        let size = (mesh.data.len() * std::mem::size_of::<super::VertTexNorm>()) as wgpu::BufferAddress;
-
-        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            size,
-            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
-        });
-
-        let staging = device
-            .create_buffer_mapped(mesh.data.len(), wgpu::BufferUsage::COPY_SRC)
-            .fill_from_slice(&mesh.data);
-
-        encoder.copy_buffer_to_buffer(&staging, 0, &buffer, 0, size);
-
-        let texture = mesh.material.uv_map.as_ref().map(|file| {
-            let image = nannou::image::open(super::resource(file)).expect(&format!("{} not found", file));
-            let texture = wgpu::Texture::from_image(window, &image);
-            texture.view().build()
-        });
-
-        Self {
-            buffer,
-            texture,
-            len: mesh.data.len() as u32,
-        }
-    }
-}
-
-// TODO: Have a Uniform trait that we can derive to
-// auto generate thing that returns self.clone
-//, OR we can overload it (with CameraDesc -> CameraUniform)
-// to transform data before upload
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct CameraUniform {
-    view: Matrix4<f32>,
-    proj: Matrix4<f32>,
-}
-
-pub struct CameraDesc {
-    pub eye: Point3<f32>,
-    pub target: Point3<f32>,
-    pub up: Vector3<f32>,
-    pub fov: f32,
-    pub near: f32,
-    pub far: f32,
-}
-
-pub struct Camera {
-    pub desc: CameraDesc,
-    uniform: Uniform<CameraUniform>,
-}
-
-impl Camera {
-    pub fn new(device: &wgpu::Device, desc: CameraDesc) -> Self {
-        Self {
-            desc,
-            uniform: Uniform::new(device)
-        }
-    }
-
-    pub fn update(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) {
-        self.uniform.upload(device, encoder, self.uniform());
-    }
-
-    fn uniform(&self) -> CameraUniform {
-        let d = &self.desc;
-        let view = Matrix4::look_at(d.eye, d.target, d.up);
-        let proj = cgmath::perspective(
-            Deg(d.fov / TEXTURE_ASPECT),
-            TEXTURE_ASPECT,
-            d.near,
-            d.far,
-        );
-
-        CameraUniform { view, proj }
-    }
-
-    pub fn buffer(&self) -> &wgpu::Buffer {
-        &self.uniform.buffer
     }
 }
