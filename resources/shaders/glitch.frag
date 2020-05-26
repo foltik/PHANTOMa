@@ -180,16 +180,16 @@ vec3 glitch_vhs(float tt, float amt) {
     float x = tex.x - n * n * 0.25;
     vec3 c = texture(sampler2D(img, samp), vec2(x, tex.y)).rgb;
 
-    // Interference
-    c.rgb = mix(c.rgb, vec3(rand(vec2(tex.y * t))), n * 0.3).rgb;
+    // Interference lines
+    c.rgb = mix(c.rgb, vec3(rand(vec2(tex.y * t))), n * 0.02).rgb;
 
-    // Lines
+    // Dark lines
     if (floor(mod(tex.y * 0.25, 2.0)) == 0.0)
         c.rgb *= 1.0 - (0.15 * n);
 
     // Channel shift and dim
-    c.g = mix(c.r, texture(sampler2D(img, samp), vec2(x + n * 0.05, tex.y)).g, 0.25);
-    c.b = mix(c.r, texture(sampler2D(img, samp), vec2(x - n * 0.05, tex.y)).b, 0.25);
+    c.g = mix(c.r, texture(sampler2D(img, samp), vec2(x + n * 0.05, tex.y)).g, 1.0 - (0.5 * amt));
+    c.b = mix(c.r, texture(sampler2D(img, samp), vec2(x - n * 0.05, tex.y)).b, 1.0 - (0.5 * amt));
 
     return c;
 }
@@ -210,7 +210,7 @@ void main() {
         c = glitch_blocks(u.tc, u.glitch_mo);
 
     if (u.vhs > 0.0)
-        c += glitch_vhs(u.tc, u.vhs);
+        c = glitch_vhs(u.tc, u.vhs);
 
     if (u.red > 0.0)
         c += u.red * img + cloth(u.tc, u.red).rgb;
