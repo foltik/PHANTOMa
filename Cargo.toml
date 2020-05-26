@@ -1,0 +1,3 @@
+[workspace]
+members = ["lib", "phantoma", "sketches/maze"]#sketches/*"]
+exclude = ["sketches/new", "sketches/template"]
