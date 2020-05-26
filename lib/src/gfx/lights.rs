@@ -4,11 +4,11 @@ use nannou::wgpu;
 use super::Uniform;
 
 pub struct PointLight {
-    pos: Vector3<f32>,
-    ambient: Vector3<f32>,
-    diffuse: Vector3<f32>,
-    specular: Vector3<f32>,
-    attenuation: Vector3<f32>,
+    pub pos: Vector3<f32>,
+    pub ambient: Vector3<f32>,
+    pub diffuse: Vector3<f32>,
+    pub specular: Vector3<f32>,
+    pub attenuation: Vector3<f32>,
 }
 
 impl PointLight {
@@ -41,13 +41,14 @@ pub struct PointLightUniform {
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct LightsInfoUniform {
-    n: Vector4<f32>,
+    info: Vector4<f32>,
 }
 
 pub struct Lights {
+    pub ambient: f32,
     pub points: Vec<PointLight>,
-    pub points_buffer: wgpu::Buffer,
-    pub info: Uniform<LightsInfoUniform>,
+    pub points_uniform: Uniform<PointLightUniform>,
+    pub info_uniform: Uniform<LightsInfoUniform>,
 }
 
 impl Lights {
@@ -56,18 +57,14 @@ impl Lights {
     pub fn new(
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
+        ambient: f32,
         points: Vec<PointLight>,
     ) -> Self {
-        let points_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            size: (Self::MAX_POINT * std::mem::size_of::<PointLightUniform>())
-                as wgpu::BufferAddress,
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        });
-
         let lights = Self {
+            ambient,
             points,
-            points_buffer,
-            info: Uniform::new(device),
+            points_uniform: Uniform::new_array(device, Self::MAX_POINT),
+            info_uniform: Uniform::new(device),
         };
 
         lights.update(device, encoder);
@@ -77,31 +74,19 @@ impl Lights {
 
     pub fn update(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) {
         let n_points = self.points.len();
-        assert!(
-            n_points < Self::MAX_POINT,
-            "{} > {}",
-            n_points,
-            Self::MAX_POINT
+        assert!(n_points < Self::MAX_POINT, "max point lights exceeded");
+
+        if n_points > 0 {
+            let uniforms = self.points.iter().map(|p| p.uniform()).collect::<Vec<_>>();
+            self.points_uniform.upload_slice(device, encoder, &uniforms);
+        }
+
+        self.info_uniform.upload(
+            device,
+            encoder,
+            LightsInfoUniform {
+                info: Vector4::new(self.ambient, n_points as f32, 0.0, 0.0),
+            },
         );
-
-        let points_uniform = self.points.iter().map(|p| p.uniform()).collect::<Vec<_>>();
-
-        let points_staging = device
-            .create_buffer_mapped(n_points, wgpu::BufferUsage::COPY_SRC)
-            .fill_from_slice(&points_uniform);
-
-        encoder.copy_buffer_to_buffer(
-            &points_staging,
-            0,
-            &self.points_buffer,
-            0,
-            (n_points * std::mem::size_of::<PointLightUniform>()) as wgpu::BufferAddress,
-        );
-
-        let info = LightsInfoUniform {
-            n: Vector4::new(n_points as f32, 0.0, 0.0, 0.0),
-        };
-
-        self.info.upload(device, encoder, info);
     }
 }

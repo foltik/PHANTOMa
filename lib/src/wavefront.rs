@@ -35,7 +35,8 @@ pub fn vertices(obj: &ObjData, mesh: &Object) -> Vec<Vertex> {
         assert_eq!(
             vs.len(),
             3,
-            "obj loader encountered non-triangle primitive!"
+            "obj loader encountered non-triangle primitive in {}!",
+            mesh.name,
         );
 
         let remap = |p: &IndexTuple| {

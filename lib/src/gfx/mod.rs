@@ -1,11 +1,11 @@
-#![feature(associated_type_defaults)]
-
-pub mod scene;
 pub mod camera;
-pub mod mesh;
-pub mod model;
 pub mod lights;
 pub mod material;
+pub mod mesh;
+pub mod model;
+pub mod scene;
+
+use crate as lib;
 
 use nannou::wgpu;
 
@@ -27,9 +27,7 @@ pub const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Unorm;
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
 pub fn texture_builder() -> wgpu::TextureBuilder {
-    wgpu::TextureBuilder::new()
-        .size(RESOLUTION)
-        .format(FORMAT)
+    wgpu::TextureBuilder::new().size(RESOLUTION).format(FORMAT)
 }
 
 pub fn depth_builder() -> wgpu::TextureBuilder {
@@ -40,7 +38,7 @@ pub fn depth_builder() -> wgpu::TextureBuilder {
 }
 
 pub struct Effect<T: Debug + Copy + Clone + 'static = ()> {
-    texture_view: wgpu::TextureView,
+    pub view: wgpu::TextureView,
     uniform: Option<wgpu::Buffer>,
     bind_group: wgpu::BindGroup,
     pipeline: wgpu::RenderPipeline,
@@ -59,7 +57,7 @@ impl<T: Debug + Copy + Clone + 'static> Effect<T> {
             .usage(wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED)
             .build(device);
 
-        let texture_view = texture.view().build();
+        let view = texture.view().build();
 
         let uniform = if Self::SIZE != 0 {
             Some(device.create_buffer(&wgpu::BufferDescriptor {
@@ -82,7 +80,7 @@ impl<T: Debug + Copy + Clone + 'static> Effect<T> {
         let bind_group_layout = layout_builder.build(device);
 
         let mut group_builder = wgpu::BindGroupBuilder::new()
-            .texture_view(&texture_view)
+            .texture_view(&view)
             .sampler(&sampler);
         if let Some(buffer) = &uniform {
             group_builder = group_builder.buffer::<T>(&buffer, 0..1);
@@ -97,7 +95,7 @@ impl<T: Debug + Copy + Clone + 'static> Effect<T> {
             .build(device);
 
         Self {
-            texture_view,
+            view,
             uniform,
             bind_group,
             pipeline,
@@ -131,7 +129,74 @@ impl<T: Debug + Copy + Clone + 'static> Effect<T> {
     }
 
     pub fn view(&self) -> &wgpu::TextureView {
-        &self.texture_view
+        &self.view
+    }
+}
+
+// TODO: this is mostly an Effect with two input images and a hard coded
+// shader that sums the two image values.
+// I only made it because for some reason a Draw clears out the image from Maze
+// before drawing, so either figure out how to genericize Effect over N input
+// images, or fix Draw clearing the image.
+pub struct Composite {
+    pub view1: wgpu::TextureView,
+    pub view2: wgpu::TextureView,
+    bind_group: wgpu::BindGroup,
+    pipeline: wgpu::RenderPipeline,
+}
+
+impl Composite {
+    pub fn new(device: &wgpu::Device) -> Self {
+        let vs_mod = lib::read_shader(device, BILLBOARD_SHADER);
+        let fs_mod = lib::read_shader(device, "add.frag.spv");
+
+        let tex1 = texture_builder()
+            .usage(wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED)
+            .build(device);
+        let view1 = tex1.view().build();
+
+        let tex2 = texture_builder()
+            .usage(wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED)
+            .build(device);
+        let view2 = tex2.view().build();
+
+        let sampler = wgpu::SamplerBuilder::new().build(&device);
+
+        let bind_group_layout = wgpu::BindGroupLayoutBuilder::new()
+            .sampled_texture_from(wgpu::ShaderStage::FRAGMENT, &tex1)
+            .sampled_texture_from(wgpu::ShaderStage::FRAGMENT, &tex2)
+            .sampler(wgpu::ShaderStage::FRAGMENT)
+            .build(device);
+
+        let bind_group = wgpu::BindGroupBuilder::new()
+            .texture_view(&view1)
+            .texture_view(&view2)
+            .sampler(&sampler)
+            .build(device, &bind_group_layout);
+
+        let pipeline_layout = wgpu::create_pipeline_layout(device, &[&bind_group_layout]);
+        let pipeline = wgpu::RenderPipelineBuilder::from_layout(&pipeline_layout, &vs_mod)
+            .fragment_shader(&fs_mod)
+            .color_format(FORMAT)
+            .build(device);
+
+        Self {
+            view1,
+            view2,
+            bind_group,
+            pipeline,
+        }
+    }
+
+    pub fn encode(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
+        let mut pass = wgpu::RenderPassBuilder::new()
+            .color_attachment(target, |c| c)
+            .begin(encoder);
+
+        pass.set_pipeline(&self.pipeline);
+        pass.set_bind_group(0, &self.bind_group, &[]);
+
+        pass.draw(0..3, 0..1);
     }
 }
 
@@ -173,8 +238,7 @@ impl Drawer {
         let renderer = nannou::draw::RendererBuilder::new()
             .build_from_texture_descriptor(device, texture.descriptor());
 
-        let reshaper =
-            wgpu::TextureReshaper::new(device, &texture_view, samples, 1, FORMAT);
+        let reshaper = wgpu::TextureReshaper::new(device, &texture_view, samples, 1, FORMAT);
 
         Self {
             renderer: RefCell::new(renderer),
@@ -206,7 +270,7 @@ pub trait UniformData {
 */
 
 pub struct Uniform<T: Copy + Clone + 'static> {
-    buffer: wgpu::Buffer,
+    pub buffer: wgpu::Buffer,
     data: PhantomData<T>,
 }
 
@@ -225,12 +289,44 @@ impl<T: Copy + Clone + 'static> Uniform<T> {
         }
     }
 
+    pub fn new_array(device: &wgpu::Device, n: usize) -> Self {
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            size: Self::SIZE * n as wgpu::BufferAddress,
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        });
+
+        Self {
+            buffer,
+            data: PhantomData,
+        }
+    }
+
     pub fn upload(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, t: T) {
         let staging = device
             .create_buffer_mapped(1, wgpu::BufferUsage::COPY_SRC)
             .fill_from_slice(std::slice::from_ref(&t));
 
         encoder.copy_buffer_to_buffer(&staging, 0, &self.buffer, 0, Self::SIZE);
+    }
+
+    pub fn upload_slice(
+        &self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        ts: &[T],
+    ) {
+        let n = ts.len();
+        let staging = device
+            .create_buffer_mapped(n, wgpu::BufferUsage::COPY_SRC)
+            .fill_from_slice(ts);
+
+        encoder.copy_buffer_to_buffer(
+            &staging,
+            0,
+            &self.buffer,
+            0,
+            Self::SIZE * n as wgpu::BufferAddress,
+        );
     }
 
     pub fn buffer(&self) -> &wgpu::Buffer {

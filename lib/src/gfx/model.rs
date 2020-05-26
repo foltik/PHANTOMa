@@ -1,11 +1,9 @@
-use nannou::math::cgmath::{Matrix4, SquareMatrix};
+use nannou::math::cgmath::{Matrix4, SquareMatrix, Vector3};
 use nannou::wgpu;
 
 use super::material::Material;
 use super::Uniform;
 use crate as lib;
-
-use std::default::Default;
 
 pub type Vertex = ([f32; 3], [f32; 2], [f32; 3]);
 
@@ -100,6 +98,10 @@ impl Transform {
         transform
     }
 
+    pub fn translate(&mut self, pos: Vector3<f32>) {
+        self.matrix = Matrix4::from_translation(pos);
+    }
+
     pub fn update(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) {
         self.uniform.upload(device, encoder, self.uniform());
     }
@@ -149,9 +151,12 @@ impl Model {
         let objects = data
             .objects
             .iter()
-            .map(|o| {
+            .enumerate()
+            .map(|(i, o)| {
                 let mesh = Mesh::new(device, encoder, lib::wavefront::vertices(&data, o));
                 let material = Material::new(device, window, lib::wavefront::material(&data, o));
+
+                log::debug!("{} {}: {}", file, i, o.name);
 
                 Object {
                     name: o.name.clone(),

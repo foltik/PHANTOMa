@@ -1,6 +1,5 @@
-
+use nannou::math::cgmath::{self, Deg, Matrix4, Point3, Vector3, Vector4};
 use nannou::wgpu;
-use nannou::math::cgmath::{self, Deg, Matrix4, Point3, Vector3};
 
 use super::Uniform;
 
@@ -16,6 +15,12 @@ pub struct CameraUniform {
     proj: Matrix4<f32>,
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct CameraMetaUniform {
+    eye: Vector4<f32>,
+}
+
 #[derive(Debug)]
 pub struct CameraDesc {
     pub eye: Point3<f32>,
@@ -28,35 +33,36 @@ pub struct CameraDesc {
 
 pub struct Camera {
     pub desc: CameraDesc,
-    pub uniform: Uniform<CameraUniform>,
+    pub transform: Uniform<CameraUniform>,
+    pub meta: Uniform<CameraMetaUniform>,
 }
 
 impl Camera {
     pub fn new(device: &wgpu::Device, desc: CameraDesc) -> Self {
         Self {
             desc,
-            uniform: Uniform::new(device)
+            transform: Uniform::new(device),
+            meta: Uniform::new(device),
         }
     }
 
     pub fn update(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) {
-        self.uniform.upload(device, encoder, self.uniform());
+        self.transform.upload(device, encoder, self.transform());
+        self.meta.upload(device, encoder, self.meta());
     }
 
-    fn uniform(&self) -> CameraUniform {
+    fn transform(&self) -> CameraUniform {
         let d = &self.desc;
         let view = Matrix4::look_at(d.eye, d.target, d.up);
-        let proj = cgmath::perspective(
-            Deg(d.fov / super::ASPECT),
-            super::ASPECT,
-            d.near,
-            d.far,
-        );
+        let proj = cgmath::perspective(Deg(d.fov / super::ASPECT), super::ASPECT, d.near, d.far);
 
         CameraUniform { view, proj }
     }
 
-    pub fn buffer(&self) -> &wgpu::Buffer {
-        &self.uniform.buffer
+    fn meta(&self) -> CameraMetaUniform {
+        let d = &self.desc;
+        CameraMetaUniform {
+            eye: Vector4::new(d.eye.x, d.eye.y, d.eye.z, 0.0),
+        }
     }
 }

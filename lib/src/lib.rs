@@ -1,21 +1,21 @@
 pub mod audio;
-pub mod midi;
-pub mod osc;
-pub mod wavefront;
 pub mod gfx;
 pub mod interp;
+pub mod midi;
+pub mod osc;
 pub mod time;
+pub mod wavefront;
 
 pub use wavefront::read_obj;
 
+use log::*;
 use nannou::geom::pt2;
 use nannou::wgpu;
-use log::*;
 
 use wavefront_obj::{mtl, mtl::Material, obj};
 
-use std::path::{Path, PathBuf};
 use std::env;
+use std::path::{Path, PathBuf};
 
 // TODO: Put this shit in multiple files
 
@@ -34,27 +34,28 @@ pub fn resource(file: &str) -> PathBuf {
     let curr = env::current_exe().unwrap();
     // TODO: Recursively search for resources dir
     let resources = curr // phantoma/sketches/___/target/debug/___
-        .parent().unwrap() // sketches/___/target/debug/
-        .parent().unwrap() // sketches/___/target/
-        .parent().unwrap() // sketches/___/
+        .parent()
+        .unwrap() // sketches/___/target/debug/
+        .parent()
+        .unwrap() // sketches/___/target/
+        .parent()
+        .unwrap() // sketches/___/
         //.parent().unwrap() // sketches/
         //.parent().unwrap() // /
         .join(RESOURCES_PATH); // sketches/resources/
     let file = Path::new(Path::new(file).file_name().unwrap());
 
     let dir = match file.extension() {
-        Some(os) => {
-            match os.to_str().unwrap() {
-                "spv" => "shaders",
-                "obj" => "models",
-                "mtl" => "models",
-                "dds" => "textures",
-                "png" => "textures",
-                "jpg" => "textures",
-                _ => "",
-            }
-        }
-        None => ""
+        Some(os) => match os.to_str().unwrap() {
+            "spv" => "shaders",
+            "obj" => "models",
+            "mtl" => "models",
+            "dds" => "textures",
+            "png" => "textures",
+            "jpg" => "textures",
+            _ => "",
+        },
+        None => "",
     };
 
     resources.join(dir).join(file)
@@ -217,6 +218,10 @@ impl MeshData {
             }
         }
 
-        Self { name: o.name.clone(), data, material }
+        Self {
+            name: o.name.clone(),
+            data,
+            material,
+        }
     }
 }
