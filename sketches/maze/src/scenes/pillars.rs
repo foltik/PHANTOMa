@@ -1,5 +1,5 @@
 use nannou::geom::range::Range;
-use nannou::math::cgmath::{Matrix4, SquareMatrix, Vector3};
+use nannou::math::cgmath::Vector3;
 use nannou::wgpu;
 
 use lib::gfx::{camera::CameraDesc, lights::PointLight, model::Model, scene::Scene};

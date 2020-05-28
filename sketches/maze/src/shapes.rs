@@ -78,7 +78,7 @@ pub fn demon1(draw: &Draw, font: Font, p: &Point2, r: f32, t: f32) {
         .stroke_weight(1.0);
 
     // Inner runes
-    poly_pts(26, -t / 400.0)
+    poly_pts(26, t / 500.0)
         .map(|p| p * r * 0.465)
         .zip(lib::chars(1.0))
         .enumerate()

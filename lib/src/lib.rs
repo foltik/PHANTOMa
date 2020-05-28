@@ -53,6 +53,7 @@ pub fn resource(file: &str) -> PathBuf {
             "dds" => "textures",
             "png" => "textures",
             "jpg" => "textures",
+            "tga" => "textures",
             _ => "",
         },
         None => "",

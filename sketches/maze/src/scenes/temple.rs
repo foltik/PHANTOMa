@@ -1,10 +1,10 @@
-use nannou::math::cgmath::{Vector3, Point3};
+use nannou::math::cgmath::{Point3, Vector3};
 use nannou::wgpu;
 
 use lib::gfx::{camera::CameraDesc, lights::PointLight, model::Model, scene::Scene};
 
 pub struct Temple {
-    scene: Scene,
+    pub scene: Scene,
 }
 
 impl Temple {

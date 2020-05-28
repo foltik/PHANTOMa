@@ -1,3 +1,4 @@
+use nannou::math::cgmath::{self, Array, Vector3};
 use nannou::wgpu;
 
 use super::camera::{Camera, CameraDesc, CameraMetaUniform, CameraUniform};
@@ -8,11 +9,17 @@ use super::{Composite, Effect};
 
 use crate as lib;
 
+pub struct SceneParam {
+    pub bloom: f32,
+}
+
 pub struct Scene {
     pub models: Vec<Model>,
     pub lights: Lights,
     pub camera: Camera,
-    // action
+
+    pub do_bloom: bool,
+
     lights_group: wgpu::BindGroup,
     camera_group: wgpu::BindGroup,
     model_groups: Vec<(wgpu::BindGroup, Vec<wgpu::BindGroup>)>,
@@ -22,8 +29,8 @@ pub struct Scene {
     emit_pipeline: wgpu::RenderPipeline,
     emit_depth: wgpu::TextureView,
 
-    blur1: Effect,
-    blur2: Effect,
+    blur1: Effect<f32>,
+    blur2: Effect<f32>,
     composite: Composite,
 }
 
@@ -102,6 +109,12 @@ impl Scene {
             })
             .collect();
 
+        let do_bloom = models.iter().any(|m| {
+            m.objects
+                .iter()
+                .any(|o| cgmath::dot(o.material.desc.emissive.col, Vector3::from_value(1.0)) > 0.0)
+        });
+
         let pipeline_layout = wgpu::create_pipeline_layout(
             device,
             &[
@@ -143,6 +156,8 @@ impl Scene {
             lights,
             camera,
 
+            do_bloom,
+
             lights_group,
             camera_group,
             model_groups,
@@ -160,7 +175,6 @@ impl Scene {
 
     pub fn update(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) {
         self.lights.update(device, encoder);
-
         self.camera.update(device, encoder);
 
         for m in &self.models {
@@ -185,8 +199,14 @@ impl Scene {
 
     pub fn encode(&self, encoder: &mut wgpu::CommandEncoder, texture: &wgpu::TextureView) {
         {
+            let target = if self.do_bloom {
+                &self.composite.view1
+            } else {
+                texture
+            };
+
             let mut phong_pass = wgpu::RenderPassBuilder::new()
-                .color_attachment(&self.composite.view1, |c| c)
+                .color_attachment(target, |c| c)
                 .depth_stencil_attachment(&self.phong_depth, |d| d)
                 .begin(encoder);
 
@@ -194,23 +214,25 @@ impl Scene {
             self.encode_to_pass(&mut phong_pass);
         }
 
-        {
-            let mut emit_pass = wgpu::RenderPassBuilder::new()
-                .color_attachment(&self.blur1.view, |c| c)
-                .depth_stencil_attachment(&self.emit_depth, |d| d)
-                .begin(encoder);
+        if self.do_bloom {
+            {
+                let mut emit_pass = wgpu::RenderPassBuilder::new()
+                    .color_attachment(&self.blur1.view, |c| c)
+                    .depth_stencil_attachment(&self.emit_depth, |d| d)
+                    .begin(encoder);
 
-            emit_pass.set_pipeline(&self.emit_pipeline);
-            self.encode_to_pass(&mut emit_pass);
+                emit_pass.set_pipeline(&self.emit_pipeline);
+                self.encode_to_pass(&mut emit_pass);
+            }
+
+            for _ in 0..8 {
+                self.blur1.encode(encoder, &self.blur2.view);
+                self.blur2.encode(encoder, &self.blur1.view);
+            }
+
+            self.blur1.encode(encoder, &self.composite.view2);
+
+            self.composite.encode(encoder, texture);
         }
-
-        for _ in 0..12 {
-            self.blur1.encode(encoder, &self.blur2.view);
-            self.blur2.encode(encoder, &self.blur1.view);
-        }
-
-        self.blur1.encode(encoder, &self.composite.view2);
-
-        self.composite.encode(encoder, texture);
     }
 }

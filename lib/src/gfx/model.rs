@@ -1,4 +1,4 @@
-use nannou::math::cgmath::{Matrix4, SquareMatrix, Vector3};
+use nannou::math::cgmath::{Matrix4, Rad, SquareMatrix, Vector3};
 use nannou::wgpu;
 
 use super::material::Material;
@@ -128,7 +128,7 @@ pub struct Object {
 
 impl Object {
     pub fn update(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) {
-        self.mesh.update(device, encoder);
+        //self.mesh.update(device, encoder);
         self.material.update(device, encoder);
         self.transform.update(device, encoder);
     }

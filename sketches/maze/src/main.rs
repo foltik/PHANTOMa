@@ -6,7 +6,7 @@ use std::time::Instant;
 mod scenes;
 mod shapes;
 
-use scenes::{Maze, Pillars, Temple};
+use scenes::{Church, Maze, Pillars, Temple};
 
 use lib::{
     self,
@@ -67,6 +67,7 @@ struct AppModel {
     maze: Maze,
     pillars: Pillars,
     temple: Temple,
+    church: Church,
 
     drawer: Drawer,
 
@@ -91,6 +92,7 @@ fn model(app: &App) -> AppModel {
     let maze = Maze::new(device, &window, &mut encoder);
     let pillars = Pillars::new(device, &window, &mut encoder);
     let temple = Temple::new(device, &window, &mut encoder);
+    let church = Church::new(device, &window, &mut encoder);
 
     let glitch = Effect::new(device, "glitch.frag.spv");
     let present = Present::new(device, window.msaa_samples());
@@ -142,6 +144,7 @@ fn model(app: &App) -> AppModel {
         maze,
         pillars,
         temple,
+        church,
 
         drawer: Drawer::new(device, 4),
 
@@ -165,6 +168,8 @@ fn update(app: &App, model: &mut AppModel, update: Update) {
 
     let mut beat_manual = false;
 
+    let mut dir = Vector3::new(0.0, 0.0, 0.0);
+
     for (_, message) in model.midi.poll() {
         match message {
             // shader fx
@@ -176,19 +181,34 @@ fn update(app: &App, model: &mut AppModel, update: Update) {
 
             // Swap scene
             MidiMessage::TopButton(0, true) => {
-                model.param.index = (model.param.index - 1).mod_floor(&3)
+                model.param.index = (model.param.index - 1).mod_floor(&4)
             }
             MidiMessage::TopButton(1, true) => {
-                model.param.index = (model.param.index + 1).mod_floor(&3)
+                model.param.index = (model.param.index + 1).mod_floor(&4)
             }
 
             // Time
             MidiMessage::Knob(6, f) => model.param.t_mul = f,
 
+            MidiMessage::MainButton(0, true) => dir.x = -1.0,
+            MidiMessage::MainButton(1, true) => dir.z = -1.0,
+            MidiMessage::MainButton(2, true) => dir.z = 1.0,
+            MidiMessage::MainButton(3, true) => dir.x = 1.0,
+            MidiMessage::MainButton(4, true) => dir.y = -1.0,
+            MidiMessage::MainButton(5, true) => dir.y = 1.0,
+
             // Effect Buttons
             MidiMessage::MainButton(7, true) => beat_manual = true,
             MidiMessage::MainButton(8, true) => model.decay.set("flash"),
 
+            MidiMessage::Slider(5, f) => {
+                model.church.scene.models[0].objects[39]
+                    .material
+                    .desc
+                    .emissive
+                    .col = nannou::math::cgmath::Vector3::new(0.786, 0.098, 0.048)
+                    + nannou::math::cgmath::Vector3::from_value(0.2) * f
+            }
             MidiMessage::Slider(6, f) => model.param.zoom = f * 0.3,
             MidiMessage::Slider(7, f) => model.param.zoom = f,
             MidiMessage::Slider(8, f) => model.pillars.door = f,
@@ -254,6 +274,9 @@ fn update(app: &App, model: &mut AppModel, update: Update) {
 
     model.temple.update(model.t_pause / 100.0);
 
+    model.church.scene.camera.desc.eye += dir.into();
+    model.church.update(app.time, model.t_pause / 100.0);
+
     let elapsed = start.elapsed();
     log::trace!(
         "Update in {:?} / {}ups",
@@ -296,6 +319,8 @@ fn view(app: &App, model: &AppModel, frame: Frame) {
             model.composite.encode(&mut encoder, model.glitch.view());
         } else if model.param.index == 2 {
             model.temple.draw(device, &mut encoder, &model.glitch.view);
+        } else if model.param.index == 3 {
+            model.church.draw(device, &mut encoder, &model.glitch.view);
         }
 
         model
