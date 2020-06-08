@@ -4,6 +4,7 @@ pub mod interp;
 pub mod midi;
 pub mod osc;
 pub mod time;
+pub mod twitch;
 pub mod wavefront;
 
 pub use wavefront::read_obj;
@@ -47,6 +48,8 @@ pub fn resource(file: &str) -> PathBuf {
 
     let dir = match file.extension() {
         Some(os) => match os.to_str().unwrap() {
+            "txt" => "lorem",
+            "ttf" => "fonts",
             "spv" => "shaders",
             "obj" => "models",
             "mtl" => "models",
@@ -54,6 +57,7 @@ pub fn resource(file: &str) -> PathBuf {
             "png" => "textures",
             "jpg" => "textures",
             "tga" => "textures",
+            "ckf" => "keyframes",
             _ => "",
         },
         None => "",

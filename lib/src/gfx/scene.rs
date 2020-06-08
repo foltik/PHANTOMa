@@ -1,10 +1,11 @@
-use nannou::math::cgmath::{self, Array, Vector3};
+use nannou::math::cgmath::{self, Array, Vector3, Vector4};
 use nannou::wgpu;
 
 use super::camera::{Camera, CameraDesc, CameraMetaUniform, CameraUniform};
 use super::lights::{Lights, LightsInfoUniform, PointLight, PointLightUniform};
 use super::material::MaterialUniform;
 use super::model::{Model, TransformUniform, VertexDescriptor};
+use super::Uniform;
 use super::{Composite, Effect};
 
 use crate as lib;
@@ -13,12 +14,21 @@ pub struct SceneParam {
     pub bloom: f32,
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VertexEffectState {
+    pub vals: Vector4<f32>,
+}
+
 pub struct Scene {
     pub models: Vec<Model>,
     pub lights: Lights,
     pub camera: Camera,
 
     pub do_bloom: bool,
+
+    pub fx: VertexEffectState,
+    pub fx_uniform: Uniform<VertexEffectState>,
 
     lights_group: wgpu::BindGroup,
     camera_group: wgpu::BindGroup,
@@ -46,6 +56,8 @@ impl Scene {
         let lights = Lights::new(device, encoder, ambient, points);
         let camera = Camera::new(device, cam);
 
+        let fx_uniform = Uniform::new(device);
+
         let lights_layout = wgpu::BindGroupLayoutBuilder::new()
             .uniform_buffer(wgpu::ShaderStage::FRAGMENT, false)
             .uniform_buffer(wgpu::ShaderStage::FRAGMENT, false)
@@ -58,10 +70,12 @@ impl Scene {
 
         let camera_layout = wgpu::BindGroupLayoutBuilder::new()
             .uniform_buffer(wgpu::ShaderStage::VERTEX, false)
+            .uniform_buffer(wgpu::ShaderStage::VERTEX, false)
             .uniform_buffer(wgpu::ShaderStage::FRAGMENT, false)
             .build(device);
 
         let camera_group = wgpu::BindGroupBuilder::new()
+            .buffer::<VertexEffectState>(&fx_uniform.buffer, 0..1)
             .buffer::<CameraUniform>(&camera.transform.buffer, 0..1)
             .buffer::<CameraMetaUniform>(&camera.meta.buffer, 0..1)
             .build(device, &camera_layout);
@@ -156,6 +170,8 @@ impl Scene {
             lights,
             camera,
 
+            fx: VertexEffectState { vals: Vector4::from_value(0.0) },
+            fx_uniform,
             do_bloom,
 
             lights_group,
@@ -174,6 +190,8 @@ impl Scene {
     }
 
     pub fn update(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) {
+        self.fx_uniform.upload(device, encoder, self.fx.clone());
+
         self.lights.update(device, encoder);
         self.camera.update(device, encoder);
 

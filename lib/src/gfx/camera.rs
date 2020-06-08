@@ -1,4 +1,7 @@
-use nannou::math::cgmath::{self, Deg, Matrix4, Point3, Vector3, Vector4};
+use nannou::math::cgmath::{
+    self, Deg, EuclideanSpace, Euler, Matrix4, Point3, Rad, Vector3, Vector4,
+};
+use nannou::prelude::TAU;
 use nannou::wgpu;
 
 use super::Uniform;
@@ -18,17 +21,20 @@ pub struct CameraUniform {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct CameraMetaUniform {
-    eye: Vector4<f32>,
+    pos: Vector4<f32>,
+}
+
+#[derive(Debug)]
+pub enum CameraRotation {
+    LookAt(Vector3<f32>),
+    EulerAngles(Vector3<f32>),
 }
 
 #[derive(Debug)]
 pub struct CameraDesc {
-    pub eye: Point3<f32>,
-    pub target: Point3<f32>,
-    pub up: Vector3<f32>,
+    pub pos: Vector3<f32>,
+    pub rotation: CameraRotation,
     pub fov: f32,
-    pub near: f32,
-    pub far: f32,
 }
 
 pub struct Camera {
@@ -53,8 +59,24 @@ impl Camera {
 
     fn transform(&self) -> CameraUniform {
         let d = &self.desc;
-        let view = Matrix4::look_at(d.eye, d.target, d.up);
-        let proj = cgmath::perspective(Deg(d.fov / super::ASPECT), super::ASPECT, d.near, d.far);
+
+        let view = match d.rotation {
+            CameraRotation::LookAt(target) => Matrix4::look_at(
+                Point3::from_vec(d.pos),
+                Point3::from_vec(target),
+                -Vector3::unit_y(),
+            ),
+            CameraRotation::EulerAngles(a) => {
+                Matrix4::from(Euler::new(Rad(a.x), Rad(a.y), Rad(a.z)))
+                    * Matrix4::look_at(
+                        Point3::from_vec(d.pos),
+                        Point3::new(d.pos.x + 0.000001, d.pos.y - 1.0, d.pos.z),
+                        -Vector3::unit_y(),
+                    )
+            }
+        };
+
+        let proj = cgmath::perspective(Deg(d.fov / super::ASPECT), super::ASPECT, 0.1, 1000.0);
 
         CameraUniform { view, proj }
     }
@@ -62,7 +84,7 @@ impl Camera {
     fn meta(&self) -> CameraMetaUniform {
         let d = &self.desc;
         CameraMetaUniform {
-            eye: Vector4::new(d.eye.x, d.eye.y, d.eye.z, 0.0),
+            pos: Vector4::new(d.pos.x, d.pos.y, d.pos.z, 0.0),
         }
     }
 }

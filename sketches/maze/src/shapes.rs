@@ -1,4 +1,5 @@
 use nannou::draw::Draw;
+use nannou::geom::Range;
 use nannou::prelude::*;
 use nannou::text::Font;
 
@@ -8,6 +9,104 @@ fn circle_pt(angle: f32) -> Point2 {
 
 fn poly_pts(n: i32, angle: f32) -> impl Iterator<Item = Point2> {
     (0..n).map(move |i| circle_pt(i as f32 / n as f32 * TAU + angle))
+}
+
+fn rand(seed: f32) -> f32 {
+    let p = pt2(seed + 10.0, seed + 3.0);
+    let dt = p.perp_dot(pt2(12.9898, 78.233));
+    let sn = dt % 3.14;
+    2.0 * (sn.sin() * 43758.5453).fract() - 1.0
+}
+
+pub fn rnames(draw: &Draw, font: Font, f: f32, t: f32) {
+    let res = pt2(1920.0, 1080.0) / 2.0;
+
+    let n = 4.0;
+    for (j, txt) in ["THOMAS LEGACY", "FOLTIK"].iter().enumerate() {
+        for i in 0..n as u32 {
+            let (i, j) = (i as f32, j as f32);
+            let pos = pt2(
+                rand((i + 5.0 + j * 10.0) * (t * Range::new(5.0, 12.0).lerp(f)).floor()),
+                rand((i + 5.0 + j * 100.0) * (t * Range::new(5.0, 12.0).lerp(f)).floor() + 1.0),
+            ) * res
+                * 0.95;
+            draw.text(txt)
+                .font(font.clone())
+                .xy(pos)
+                .width(1000.0)
+                .font_size(48)
+                .color(Rgba::new(
+                    1.0,
+                    1.0,
+                    1.0,
+                    Range::new(0.02 * f, 0.0).lerp(i / n),
+                ));
+        }
+    }
+}
+
+pub fn fnames(draw: &Draw, font: Font, f: f32, t: f32) {
+    let res = pt2(1920.0, 1080.0) / 2.0;
+
+    let n = 4.0;
+    for (j, txt) in ["THOMAS LEGACY", "FOLTIK"].iter().enumerate() {
+        for i in 0..n as u32 {
+            for k in 0..3 {
+                let (i, j, k) = (i as f32, j as f32, k as f32);
+
+                let tt = t * Range::new(0.2, 0.8).lerp(f);
+                let ti = tt.floor() + k;
+                let tfr = tt.fract() - rand((i + 5.0 + j * 20.0) * (ti + 5.0));
+
+                let pos = pt2(tfr * 2.0, rand((i + 5.0 + j * 20.0) * (ti + 10.0))) * res - (res * 0.5);
+                draw.text(txt)
+                    .font(font.clone())
+                    .xy(pos)
+                    .width(1000.0)
+                    .font_size(48)
+                    .color(Rgba::new(
+                        1.0,
+                        1.0,
+                        1.0,
+                        Range::new(0.02 * f, 0.0).lerp(i / n),
+                    ));
+                }
+        }
+    }
+}
+
+pub fn orbit(draw: &Draw, p: &Point2, r: f32, t: f32, alpha: f32) {
+    let t = t / 500.0;
+    let draw = draw.translate(pt3(p.x, p.y, 0.0)).rotate(t);
+
+    let c = Rgba::new(1.0, 1.0, 1.0, alpha);
+
+    draw.ellipse()
+        .radius(r)
+        .no_fill()
+        .stroke(c)
+        .stroke_weight(1.0);
+
+    let p = pt2(t.cos(), t.sin()) * r;
+
+    draw.ellipse().radius(15.0).color(c).xy(p);
+
+    draw.ellipse()
+        .radius(18.0)
+        .no_fill()
+        .stroke(c)
+        .stroke_weight(1.0)
+        .xy(p);
+
+    let draw = draw.translate(pt3(p.x, p.y, 0.0)).rotate(t * 15.0);
+
+    draw.ellipse()
+        .radius(60.0)
+        .no_fill()
+        .stroke(c)
+        .stroke_weight(1.0);
+
+    draw.ellipse().radius(5.0).color(c).x(60.0);
 }
 
 //#[rustfmt_skip]
@@ -26,15 +125,10 @@ pub fn demon1(draw: &Draw, font: Font, p: &Point2, r: f32, t: f32) {
 
     // Second layer double ring
     draw.ellipse()
-        .radius(r * 0.83)
+        .radius(r * 0.86)
         .no_fill()
         .stroke(WHITE)
-        .stroke_weight(1.0);
-    draw.ellipse()
-        .radius(r * 0.85)
-        .no_fill()
-        .stroke(WHITE)
-        .stroke_weight(1.0);
+        .stroke_weight(3.0);
 
     // Outer triangles
     draw.polygon()
@@ -46,11 +140,14 @@ pub fn demon1(draw: &Draw, font: Font, p: &Point2, r: f32, t: f32) {
         .no_fill()
         .stroke(WHITE)
         .stroke_weight(1.0)
-        .points(tri1.iter().map(|p| *p));
+        .points(tri1.iter().map(|p| *p * 1.2));
 
     // Triangle point to center lines
-    tri0.iter().chain(tri1.iter()).for_each(|p| {
+    tri0.iter().for_each(|p| {
         draw.line().color(WHITE).start(*p).end(pt2(0.0, 0.0));
+    });
+    tri1.iter().for_each(|p| {
+        draw.line().color(WHITE).start(*p * 1.2).end(pt2(0.0, 0.0));
     });
 
     // Triangle point rune circles

@@ -2,7 +2,12 @@ use nannou::math::cgmath::{EuclideanSpace, Point3, Vector2, Vector3};
 use nannou::wgpu;
 
 use lib::{
-    gfx::{camera::CameraDesc, lights::PointLight, model::Model, scene::Scene},
+    gfx::{
+        camera::{CameraDesc, CameraRotation},
+        lights::PointLight,
+        model::Model,
+        scene::Scene,
+    },
     interp::{self, Spline},
 };
 
@@ -24,12 +29,9 @@ impl Maze {
             encoder,
             vec![model],
             CameraDesc {
-                eye: (0.0, 0.75, 0.0).into(),
-                target: (0.0, 0.75, 1.0).into(),
-                up: -Vector3::unit_y(),
+                pos: Vector3::new(0.0, 0.75, 0.0),
+                rotation: CameraRotation::LookAt(Vector3::new(0.0, 0.75, 1.0)),
                 fov: 90.0,
-                near: 0.1,
-                far: 100.0,
             },
             0.0,
             vec![PointLight {
@@ -70,11 +72,11 @@ impl Maze {
         let next = self.path.sample((t + 0.1) % 25.0).unwrap();
 
         let cam = &mut self.scene.camera.desc;
-        cam.eye = Point3::new(curr.x, 0.75, curr.y);
-        cam.target = Point3::new(next.x, 0.75, next.y);
+        cam.pos = Vector3::new(curr.x, 0.75, curr.y);
+        cam.rotation = CameraRotation::LookAt(Vector3::new(next.x, 0.75, next.y));
 
         let light = &mut self.scene.lights.points[0];
-        light.pos = cam.eye.to_vec();
+        light.pos = cam.pos;
     }
 
     pub fn draw(

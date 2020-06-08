@@ -1,10 +1,19 @@
-use nannou::math::cgmath::{Point3, Vector3};
+use nannou::math::cgmath::{Vector2, Vector3, Array};
+use nannou::geom::Range;
+use nannou::prelude::{TAU, PI};
 use nannou::wgpu;
 
-use lib::gfx::{camera::CameraDesc, lights::PointLight, model::Model, scene::Scene};
+use lib::gfx::{
+    camera::{CameraDesc, CameraRotation},
+    lights::PointLight,
+    model::Model,
+    scene::Scene,
+};
 
 pub struct Temple {
     pub scene: Scene,
+    pub brightness: f32,
+    pub red: f32,
 }
 
 impl Temple {
@@ -20,12 +29,9 @@ impl Temple {
             encoder,
             vec![model],
             CameraDesc {
-                eye: (12.0, -1.0, 0.0).into(),
-                target: (0.0, -1.5, 0.0).into(),
-                up: -Vector3::unit_y(),
+                pos: Vector3::new(12.0, -1.0, 0.0),
+                rotation: CameraRotation::LookAt(Vector3::new(0.0, -1.5, 0.0)),
                 fov: 90.0,
-                near: 0.1,
-                far: 100.0,
             },
             0.0,
             vec![
@@ -67,13 +73,33 @@ impl Temple {
             ],
         );
 
-        Self { scene }
+        Self { scene, brightness: 0.0, red: 0.0 }
     }
 
     pub fn update(&mut self, t: f32) {
         let cam = &mut self.scene.camera.desc;
-        cam.eye = Point3::new(t.cos() * 12.0, -1.0, t.sin() * 12.0);
-        cam.target = Point3::new(0.0, -1.5, 0.0);
+
+        let pd = 5.0;
+        let hpd = pd / 2.0;
+
+        let dt = 1.25 * PI;
+        let ct = ((((t * 0.5)) % pd - hpd).abs() / hpd) * 0.5 * PI;
+        let cr = 8.0 + 4.0 * ((t * 0.25).sin() * 0.5 + 0.5);
+        let cpos = Vector2::new((ct + dt).cos(), (ct + dt).sin()) * cr;
+
+        cam.pos = Vector3::new(cpos.x, -1.0, cpos.y);
+        cam.rotation = CameraRotation::LookAt(Vector3::new(0.0, -1.0, 0.0));
+
+        let emissive = &mut self.scene.models[0].objects[0];
+        let gb = Range::new(1.0, 0.5 - self.red).lerp(self.brightness);
+        let color = Vector3::new(1.0, gb, gb);
+        emissive.material.desc.emissive.col = color;
+        emissive.material.desc.diffuse.col = color;
+        emissive.material.desc.specular.col = Vector3::from_value(0.0);
+
+        for light in &mut self.scene.lights.points {
+            light.diffuse = color;
+        }
     }
 
     pub fn draw(

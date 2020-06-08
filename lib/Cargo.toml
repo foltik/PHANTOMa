@@ -22,3 +22,5 @@ rustfft = "3.0.1"
 midir = { version = "0.5.0", features = ["jack"] }
 nannou_osc = "0.14.0"
 crossbeam-queue = "0.2.1"
+twitchchat = "0.10.3"
+tokio = { version = "0.2.21", features = ["full", "macros"] }

@@ -51,7 +51,7 @@ impl Midi {
         let mut state = State {
             queue: Arc::clone(&queue),
             encoder: 0,
-            bank: MidiBank::B0
+            bank: MidiBank::B0,
         };
 
         let conn = midi
@@ -67,8 +67,10 @@ impl Midi {
                             let fl = state as f32 / 126.0;
 
                             match cc {
-                                1..=2 => MidiMessage::BankButton(cc, on),
-                                9     => MidiMessage::Fader((std::cmp::max(state, 1) - 1) as f32 / 126.0),
+                                1..=2 => MidiMessage::BankButton(cc - 1, on),
+                                9 => {
+                                    MidiMessage::Fader((std::cmp::max(state, 1) - 1) as f32 / 126.0)
+                                }
                                 14..=22 => MidiMessage::Knob(cc - 14, fl),
                                 23..=31 => MidiMessage::MainButton(cc - 23, on),
                                 32..=40 => MidiMessage::Slider(cc - 32, fl),
@@ -101,7 +103,7 @@ impl Midi {
                                 1 => MidiBank::B1,
                                 2 => MidiBank::B2,
                                 3 => MidiBank::B3,
-                                _ => panic!("Unknown MIDI bank")
+                                _ => panic!("Unknown MIDI bank"),
                             };
                             MidiMessage::Bank(b)
                         }
@@ -114,10 +116,7 @@ impl Midi {
             )
             .unwrap();
 
-        Self {
-            conn,
-            queue,
-        }
+        Self { conn, queue }
     }
 
     pub fn poll(&self) -> Vec<(MidiBank, MidiMessage)> {
