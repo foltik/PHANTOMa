@@ -27,7 +27,7 @@ layout(set = 0, binding = 1) uniform PointLights {
     PointLight lights[16];
 } point_lights;
 
-layout(set = 1, binding = 1) uniform Camera {
+layout(set = 1, binding = 2) uniform Camera {
     vec4 eye;
 } cam;
 
@@ -78,6 +78,7 @@ void main() {
 
     float ambient = lights.info[0];
     res += ambient * col;
+    res += (1.0 - s.ambient) * col;
 
     vec3 dir = normalize(cam.eye.xyz - pos);
 

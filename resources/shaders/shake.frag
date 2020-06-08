@@ -172,11 +172,14 @@ vec3 glitch_vhs(float tt, float amt) {
 void main() {
     vec3 img = texture(sampler2D(img, samp), tex).rgb;
 
-    if (u.glitch > 0.0 || u.mega > 0.0)
-        img = glitch_blocks(u.tc * 1.0 + min(u.glitch + u.mega, 1.0), min(u.glitch + u.mega, 1.0));
+    if (u.red > 0.0 || u.mega > 0.0)
+        img = 0.2 * u.red * img + cloth(u.tc, min((u.red + u.mega) / 2.0, 1.0)).rgb;
 
-    if (u.glitch_mo > 0.0)
-        img = glitch_blocks(u.tc, u.glitch_mo);
+    if (u.flash > 0.0)
+        img = shake(u.t, min(u.flash + u.mega, 1.0)).rgb;
+
+    img.r += dot(img, vec3(0.299, 0.587, 0.114)) * 0.4 * u.red;
+    img.r += 0.2 * u.flash;
 
     color = vec4(img, 1.0);
 }

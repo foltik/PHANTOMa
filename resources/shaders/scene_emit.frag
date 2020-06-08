@@ -9,7 +9,7 @@ layout(location = 2) in vec3 pos;
 
 layout(location = 0) out vec4 color;
 
-layout(set = 1, binding = 1) uniform Camera {
+layout(set = 1, binding = 2) uniform Camera {
     vec4 eye;
 } cam;
 

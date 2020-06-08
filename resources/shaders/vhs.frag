@@ -172,11 +172,8 @@ vec3 glitch_vhs(float tt, float amt) {
 void main() {
     vec3 img = texture(sampler2D(img, samp), tex).rgb;
 
-    if (u.glitch > 0.0 || u.mega > 0.0)
-        img = glitch_blocks(u.tc * 1.0 + min(u.glitch + u.mega, 1.0), min(u.glitch + u.mega, 1.0));
-
-    if (u.glitch_mo > 0.0)
-        img = glitch_blocks(u.tc, u.glitch_mo);
+    if (u.vhs > 0.0)
+        img = glitch_vhs(u.tc, u.vhs);
 
     color = vec4(img, 1.0);
 }
