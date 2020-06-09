@@ -1,6 +1,8 @@
 * PHANTOMa Online
 Merge reality with the virtual world.
 
+[[https://www.youtube.com/watch?v=4pUbL82KnCE][http://img.youtube.com/vi/4pUbL82KnCE/0.jpg]]
+
 ** Goals
 *** Audio
 - [X] Send/Receive with JACK
