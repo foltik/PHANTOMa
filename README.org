@@ -13,7 +13,7 @@ Merge reality with the virtual world.
 - [ ] Swappable profiles with generic outputs
 *** OSC
 - [X] Send/Receive with nannou_osc
-- [ ] Mixxx plugin
+- [X] Mixxx plugin
 - [ ] Supercollider Control
 *** Video
 - [ ] Playback
@@ -21,9 +21,8 @@ Merge reality with the virtual world.
 *** API
 - [ ] RPC Hooks
 *** Rendering
-- [25%] WebGPU Abstraction Primitives
-- [ ] WebGPU Wrappers
-- [ ] Render Graph Builder
+- [X] WebGPU Abstraction Primitives
+- [X] WebGPU Wrappers
 - [ ] Data driven pipelines with spirv-reflect
 - [ ] Data driven UI generation
 ** Links
