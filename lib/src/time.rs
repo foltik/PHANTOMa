@@ -1,5 +1,4 @@
 use crate::audio::Audio;
-use crate::bpm_ms;
 
 use std::collections::HashMap;
 
@@ -96,7 +95,7 @@ impl BeatClock {
 
     pub fn update(&mut self, delta: f32) -> bool {
         self.acc += delta;
-        let ms = bpm_ms(self.bpm) * self.mul;
+        let ms = convert::bpm_ms(self.bpm) * self.mul;
 
         if self.acc >= ms {
             self.acc = self.acc - ms;
@@ -136,7 +135,7 @@ impl BeatDetect {
         let (e, e0) = (audio.rms_range(self.f0, self.f1), self.e0);
         self.e0 = e;
 
-        self.decay.update(delta / bpm_ms(self.bpm_max));
+        self.decay.update(delta / convert::bpm_ms(self.bpm_max));
 
         if e - e0 > self.thres && self.decay.off() {
             self.decay.set();
@@ -145,4 +144,20 @@ impl BeatDetect {
             false
         }
     }
+}
+
+pub mod convert {
+    pub fn bpm_ms(bpm: f32) -> f32 {
+        (1.0 / bpm) * 60.0 * 1000.0
+    }
+
+    pub fn ms_bpm(ms: f32) -> f32 {
+        1.0 / (ms / 1000.0 / 60.0)
+    }
+
+    // pub fn fps_ms(fps: f32) -> f32 {
+    // }
+
+    // pub fn ms_fps(ms: f32) -> f32 {
+    // }
 }

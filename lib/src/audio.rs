@@ -43,9 +43,9 @@ pub fn dbfs(v: f32) -> f32 {
     20.0 * (v + 0.0001).log10()
 }
 
-pub struct AudioClient<N, P> {
+pub struct AudioClient {
     #[allow(dead_code)]
-    client: jack::AsyncClient<N, P>,
+    // client: jack::AsyncClient<N, P>,
     samples: Frame,
     samples_rx: Consumer<Frame>,
     fft: FFT,
@@ -72,7 +72,7 @@ pub trait Audio {
     }
 }
 
-impl<N, P> Audio for AudioClient<N, P> {
+impl Audio for AudioClient {
     fn update(&mut self) {
         if !self.samples_rx.is_empty() {
             drain(&mut self.samples_rx, &mut self.samples);
@@ -118,30 +118,36 @@ pub fn init() -> impl Audio {
     let fft_buffer = RingBuffer::<FFT>::new(FFT_QUEUE_SIZE);
     let (fft_tx, fft_rx) = fft_buffer.split();
 
-    // Create the JACK processing thread
-    let mut process_buffer = FRAME_EMPTY.clone();
-    let process = jack::ClosureProcessHandler::new(
-        move |j: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
-            process(
-                j,
-                ps,
-                &in_left,
-                &in_right,
-                &mut process_buffer,
-                &mut jack_analyze_tx,
-                &mut jack_main_tx,
-            )
-        },
-    );
+    thread::spawn(move || {
+        // Create the JACK processing thread
+        let mut process_buffer = FRAME_EMPTY.clone();
+        let process = jack::ClosureProcessHandler::new(
+            move |j: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
+                process(
+                    j,
+                    ps,
+                    &in_left,
+                    &in_right,
+                    &mut process_buffer,
+                    &mut jack_analyze_tx,
+                    &mut jack_main_tx,
+                )
+            },
+        );
+
+        // Activate the JACK processing thread
+        let _client = client.activate_async(Notifications, process).unwrap();
+
+        loop {
+            thread::park();
+        }
+    });
 
     // Create the analysis thread
     thread::spawn(move || analyze(jack_analyze_rx, fft_tx));
 
-    // Activate the JACK processing thread
-    let client = client.activate_async(Notifications, process).unwrap();
-
     AudioClient {
-        client,
+        // client,
         fft_rx,
         samples: FRAME_EMPTY.clone(),
         samples_rx: jack_main_rx,
@@ -150,8 +156,8 @@ pub fn init() -> impl Audio {
 }
 
 pub fn transmit<T: Copy>(tx: &mut Producer<T>, t: &T) {
-    while tx.is_full() {
-        thread::sleep(std::time::Duration::from_millis(1));
+    if tx.is_full() {
+        return;
     }
 
     let n = tx.push_slice(std::slice::from_ref(t));

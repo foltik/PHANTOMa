@@ -39,8 +39,8 @@ impl Midi {
         let mut midi = MidiInput::new("PHANTOMa_MIDI").unwrap();
         midi.ignore(Ignore::None);
 
-        for i in 0..midi.port_count() {
-            println!("MIDI {}: {}", i, midi.port_name(i).unwrap());
+        for (i, p) in midi.ports().iter().enumerate() {
+            println!("MIDI {}: {}", i, midi.port_name(p).unwrap());
         }
 
         struct State {
@@ -54,9 +54,11 @@ impl Midi {
             bank: MidiBank::B0,
         };
 
+        let p = &midi.ports()[0];
+
         let conn = midi
             .connect(
-                1,
+                p,
                 "midi_in",
                 move |_stamp, raw, _| {
                     let message = match raw[0] {

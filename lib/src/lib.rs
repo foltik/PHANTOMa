@@ -1,99 +1,81 @@
-pub mod audio;
+pub mod prelude;
+pub mod app;
+pub mod resource;
+pub mod window;
 pub mod gfx;
-pub mod interp;
+pub mod audio;
+// pub mod interp;
 pub mod midi;
-pub mod osc;
+// pub mod osc;
 pub mod time;
-pub mod twitch;
-pub mod wavefront;
+// pub mod twitch;
+// pub mod wavefront;
 
-pub use wavefront::read_obj;
+pub use cgmath;
 
-use log::*;
-use nannou::geom::pt2;
-use nannou::wgpu;
+// pub use wavefront::read_obj;
 
-use wavefront_obj::{mtl, mtl::Material, obj};
+// use nannou::geom::pt2;
+// use nannou::wgpu;
 
-use std::env;
-use std::path::{Path, PathBuf};
+// use nannou::app::{ModelFn, UpdateFn, ViewFn};
+
+//use wavefront_obj::{mtl, mtl::Material, obj};
+
+//use std::env;
+//use std::path::{Path, PathBuf};
 
 // TODO: Put this shit in multiple files
 
 // TODO: Global font store
 
-pub fn bpm_ms(bpm: f32) -> f32 {
-    (1.0 / bpm) * 60.0 * 1000.0
+pub fn app<M: 'static>(model: app::ModelFn<M>) -> app::Builder<M> {
+    app::Builder::new(model)
 }
 
-pub fn ms_bpm(ms: f32) -> f32 {
-    1.0 / (ms / 1000.0 / 60.0)
-}
+/*
+pub fn init() {
+    let args: Vec<String> = std::env::args().collect();
 
-pub const RESOURCES_PATH: &'static str = "resources/";
-pub fn resource(file: &str) -> PathBuf {
-    let curr = env::current_exe().unwrap();
-    // TODO: Recursively search for resources dir
-    let resources = curr // phantoma/sketches/___/target/debug/___
-        .parent()
-        .unwrap() // sketches/___/target/debug/
-        .parent()
-        .unwrap() // sketches/___/target/
-        .parent()
-        .unwrap() // sketches/___/
-        //.parent().unwrap() // sketches/
-        //.parent().unwrap() // /
-        .join(RESOURCES_PATH); // sketches/resources/
-    let file = Path::new(Path::new(file).file_name().unwrap());
+    // wtf?
+    let module: String = std::env::current_exe()
+        .unwrap()
+        .file_name()
+        .unwrap()
+        .to_owned()
+        .into_string()
+        .unwrap();
 
-    let dir = match file.extension() {
-        Some(os) => match os.to_str().unwrap() {
-            "txt" => "lorem",
-            "ttf" => "fonts",
-            "spv" => "shaders",
-            "obj" => "models",
-            "mtl" => "models",
-            "dds" => "textures",
-            "png" => "textures",
-            "jpg" => "textures",
-            "tga" => "textures",
-            "ckf" => "keyframes",
-            _ => "",
-        },
-        None => "",
+    let mut app_level = "error";
+    for s in args {
+        match s.as_str() {
+            "-v" => app_level = "info",
+            "-vv" => app_level = "debug",
+            "-vvv" => app_level = "trace",
+            _ => {}
+        }
+    }
+
+    if app_level != "error" {
+        std::env::set_var("RUST_BACKTRACE", "1");
+    }
+
+    let global_level = match std::env::var("RUST_LOG") {
+        Ok(s) => format!(",{}", s),
+        _ => "".to_string(),
     };
 
-    resources.join(dir).join(file)
+    std::env::set_var(
+        "RUST_LOG",
+        format!("lib={},{}={}{}", app_level, module, app_level, global_level),
+    );
+
+    pretty_env_logger::init();
 }
+*/
 
-pub fn read_resource(file: &str) -> String {
-    std::fs::read_to_string(resource(file)).expect(&format!("{} not found", file))
-}
 
-pub fn read_resource_raw(file: &str) -> Vec<u8> {
-    std::fs::read(resource(file)).expect(&format!("{} not found", file))
-}
-
-pub fn read_resource_buffered(file: &str) -> impl std::io::BufRead {
-    let file = std::fs::File::open(resource(file)).expect(&format!("{} not found", file));
-    std::io::BufReader::new(file)
-}
-
-pub fn read_model(file: &str) -> Vec<ObjectData> {
-    let set = obj::parse(read_resource(file)).unwrap();
-    let mtl = mtl::parse(read_resource(&set.material_library.unwrap())).unwrap();
-
-    set.objects
-        .into_iter()
-        .map(|o| ObjectData::from(o, &mtl.materials))
-        .collect()
-}
-
-// TODO: put this in gfx?
-pub fn read_shader(device: &wgpu::Device, file: &str) -> wgpu::ShaderModule {
-    wgpu::shader_from_spirv_bytes(device, &read_resource_raw(file))
-}
-
+/*
 pub fn init_logging(level: u8) {
     // if RUST_BACKTRACE is set, ignore the arg given and set `trace` no matter what
     let mut overridden = false;
@@ -230,3 +212,4 @@ impl MeshData {
         }
     }
 }
+*/

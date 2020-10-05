@@ -5,22 +5,38 @@ authors = ["Jack Foltz <jack@foltz.io>"]
 edition = "2018"
 
 [dependencies]
+# Gfx
+winit = "0.23.0"
+wgpu = "0.6.0"
+
+# Gfx Support
+wavefront_obj = "8.0.0"
+obj = "0.10.1"
+
 # Lib
-nannou = "0.14.0"
-log = "0.4.8"
+#nannou = "0.14.0"
+#nannou = { path = "/home/lain/Documents/dev/nannou/nannou" }
+log = "0.4.11"
 pretty_env_logger = "0.4.0"
-splines = { version = "3.3.0", features = ["impl-cgmath"] }
-# Graphics
-wavefront_obj = "7.0.0"
-obj = "0.10.0"
+
+# Math
+cgmath = "0.17.0"
+splines = { version = "3.4.1", features = ["impl-cgmath"] }
+
+# Data
+safe-transmute = "0.11.0"
+
 # Audio
-jack = "0.6.2"
+jack = "0.6.5"
 apodize = "1.0.0"
-ringbuf = "0.2.1"
+ringbuf = "0.2.2"
 rustfft = "3.0.1"
+
 # MIDI / OSC
-midir = { version = "0.5.0", features = ["jack"] }
+midir = { version = "0.7", features = ["jack"] }
 nannou_osc = "0.14.0"
-crossbeam-queue = "0.2.1"
-twitchchat = "0.10.3"
-tokio = { version = "0.2.21", features = ["full", "macros"] }
+crossbeam-queue = "0.2.3"
+# twitchchat = { version = "0.13", features = ["async"]}
+
+# Async
+async-std = { version = "1.6.5", features = [] }

@@ -1,8 +1,8 @@
 use crossbeam_queue::SegQueue;
 use std::collections::VecDeque;
 use std::sync::Arc;
-use tokio::stream::StreamExt;
-use twitchchat::{events, Dispatcher, Runner, Status};
+// use twitchchat::{events, Dispatcher, Runner, Status};
+use twitchchat::{UserConfig};
 
 #[derive(Debug)]
 pub struct TwitchMessage {
@@ -20,6 +20,8 @@ pub struct Twitch {
 impl Twitch {
     pub fn init() -> Self {
         let queue = Arc::new(SegQueue::new());
+
+        let config = UserConfig::builder()
 
         let input_queue = Arc::clone(&queue);
         tokio::task::spawn(async move {

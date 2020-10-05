@@ -8,6 +8,7 @@ use crate as lib;
 pub type Vertex = ([f32; 3], [f32; 2], [f32; 3]);
 
 pub struct VertexDescriptor;
+/*
 impl wgpu::VertexDescriptor for VertexDescriptor {
     const STRIDE: wgpu::BufferAddress = std::mem::size_of::<Vertex>() as wgpu::BufferAddress;
     const ATTRIBUTES: &'static [wgpu::VertexAttributeDescriptor] = &[
@@ -28,6 +29,7 @@ impl wgpu::VertexDescriptor for VertexDescriptor {
         },
     ];
 }
+*/
 
 pub struct Mesh {
     pub verts: Vec<Vertex>,

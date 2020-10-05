@@ -1,0 +1,9 @@
+[package]
+name = "async"
+version = "0.1.0"
+authors = ["Jack Foltz <jack@foltz.io>"]
+edition = "2018"
+
+[dependencies]
+lib = { path = "../../lib" }
+log = "0.4"

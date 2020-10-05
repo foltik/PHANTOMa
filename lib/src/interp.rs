@@ -1,11 +1,9 @@
-use nannou::math::cgmath::{MetricSpace, Vector3};
-use nannou::prelude::TAU;
+use cgmath::{MetricSpace, Vector3};
+// use std::f32::consts::TAU;
 use splines::{Interpolation, Key};
 
 pub use splines::Spline;
 
-use crate as lib;
-use crate::gfx::camera::{Camera, CameraRotation};
 
 // Compute partial sums of distances between each point
 pub fn partial_distance<T: MetricSpace<Metric = f32> + Copy>(points: &[T]) -> Vec<f32> {
@@ -110,55 +108,55 @@ pub struct CameraPath3D {
     t: f32,
 }
 
-impl CameraPath3D {
-    pub fn new(file: &str, t: f32) -> Self {
-        let data = lib::read_resource(file);
+// impl CameraPath3D {
+//     pub fn new(file: &str, t: f32) -> Self {
+//         //let data = lib::read_resource(file);
 
-        let mut keyframes = data
-            .split("\n")
-            .map(|line| line.split(",").map(|f| f.parse::<f32>().unwrap()));
+//         let mut keyframes = data
+//             .split("\n")
+//             .map(|line| line.split(",").map(|f| f.parse::<f32>().unwrap()));
 
-        let rx = keyframes.next().unwrap();
-        let ry = keyframes.next().unwrap();
-        let rz = keyframes.next().unwrap();
-        let angles = rx
-            .zip(ry)
-            .zip(rz)
-            .map(|((x, y), z)| Vector3::new(x, y, z + TAU / 4.0))
-            .collect::<Vec<_>>();
+//         let rx = keyframes.next().unwrap();
+//         let ry = keyframes.next().unwrap();
+//         let rz = keyframes.next().unwrap();
+//         let angles = rx
+//             .zip(ry)
+//             .zip(rz)
+//             .map(|((x, y), z)| Vector3::new(x, y, z + TAU / 4.0))
+//             .collect::<Vec<_>>();
 
-        let px = keyframes.next().unwrap();
-        let py = keyframes.next().unwrap();
-        let pz = keyframes.next().unwrap();
-        let points = px
-            .zip(py)
-            .zip(pz)
-            .map(|((x, y), z)| Vector3::new(x, z, y))
-            .collect::<Vec<_>>();
+//         let px = keyframes.next().unwrap();
+//         let py = keyframes.next().unwrap();
+//         let pz = keyframes.next().unwrap();
+//         let points = px
+//             .zip(py)
+//             .zip(pz)
+//             .map(|((x, y), z)| Vector3::new(x, z, y))
+//             .collect::<Vec<_>>();
 
-        let position = linear(&points, t);
-        let rotation = linear(&angles, t);
+//         let position = linear(&points, t);
+//         let rotation = linear(&angles, t);
 
-        Self {
-            position,
-            rotation,
-            t,
-        }
-    }
+//         Self {
+//             position,
+//             rotation,
+//             t,
+//         }
+//     }
 
-    fn update_internal(&self, camera: &mut Camera, t: f32) {
-        let pos = self.position.sample(t).unwrap();
-        let rot = self.rotation.sample(t).unwrap();
+//     fn update_internal(&self, camera: &mut Camera, t: f32) {
+//         let pos = self.position.sample(t).unwrap();
+//         let rot = self.rotation.sample(t).unwrap();
 
-        camera.desc.pos = pos;
-        camera.desc.rotation = CameraRotation::EulerAngles(rot);
-    }
+//         camera.desc.pos = pos;
+//         camera.desc.rotation = CameraRotation::EulerAngles(rot);
+//     }
 
-    pub fn update(&self, camera: &mut Camera, t: f32) {
-        self.update_internal(camera, t % self.t);
-    }
+//     pub fn update(&self, camera: &mut Camera, t: f32) {
+//         self.update_internal(camera, t % self.t);
+//     }
 
-    pub fn update_clamp(&self, camera: &mut Camera, t: f32) {
-        self.update_internal(camera, t.min(self.t));
-    }
-}
+//     pub fn update_clamp(&self, camera: &mut Camera, t: f32) {
+//         self.update_internal(camera, t.min(self.t));
+//     }
+// }

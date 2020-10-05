@@ -1,10 +1,9 @@
-use nannou::math::cgmath::{
+use cgmath::{
     self, Deg, EuclideanSpace, Euler, Matrix4, Point3, Rad, Vector3, Vector4,
 };
-use nannou::prelude::TAU;
-use nannou::wgpu;
+// use std::f32::consts::TAU;
 
-use super::Uniform;
+//use super::Uniform;
 
 // TODO: Have a Uniform trait that we can derive to
 // auto generate thing that returns self.clone
