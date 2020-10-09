@@ -2,13 +2,13 @@ use std::marker::PhantomData;
 
 use super::frame::Frame;
 
-pub struct Uniform<T: Copy + Clone + 'static> {
+pub struct Uniform<T: Copy> {
     pub buffer: wgpu::Buffer,
     pub staging: wgpu::Buffer,
     data: PhantomData<T>,
 }
 
-impl<T: Copy + Clone + 'static> Uniform<T> {
+impl<T: Copy> Uniform<T> {
     const SIZE: wgpu::BufferAddress = std::mem::size_of::<T>() as wgpu::BufferAddress;
 
     pub fn new(device: &wgpu::Device, label: &'static str) -> Self {
@@ -78,12 +78,18 @@ impl<T: Copy + Clone + 'static> Uniform<T> {
     }
 }
 
-pub struct UniformStorage<T: Copy + Clone + 'static> {
+impl<T: Copy> AsRef<Uniform<T>> for Uniform<T> {
+    fn as_ref(&self) -> &Uniform<T> {
+        self
+    }
+}
+
+pub struct UniformStorage<T: Copy> {
     pub v: T,
     pub uniform: Uniform<T>,
 }
 
-impl<T: Copy + Clone + 'static> UniformStorage<T> {
+impl<T: Copy> UniformStorage<T> {
     pub fn new(device: &wgpu::Device, label: &'static str, v: T) -> Self {
         Self {
             v,
@@ -97,5 +103,25 @@ impl<T: Copy + Clone + 'static> UniformStorage<T> {
 
     pub fn buffer(&self) -> &wgpu::Buffer {
         self.uniform.buffer()
+    }
+}
+
+impl<T: Copy> std::ops::Deref for UniformStorage<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.v
+    }
+}
+
+impl<T: Copy> std::ops::DerefMut for UniformStorage<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.v
+    }
+}
+
+impl<T: Copy>  AsRef<Uniform<T>> for UniformStorage<T> {
+    fn as_ref(&self) -> &Uniform<T> {
+        &self.uniform
     }
 }

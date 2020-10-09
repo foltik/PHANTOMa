@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 lib = { path = "../../lib" }
 log = "0.4"
+env_logger = ""

@@ -1,12 +1,14 @@
 use lib::prelude::*;
 use lib::audio::{self, Audio};
 use lib::gfx::uniform::UniformStorage;
-use lib::gfx::pass::synth::SynthPass;
+use lib::gfx::pass::{synth::SynthPass, filter::FilterPass};
 
 // use lib::gfx::wgpu;
 use lib::cgmath::Vector4;
 
 fn main() {
+    env_logger::init();
+
     lib::app(model)
         .update(update)
         .view(view)
@@ -18,13 +20,15 @@ struct U {
     c: Vector4<f32>,
     r: f32,
     w: f32,
+    t: f32,
 }
 
 struct Model {
     t: f32,
     audio: Box<dyn Audio>,
     uniform: UniformStorage<U>,
-    pass: SynthPass,
+    synth: SynthPass,
+    filter: FilterPass,
 }
 
 fn model(app: &App) -> Model {
@@ -34,15 +38,18 @@ fn model(app: &App) -> Model {
         r: 1.0,
         c: Vector4::new(1.0, 1.0, 1.0, 0.0),
         w: 1.0,
+        t: 0.0,
     });
 
-    let pass = SynthPass::new(device, "synth", "../resources/shaders/tcircle.frag.spv", Some(&uniform.uniform));
+    let synth = SynthPass::new(device, "synth", "../resources/shaders/tcircle.frag.spv", Some(&uniform.uniform));
+    let filter = FilterPass::new(device, "filter", "../resources/shaders/tfilter.frag.spv", Some(&uniform.uniform));
 
     Model {
         t: 0.0,
         audio: Box::new(audio::init()),
         uniform,
-        pass,
+        synth,
+        filter,
     }
 }
 
@@ -56,9 +63,11 @@ fn update(_app: &App, model: &mut Model, dt: f32) {
 
     model.audio.update();
 
-    model.uniform.v.c = Vector4::new(r, g, b, 0.0);
-    model.uniform.v.r = 0.5 * model.t.sin() + 0.5;
-    model.uniform.v.w = 0.5 * (model.t * 3.0).sin() + 0.5;
+    let u = &mut model.uniform;
+    u.c = Vector4::new(r, g, b, 0.0);
+    u.r = 0.5 * model.t.sin() + 0.5;
+    u.w = 0.5 * (model.t * 3.0).sin() + 0.5;
+    u.t = model.t;
 }
 
 fn view(_app: &App, model: &Model, frame: &mut Frame) {
@@ -66,5 +75,6 @@ fn view(_app: &App, model: &Model, frame: &mut Frame) {
 
     let encoder = &mut frame.encoder;
 
-    model.pass.encode(encoder, &frame.view);
+    model.synth.encode(encoder, &model.filter.view);
+    model.filter.encode(encoder, &frame.view);
 }

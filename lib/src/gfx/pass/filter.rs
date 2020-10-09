@@ -10,7 +10,7 @@ pub struct FilterPass {
 }
 
 impl FilterPass {
-    pub fn new<T: Copy + Clone>(device: &wgpu::Device, label: &'static str, fragment: &str, uniform: Option<&Uniform<T>>) -> Self {
+    pub fn new<T: Copy, U: AsRef<Uniform<T>>>(device: &wgpu::Device, label: &'static str, fragment: &str, uniform: Option<U>) -> Self {
         let shader = |p| crate::resource::read_shader(device, p);
         let vs_mod = shader(BILLBOARD_SHADER);
         let fs_mod = shader(fragment);
@@ -34,6 +34,8 @@ impl FilterPass {
             .build(device, &sampler_layout);
 
         if let Some(uniform) = uniform {
+            let uniform: &Uniform<T> = uniform.as_ref();
+
             let uniform_layout = wgpu::util::BindGroupLayoutBuilder::new(&format!("{}_uniform_layout", label))
                 .uniform(wgpu::ShaderStage::FRAGMENT, uniform)
                 .build(device);
@@ -45,7 +47,8 @@ impl FilterPass {
             let pipeline = wgpu::util::PipelineBuilder::new(label)
                 .with_layout(&sampler_layout)
                 .with_layout(&uniform_layout)
-                .render(&fs_mod)
+                .render(&vs_mod)
+                .fragment_shader(&fs_mod)
                 .build(device);
 
             Self {
@@ -79,6 +82,7 @@ impl FilterPass {
 
         pass.set_bind_group(0, &self.sampler_group, &[]);
         if let Some(uniform_group) = self.uniform_group.as_ref() {
+            println!("binding uniform");
             pass.set_bind_group(0, uniform_group, &[]);
         }
 

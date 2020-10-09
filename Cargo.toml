@@ -3,3 +3,6 @@
 members = ["lib", "phantoma", "sketches/async"]
 #members = ["lib", "phantoma", "sketches/*"]
 exclude = ["sketches/new", "sketches/template"]
+
+[profile.release]
+debug = true

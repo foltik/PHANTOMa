@@ -4,7 +4,6 @@ pub mod frame;
 pub mod uniform;
 pub mod pass;
 // pub mod std140;
-// pub mod effect;
 
 // pub mod camera;
 // pub mod lights;
