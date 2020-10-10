@@ -45,7 +45,7 @@ impl SynthPass {
         }
     }
 
-    pub fn encode(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::wgpu::TextureView) {
+    pub fn encode(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::RawTextureView) {
         let mut pass = wgpu::util::RenderPassBuilder::new()
             .color_attachment(target, |b| b)
             .begin(encoder);

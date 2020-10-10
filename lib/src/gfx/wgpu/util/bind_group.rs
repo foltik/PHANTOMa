@@ -1,7 +1,7 @@
 use crate::gfx::uniform::Uniform;
-use crate::gfx::wgpu::{Texture, TextureView};
+use crate::gfx::wgpu::TextureView;
 
-use std::num::{NonZeroU32, NonZeroU64};
+use std::num::NonZeroU32;
 use std::ops::RangeBounds;
 
 pub struct BindingType(wgpu::BindingType);
@@ -84,14 +84,6 @@ impl<'l> LayoutBuilder<'l> {
     pub fn uniform<T: Copy>(self, visibility: wgpu::ShaderStage, uniform: &Uniform<T>) -> Self {
         self.binding(visibility, uniform.into(), None)
     }
-    pub fn uniforms<T: Copy>(
-        self,
-        visibility: wgpu::ShaderStage,
-        uniform: &Uniform<T>,
-        n: u32,
-    ) -> Self {
-        self.binding(visibility, uniform.into(), Some(n))
-    }
 
     /// Add a sampler binding to the layout.
     pub fn sampler(self, visibility: wgpu::ShaderStage) -> Self {
@@ -101,19 +93,9 @@ impl<'l> LayoutBuilder<'l> {
             None,
         )
     }
-    pub fn samplers(self, visibility: wgpu::ShaderStage, n: u32) -> Self {
-        self.binding(
-            visibility,
-            wgpu::BindingType::Sampler { comparison: false }.into(),
-            Some(n),
-        )
-    }
 
     /// Add a sampler binding to the layout.
     pub fn comparison_sampler(self, visibility: wgpu::ShaderStage) -> Self {
-        self.binding(visibility, wgpu::BindingType::Sampler { comparison: true }.into(), None)
-    }
-    pub fn comparison_samplers(self, visibility: wgpu::ShaderStage, n: u32) -> Self {
         self.binding(visibility, wgpu::BindingType::Sampler { comparison: true }.into(), None)
     }
 

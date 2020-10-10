@@ -4,7 +4,7 @@ pub mod defaults;
 pub mod util;
 
 mod texture;
-pub use texture::{Texture, TextureView, SwapChainTextureView, View};
+pub use texture::{Texture, TextureView, SwapChainTextureView};
 
 
 // Main instance
@@ -36,9 +36,9 @@ pub use wgpu::{
     SamplerDescriptor, ShaderLocation, ShaderModule, ShaderStage, StencilOperation,
     StencilStateFaceDescriptor, StencilStateDescriptor, /*StoreOp,*/ Surface, SwapChain,
     SwapChainDescriptor, SwapChainFrame, /*SwapChainOutput,*/
-    /*Texture as TextureHandle*/
+    Texture as RawTexture,
     TextureAspect, TextureComponentType, TextureCopyView, TextureDescriptor, TextureDimension,
-    TextureFormat, TextureUsage,
+    TextureFormat, TextureUsage, TextureView as RawTextureView,
     TextureViewDescriptor, TextureViewDimension, /*TimeOut,*/
     VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat, VertexStateDescriptor,
     BIND_BUFFER_ALIGNMENT, /*MAX_BIND_GROUPS,*/

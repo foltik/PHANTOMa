@@ -130,14 +130,3 @@ impl Deref for SwapChainTextureView {
         &self.frame.output.view
     }
 }
-
-
-pub trait View {
-    fn view(&self) -> &wgpu::TextureView;
-}
-
-impl<T: Deref<Target = wgpu::TextureView>> View for T {
-    fn view(&self) -> &wgpu::TextureView {
-        self.deref()
-    }
-}
