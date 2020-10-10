@@ -20,25 +20,6 @@ pub mod pass;
 // pub use camera::{Camera, CameraDesc, CameraUniform};
 // pub use mesh::Mesh;
 
-// // TODO: put this shit in multiple files
-
-// pub const RESOLUTION: [u32; 2] = [1920, 1080];
-// pub const ASPECT: f32 = 1920.0 / 1080.0;
-// pub const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Unorm;
-// pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
-
-// pub fn texture_builder() -> wgpu::TextureBuilder {
-//     wgpu::TextureBuilder::new().size(RESOLUTION).format(FORMAT)
-// }
-
-// pub fn depth_builder() -> wgpu::TextureBuilder {
-//     wgpu::TextureBuilder::new()
-//         .size(RESOLUTION)
-//         .format(DEPTH_FORMAT)
-//         .usage(wgpu::TextureUsage::OUTPUT_ATTACHMENT)
-// }
-
-
 // // TODO: this is mostly an Effect with two input images and a hard coded
 // // shader that sums the two image values.
 // // I only made it because for some reason a Draw clears out the image from Maze

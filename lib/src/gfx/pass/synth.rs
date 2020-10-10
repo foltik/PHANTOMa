@@ -1,6 +1,6 @@
 use crate::gfx::{wgpu, uniform::Uniform};
 
-const BILLBOARD_SHADER: &'static str = "../resources/shaders/billboard.vert.spv";
+const BILLBOARD_SHADER: &str = "../resources/shaders/billboard.vert.spv";
 
 pub struct SynthPass {
     uniform_group: Option<wgpu::BindGroup>,
@@ -45,9 +45,9 @@ impl SynthPass {
         }
     }
 
-    pub fn encode<V: wgpu::View>(&self, encoder: &mut wgpu::CommandEncoder, target: &V) {
+    pub fn encode(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::wgpu::TextureView) {
         let mut pass = wgpu::util::RenderPassBuilder::new()
-            .color_attachment(target.view(), |b| b)
+            .color_attachment(target, |b| b)
             .begin(encoder);
 
         pass.set_pipeline(&self.pipeline);

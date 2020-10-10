@@ -1,3 +1,5 @@
+#![feature(min_const_generics)]
+
 pub mod prelude;
 pub mod app;
 pub mod resource;

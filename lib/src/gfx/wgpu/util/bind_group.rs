@@ -1,13 +1,47 @@
-use crate::gfx::wgpu::{Texture, TextureView};
 use crate::gfx::uniform::Uniform;
+use crate::gfx::wgpu::{Texture, TextureView};
 
+use std::num::{NonZeroU32, NonZeroU64};
 use std::ops::RangeBounds;
+
+pub struct BindingType(wgpu::BindingType);
+
+impl Into<wgpu::BindingType> for BindingType {
+    fn into(self) -> wgpu::BindingType {
+        self.0
+    }
+}
+
+impl Into<BindingType> for wgpu::BindingType {
+    fn into(self) -> BindingType {
+        BindingType(self)
+    }
+}
+
+impl<T: Copy> Into<BindingType> for &Uniform<T> {
+    fn into(self) -> BindingType {
+        BindingType(wgpu::BindingType::UniformBuffer {
+            dynamic: false,
+            min_binding_size: Some(std::num::NonZeroU64::new(self.size()).unwrap()),
+        })
+    }
+}
+
+impl Into<BindingType> for &TextureView {
+    fn into(self) -> BindingType {
+        BindingType(wgpu::BindingType::SampledTexture {
+            dimension: self.dimension,
+            component_type: self.format.into(),
+            multisampled: self.sample_count > 1,
+        })
+    }
+}
 
 /// A type aimed at simplifying the creation of a bind group layout.
 #[derive(Debug)]
 pub struct LayoutBuilder<'l> {
     label: &'l str,
-    bindings: Vec<(wgpu::ShaderStage, wgpu::BindingType)>,
+    bindings: Vec<(wgpu::ShaderStage, wgpu::BindingType, Option<NonZeroU32>)>,
 }
 
 impl<'l> LayoutBuilder<'l> {
@@ -25,26 +59,69 @@ impl<'l> LayoutBuilder<'l> {
     /// they are added to this builder type. If you require manually specifying the binding
     /// location, you may be better off not using the `BindGroupLayoutBuilder` and instead
     /// constructing the `BindGroupLayout` and `BindGroup` manually.
-    pub fn binding(mut self, visibility: wgpu::ShaderStage, ty: wgpu::BindingType) -> Self {
-        self.bindings.push((visibility, ty));
+    pub fn binding(
+        mut self,
+        visibility: wgpu::ShaderStage,
+        ty: BindingType,
+        count: Option<u32>,
+    ) -> Self {
+        self.bindings.push((
+            visibility,
+            ty.into(),
+            count.map(|n| NonZeroU32::new(n).unwrap()),
+        ));
         self
     }
 
     /// Add a uniform buffer binding to the layout.
     // pub fn uniform_buffer(self, visibility: wgpu::ShaderStage, dynamic: bool, ) -> Self {
-    //     let ty = wgpu::BindingType::UniformBuffer { 
+    //     let ty = wgpu::BindingType::UniformBuffer {
     //         dynamic,
-    //         min_binding_size: 
+    //         min_binding_size:
     //     };
     //     self.binding(visibility, ty)
     // }
-
     pub fn uniform<T: Copy>(self, visibility: wgpu::ShaderStage, uniform: &Uniform<T>) -> Self {
-        let ty = wgpu::BindingType::UniformBuffer { 
-            dynamic: false,
-            min_binding_size: Some(std::num::NonZeroU64::new(uniform.size()).unwrap()),
-        };
-        self.binding(visibility, ty)
+        self.binding(visibility, uniform.into(), None)
+    }
+    pub fn uniforms<T: Copy>(
+        self,
+        visibility: wgpu::ShaderStage,
+        uniform: &Uniform<T>,
+        n: u32,
+    ) -> Self {
+        self.binding(visibility, uniform.into(), Some(n))
+    }
+
+    /// Add a sampler binding to the layout.
+    pub fn sampler(self, visibility: wgpu::ShaderStage) -> Self {
+        self.binding(
+            visibility,
+            wgpu::BindingType::Sampler { comparison: false }.into(),
+            None,
+        )
+    }
+    pub fn samplers(self, visibility: wgpu::ShaderStage, n: u32) -> Self {
+        self.binding(
+            visibility,
+            wgpu::BindingType::Sampler { comparison: false }.into(),
+            Some(n),
+        )
+    }
+
+    /// Add a sampler binding to the layout.
+    pub fn comparison_sampler(self, visibility: wgpu::ShaderStage) -> Self {
+        self.binding(visibility, wgpu::BindingType::Sampler { comparison: true }.into(), None)
+    }
+    pub fn comparison_samplers(self, visibility: wgpu::ShaderStage, n: u32) -> Self {
+        self.binding(visibility, wgpu::BindingType::Sampler { comparison: true }.into(), None)
+    }
+
+    pub fn texture(self, visibility: wgpu::ShaderStage, view: &TextureView) -> Self {
+        self.binding(visibility, view.into(), None)
+    }
+    pub fn textures(self, visibility: wgpu::ShaderStage, views: &[TextureView]) -> Self {
+        self.binding(visibility, (&views[0]).into(), Some(views.len() as u32))
     }
 
     /// Add a storage buffer binding to the layout.
@@ -56,79 +133,6 @@ impl<'l> LayoutBuilder<'l> {
     // ) -> Self {
     //     let ty = wgpu::BindingType::StorageBuffer { dynamic, readonly };
     //     self.binding(visibility, ty)
-    // }
-
-    /// Add a sampler binding to the layout.
-    pub fn sampler(self, visibility: wgpu::ShaderStage) -> Self {
-        let comparison = false;
-        let ty = wgpu::BindingType::Sampler { comparison };
-        self.binding(visibility, ty)
-    }
-
-    /// Add a sampler binding to the layout.
-    pub fn comparison_sampler(self, visibility: wgpu::ShaderStage) -> Self {
-        let comparison = true;
-        let ty = wgpu::BindingType::Sampler { comparison };
-        self.binding(visibility, ty)
-    }
-
-    pub fn sampled_texture(self, visibility: wgpu::ShaderStage, texture: &Texture) -> Self {
-        let ty = wgpu::BindingType::SampledTexture {
-            dimension: match texture.dimension {
-                wgpu::TextureDimension::D1 => wgpu::TextureViewDimension::D1,
-                wgpu::TextureDimension::D2 => wgpu::TextureViewDimension::D2,
-                wgpu::TextureDimension::D3 => wgpu::TextureViewDimension::D3,
-            },
-            component_type: texture.format.into(),
-            multisampled: texture.sample_count > 1,
-        };
-        self.binding(visibility, ty)
-    }
-
-    pub fn sampled_texture_view(self, visibility: wgpu::ShaderStage, view: &TextureView) -> Self {
-        let ty = wgpu::BindingType::SampledTexture {
-            dimension: view.dimension,
-            component_type: view.format.into(),
-            multisampled: view.sample_count > 1,
-        };
-        self.binding(visibility, ty)
-    }
-
-    // /// Add a sampled texture binding to the layout.
-    // pub fn sampled_texture(
-    //     self,
-    //     visibility: wgpu::ShaderStage,
-    //     multisampled: bool,
-    //     dimension: wgpu::TextureViewDimension,
-    //     component_type: wgpu::TextureComponentType,
-    // ) -> Self {
-    //     let ty = wgpu::BindingType::SampledTexture {
-    //         multisampled,
-    //         dimension,
-    //         component_type,
-    //     };
-    //     self.binding(visibility, ty)
-    // }
-
-    /// Short-hand for adding a sampled textured binding for a full view of the given texture to
-    /// the layout.
-    ///
-    /// The `multisampled` and `dimension` parameters are retrieved from the `Texture` itself.
-    ///
-    /// Note that if you wish to take a `Cube` or `CubeArray` view of the given texture, you will
-    /// need to manually specify the `TextureViewDimension` via the `sampled_texture` method
-    /// instead.
-    // pub fn sampled_texture_from(
-    //     self,
-    //     visibility: wgpu::ShaderStage,
-    //     texture: &wgpu::Texture,
-    // ) -> Self {
-    //     self.sampled_texture(
-    //         visibility,
-    //         texture.sample_count() > 1,
-    //         texture.view_dimension(),
-    //         texture.component_type(),
-    //     )
     // }
 
     /// Add a storage texture binding to the layout.
@@ -170,12 +174,17 @@ impl<'l> LayoutBuilder<'l> {
 
     /// Build the bind group layout from the specified parameters.
     pub fn build(self, device: &wgpu::Device) -> wgpu::BindGroupLayout {
-        let bindings = self.bindings.into_iter().enumerate().map(|(i, (visibility, ty))| wgpu::BindGroupLayoutEntry {
-            binding: i as u32,
-            visibility,
-            ty,
-            count: None
-        }).collect::<Vec<_>>();
+        let bindings = self
+            .bindings
+            .into_iter()
+            .enumerate()
+            .map(|(i, (visibility, ty, count))| wgpu::BindGroupLayoutEntry {
+                binding: i as u32,
+                visibility,
+                ty,
+                count,
+            })
+            .collect::<Vec<_>>();
 
         let label = &format!("{}_layout", self.label);
 
@@ -187,7 +196,6 @@ impl<'l> LayoutBuilder<'l> {
         device.create_bind_group_layout(&descriptor)
     }
 }
-
 
 /// Simplified creation of a bind group.
 #[derive(Debug)]
@@ -219,7 +227,7 @@ impl<'l, 'a> Builder<'l, 'a> {
     /// Specify a slice of a buffer to be bound.
     ///
     /// The given `range` represents the start and end point of the buffer to be bound in bytes.
-    pub fn buffer<T, S>(self, buffer: &'a wgpu::Buffer, range: S) -> Self 
+    pub fn buffer<T, S>(self, buffer: &'a wgpu::Buffer, range: S) -> Self
     where
         T: Copy,
         S: RangeBounds<wgpu::BufferAddress>,
@@ -234,7 +242,7 @@ impl<'l, 'a> Builder<'l, 'a> {
     /// range of **bytes**.
     ///
     /// Type `T` *must* be either `#[repr(C)]` or `#[repr(transparent)]`.
-    // pub fn buffer<T, S>(self, buffer: &'a wgpu::Buffer, range: S) -> Self 
+    // pub fn buffer<T, S>(self, buffer: &'a wgpu::Buffer, range: S) -> Self
     // where
     //     T: Copy,
     //     S: RangeBounds<wgpu::BufferAddress>,
@@ -257,17 +265,27 @@ impl<'l, 'a> Builder<'l, 'a> {
     }
 
     /// Specify a texture view to be bound.
-    pub fn texture_view(self, view: &'a wgpu::TextureView) -> Self {
+    pub fn texture(self, view: &'a TextureView) -> Self {
         let resource = wgpu::BindingResource::TextureView(view);
+        self.binding(resource)
+    }
+    /// Specify a texture view to be bound.
+    pub fn textures(self, views: &'a [wgpu::TextureView]) -> Self {
+        let resource = wgpu::BindingResource::TextureViewArray(views);
         self.binding(resource)
     }
 
     /// Build the bind group with the specified resources.
     pub fn build(self, device: &wgpu::Device, layout: &wgpu::BindGroupLayout) -> wgpu::BindGroup {
-        let bindings = self.resources.into_iter().enumerate().map(|(i, resource)| wgpu::BindGroupEntry {
-            binding: i as u32,
-            resource,
-        }).collect::<Vec<_>>();
+        let bindings = self
+            .resources
+            .into_iter()
+            .enumerate()
+            .map(|(i, resource)| wgpu::BindGroupEntry {
+                binding: i as u32,
+                resource,
+            })
+            .collect::<Vec<_>>();
 
         let label = &format!("{}_group", self.label);
 

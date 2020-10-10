@@ -90,6 +90,17 @@ impl Deref for TextureView {
     }
 }
 
+impl Into<wgpu::TextureView> for TextureView {
+    fn into(self) -> wgpu::TextureView {
+        let Self {
+            view,
+            ..
+        } = self;
+
+        view
+    }
+}
+
 pub struct SwapChainTextureView {
     frame: wgpu::SwapChainFrame,
     pub size: wgpu::Extent3d,

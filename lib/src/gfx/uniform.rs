@@ -11,13 +11,21 @@ pub struct Uniform<T: Copy> {
 impl<T: Copy> Uniform<T> {
     const SIZE: wgpu::BufferAddress = std::mem::size_of::<T>() as wgpu::BufferAddress;
 
-    pub fn new(device: &wgpu::Device, label: &'static str) -> Self {
-        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some(label),
-            size: Self::SIZE,
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-            mapped_at_creation: false,
-        });
+    pub fn new(device: &wgpu::Device, label: &str, initial: Option<&T>) -> Self {
+        use wgpu::util::DeviceExt as _;
+        let buffer = match initial {
+            None => device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some(label),
+                size: Self::SIZE,
+                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                mapped_at_creation: false,
+            }),
+            Some(t) => device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some(label),
+                contents: unsafe { safe_transmute::to_bytes::transmute_to_bytes_unchecked(t) },
+                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+            }),
+        };
 
         let staging = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
@@ -78,12 +86,6 @@ impl<T: Copy> Uniform<T> {
     }
 }
 
-impl<T: Copy> AsRef<Uniform<T>> for Uniform<T> {
-    fn as_ref(&self) -> &Uniform<T> {
-        self
-    }
-}
-
 pub struct UniformStorage<T: Copy> {
     pub v: T,
     pub uniform: Uniform<T>,
@@ -93,16 +95,18 @@ impl<T: Copy> UniformStorage<T> {
     pub fn new(device: &wgpu::Device, label: &'static str, v: T) -> Self {
         Self {
             v,
-            uniform: Uniform::new(device, label),
+            uniform: Uniform::new(device, label, Some(&v)),
         }
     }
 
     pub fn update(&self, frame: &mut Frame) {
         self.uniform.upload(frame, &self.v);
     }
+}
 
-    pub fn buffer(&self) -> &wgpu::Buffer {
-        self.uniform.buffer()
+impl<T: Copy> AsRef<Uniform<T>> for UniformStorage<T> {
+    fn as_ref(&self) -> &Uniform<T> {
+        &self.uniform
     }
 }
 
@@ -117,11 +121,5 @@ impl<T: Copy> std::ops::Deref for UniformStorage<T> {
 impl<T: Copy> std::ops::DerefMut for UniformStorage<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.v
-    }
-}
-
-impl<T: Copy>  AsRef<Uniform<T>> for UniformStorage<T> {
-    fn as_ref(&self) -> &Uniform<T> {
-        &self.uniform
     }
 }

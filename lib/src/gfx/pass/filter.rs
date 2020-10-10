@@ -1,6 +1,6 @@
 use crate::gfx::{wgpu, uniform::Uniform};
 
-const BILLBOARD_SHADER: &'static str = "../resources/shaders/billboard.vert.spv";
+const BILLBOARD_SHADER: &str = "../resources/shaders/billboard.vert.spv";
 
 pub struct FilterPass {
     pub view: wgpu::TextureView,
@@ -10,10 +10,9 @@ pub struct FilterPass {
 }
 
 impl FilterPass {
-    pub fn new<T: Copy, U: AsRef<Uniform<T>>>(device: &wgpu::Device, label: &'static str, fragment: &str, uniform: Option<U>) -> Self {
-        let shader = |p| crate::resource::read_shader(device, p);
-        let vs_mod = shader(BILLBOARD_SHADER);
-        let fs_mod = shader(fragment);
+    pub fn new<T: Copy>(device: &wgpu::Device, label: &'static str, fragment: &str, uniform: Option<&Uniform<T>>) -> Self {
+        let vs_mod = crate::resource::read_shader(device, BILLBOARD_SHADER);
+        let fs_mod = crate::resource::read_shader(device, fragment);
 
         let texture = wgpu::util::TextureBuilder::new_color(&format!("{}_input_color", label))
             .usage(wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED)
@@ -23,24 +22,22 @@ impl FilterPass {
 
         let sampler = wgpu::util::SamplerBuilder::new("input").build(&device);
 
-        let sampler_layout = wgpu::util::BindGroupLayoutBuilder::new(&format!("{}_sampler_layout", label))
-            .sampled_texture(wgpu::ShaderStage::FRAGMENT, &texture)
+        let sampler_layout = wgpu::util::BindGroupLayoutBuilder::new(&format!("{}_sampler", label))
+            .texture(wgpu::ShaderStage::FRAGMENT, &view)
             .sampler(wgpu::ShaderStage::FRAGMENT)
             .build(device);
 
-        let sampler_group = wgpu::util::BindGroupBuilder::new(&format!("{}_sampler_group", label))
-            .texture_view(&view)
+        let sampler_group = wgpu::util::BindGroupBuilder::new(&format!("{}_sampler", label))
+            .texture(&view)
             .sampler(&sampler)
             .build(device, &sampler_layout);
 
         if let Some(uniform) = uniform {
-            let uniform: &Uniform<T> = uniform.as_ref();
-
-            let uniform_layout = wgpu::util::BindGroupLayoutBuilder::new(&format!("{}_uniform_layout", label))
+            let uniform_layout = wgpu::util::BindGroupLayoutBuilder::new(&format!("{}_uniform", label))
                 .uniform(wgpu::ShaderStage::FRAGMENT, uniform)
                 .build(device);
 
-            let uniform_group = wgpu::util::BindGroupBuilder::new(&format!("{}_uniform_group", label))
+            let uniform_group = wgpu::util::BindGroupBuilder::new(&format!("{}_uniform", label))
                 .uniform(uniform)
                 .build(device, &uniform_layout);
 
@@ -82,8 +79,7 @@ impl FilterPass {
 
         pass.set_bind_group(0, &self.sampler_group, &[]);
         if let Some(uniform_group) = self.uniform_group.as_ref() {
-            println!("binding uniform");
-            pass.set_bind_group(0, uniform_group, &[]);
+            pass.set_bind_group(1, uniform_group, &[]);
         }
 
         pass.draw(0..3, 0..1);

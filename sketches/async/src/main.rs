@@ -1,7 +1,7 @@
 use lib::prelude::*;
 use lib::audio::{self, Audio};
 use lib::gfx::uniform::UniformStorage;
-use lib::gfx::pass::{synth::SynthPass, filter::FilterPass};
+use lib::gfx::pass::{SynthPass, CompositePass, FilterPass};
 
 // use lib::gfx::wgpu;
 use lib::cgmath::Vector4;
@@ -28,6 +28,8 @@ struct Model {
     audio: Box<dyn Audio>,
     uniform: UniformStorage<U>,
     synth: SynthPass,
+    synth2: SynthPass,
+    composite: CompositePass,
     filter: FilterPass,
 }
 
@@ -41,14 +43,20 @@ fn model(app: &App) -> Model {
         t: 0.0,
     });
 
-    let synth = SynthPass::new(device, "synth", "../resources/shaders/tcircle.frag.spv", Some(&uniform.uniform));
-    let filter = FilterPass::new(device, "filter", "../resources/shaders/tfilter.frag.spv", Some(&uniform.uniform));
+    let synth = SynthPass::new(device, "synth", "../resources/shaders/tcircle.frag.spv", Some(uniform.as_ref()));
+    let synth2 = SynthPass::new::<()>(device, "synth2", "../resources/shaders/tcirclesmall.frag.spv", None);
+
+    let composite = CompositePass::new(device, "composite", 2, None);
+
+    let filter = FilterPass::new(device, "filter", "../resources/shaders/tfilter.frag.spv", Some(uniform.as_ref()));
 
     Model {
         t: 0.0,
         audio: Box::new(audio::init()),
         uniform,
         synth,
+        synth2,
+        composite,
         filter,
     }
 }
@@ -75,6 +83,10 @@ fn view(_app: &App, model: &Model, frame: &mut Frame) {
 
     let encoder = &mut frame.encoder;
 
-    model.synth.encode(encoder, &model.filter.view);
+    model.synth.encode(encoder, &model.composite.view(0));
+    model.synth2.encode(encoder, &model.composite.view(1));
+
+    model.composite.encode(encoder, &model.filter.view);
+
     model.filter.encode(encoder, &frame.view);
 }

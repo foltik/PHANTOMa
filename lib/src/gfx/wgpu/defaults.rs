@@ -14,7 +14,7 @@ pub fn backends() -> BackendBit {
 
 /// The default set of `Features` used within the `default_device_descriptor()` function.
 pub fn features() -> Features {
-    Default::default()
+    Features::SAMPLED_TEXTURE_BINDING_ARRAY
 }
 
 
