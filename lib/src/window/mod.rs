@@ -28,19 +28,6 @@ pub struct WindowBuilder {
 }
 
 impl WindowBuilder {
-    /// Begin building a new window.
-    pub fn new() -> Self {
-        WindowBuilder {
-            window: winit::window::WindowBuilder::new(),
-            title_was_set: false,
-            swap_chain_builder: Default::default(),
-            power_preference: wgpu::defaults::power_preference(),
-            device_desc: None,
-            //user_functions: Default::default(),
-            msaa_samples: None,
-        }
-    }
-
     /// Build the window with some custom window parameters.
     pub fn window(mut self, window: winit::window::WindowBuilder) -> Self {
         self.window = window;
@@ -360,7 +347,7 @@ impl WindowBuilder {
             .unwrap();
 
         // Instantiate the logical device.
-        let device_desc = device_desc.unwrap_or_else(|| crate::gfx::wgpu::defaults::device_descriptor());
+        let device_desc = device_desc.unwrap_or_else(crate::gfx::wgpu::defaults::device_descriptor);
         let (device, queue) = adapter.request_device(&device_desc, None).await.unwrap();
 
         // Build the swapchain.
@@ -479,6 +466,21 @@ impl WindowBuilder {
     /// Sets the window icon.
     pub fn window_icon(self, window_icon: Option<winit::window::Icon>) -> Self {
         self.map_window(|w| w.with_window_icon(window_icon))
+    }
+}
+
+impl Default for WindowBuilder {
+    /// Begin building a new window.
+    fn default() -> Self {
+        WindowBuilder {
+            window: winit::window::WindowBuilder::new(),
+            title_was_set: false,
+            swap_chain_builder: Default::default(),
+            power_preference: wgpu::defaults::power_preference(),
+            device_desc: None,
+            //user_functions: Default::default(),
+            msaa_samples: None,
+        }
     }
 }
 

@@ -2,6 +2,7 @@
 
 pub mod prelude;
 pub mod app;
+pub mod math;
 pub mod resource;
 pub mod window;
 pub mod gfx;

@@ -1,7 +1,7 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
-pub const RESOURCES_PATH: &'static str = "resources/";
+pub const RESOURCES_PATH: &str = "resources/";
 pub fn resource(file: &str) -> PathBuf {
     let curr = env::current_exe().unwrap();
     // TODO: Recursively search for resources dir
@@ -38,15 +38,15 @@ pub fn resource(file: &str) -> PathBuf {
 }
 
 pub fn read_resource(file: &str) -> String {
-    std::fs::read_to_string(resource(file)).expect(&format!("{} not found", file))
+    std::fs::read_to_string(resource(file)).unwrap_or_else(|_| panic!("{} not found", file))
 }
 
 pub fn read_resource_raw(file: &str) -> Vec<u8> {
-    std::fs::read(resource(file)).expect(&format!("{} not found", file))
+    std::fs::read(resource(file)).unwrap_or_else(|_| panic!("{} not found", file))
 }
 
 pub fn read_resource_buffered(file: &str) -> impl std::io::BufRead {
-    let file = std::fs::File::open(resource(file)).expect(&format!("{} not found", file));
+    let file = std::fs::File::open(resource(file)).unwrap_or_else(|_| panic!("{} not found", file));
     std::io::BufReader::new(file)
 }
 

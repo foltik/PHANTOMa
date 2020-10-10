@@ -84,18 +84,23 @@ impl Midi {
                         }
                         192 => {
                             let v = raw[1];
-                            if v > state.encoder {
-                                state.encoder = v;
-                                MidiMessage::Encoder(1)
-                            } else if v < state.encoder {
-                                state.encoder = v;
-                                MidiMessage::Encoder(-1)
-                            } else {
-                                match state.encoder {
-                                    0 => MidiMessage::Encoder(-1),
-                                    127 => MidiMessage::Encoder(1),
-                                    _ => panic!("Invalid MIDI encoder state"),
-                                }
+                            use std::cmp::Ordering;
+                            match v.cmp(&state.encoder) {
+                                Ordering::Greater => {
+                                    state.encoder = v;
+                                    MidiMessage::Encoder(1)
+                                },
+                                Ordering::Less => {
+                                    state.encoder = v;
+                                    MidiMessage::Encoder(-1)
+                                },
+                                Ordering::Equal => {
+                                    match state.encoder {
+                                        0 => MidiMessage::Encoder(-1),
+                                        127 => MidiMessage::Encoder(1),
+                                        _ => panic!("Invalid MIDI encoder state"),
+                                    }
+                                },
                             }
                         }
                         240 => {

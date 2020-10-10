@@ -14,7 +14,7 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn view<'a>(&'a self) -> TextureViewBuilder<'a> {
+    pub fn view(&self) -> TextureViewBuilder {
         TextureViewBuilder::new(&self)
     }
 

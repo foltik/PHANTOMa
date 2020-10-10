@@ -44,12 +44,6 @@ pub struct DecayEnv {
 }
 
 impl DecayEnv {
-    pub fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
-    }
-
     pub fn with(mut self, key: &'static str, t: f32) -> Self {
         self.map.insert(key, Decay::new(t));
         self
@@ -78,6 +72,14 @@ impl DecayEnv {
     }
 }
 
+impl Default for DecayEnv {
+    fn default() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+}
+
 pub struct BeatClock {
     pub bpm: f32,
     pub mul: f32,
@@ -98,7 +100,7 @@ impl BeatClock {
         let ms = convert::bpm_ms(self.bpm) * self.mul;
 
         if self.acc >= ms {
-            self.acc = self.acc - ms;
+            self.acc -= ms;
             true
         } else {
             false

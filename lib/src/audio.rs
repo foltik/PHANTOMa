@@ -120,7 +120,7 @@ pub fn init() -> impl Audio {
 
     thread::spawn(move || {
         // Create the JACK processing thread
-        let mut process_buffer = FRAME_EMPTY.clone();
+        let mut process_buffer = FRAME_EMPTY;
         let process = jack::ClosureProcessHandler::new(
             move |j: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
                 process(
@@ -149,9 +149,9 @@ pub fn init() -> impl Audio {
     AudioClient {
         // client,
         fft_rx,
-        samples: FRAME_EMPTY.clone(),
+        samples: FRAME_EMPTY,
         samples_rx: jack_main_rx,
-        fft: FFT_EMPTY.clone(),
+        fft: FFT_EMPTY,
     }
 }
 
@@ -213,10 +213,10 @@ pub fn process(
 
 pub fn analyze(mut rx: Consumer<Frame>, mut fft_tx: Producer<FFT>) {
     // Set up buffers for the input, complex FFT I/O, and result
-    let mut buffer: [Frame; 4] = [FRAME_EMPTY.clone(); 4];
+    let mut buffer: [Frame; 4] = [FRAME_EMPTY; 4];
     let mut complex_in = vec![Complex32::zero(); FFT_IMSIZE];
     let mut complex_out = vec![Complex32::zero(); FFT_IMSIZE];
-    let mut result = FFT_EMPTY.clone();
+    let mut result = FFT_EMPTY;
 
     // Set up the FFT
     let mut planner = FFTplanner::<f32>::new(false);
@@ -228,9 +228,7 @@ pub fn analyze(mut rx: Consumer<Frame>, mut fft_tx: Producer<FFT>) {
 
     // This *shouldn't* have any allocations
     loop {
-        for i in 0..4 {
-            receive(&mut rx, &mut buffer[i]);
-        }
+        buffer.iter_mut().for_each(|frame| receive(&mut rx, frame));
         let flat: [f32; FRAME_SIZE * 4] = unsafe { std::mem::transmute(buffer) };
 
         // Copy the samples into the real parts of the complex buffer and apply the window function
