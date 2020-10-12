@@ -4,12 +4,11 @@ use super::frame::Frame;
 
 pub struct Uniform<T: Copy> {
     pub buffer: wgpu::Buffer,
-    pub staging: wgpu::Buffer,
     data: PhantomData<T>,
 }
 
 impl<T: Copy> Uniform<T> {
-    const SIZE: wgpu::BufferAddress = std::mem::size_of::<T>() as wgpu::BufferAddress;
+    const SIZE: wgpu::BufferAddress = std::mem::size_of::<T>() as u64;
 
     pub fn new(device: &wgpu::Device, label: &str, initial: Option<&T>) -> Self {
         use wgpu::util::DeviceExt as _;
@@ -27,61 +26,71 @@ impl<T: Copy> Uniform<T> {
             }),
         };
 
-        let staging = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: Self::SIZE,
-            usage: wgpu::BufferUsage::COPY_SRC,
-            mapped_at_creation: true,
-        });
-
         Self {
             buffer,
-            staging,
             data: PhantomData,
         }
     }
 
-    // pub fn new_array(device: &wgpu::Device, n: usize) -> Self {
-    //     let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-    //         size: Self::SIZE * n as wgpu::BufferAddress,
-    //         usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-    //     });
-
-    //     Self {
-    //         buffer,
-    //         data: PhantomData,
-    //     }
-    // }
-
     pub fn upload(&self, frame: &mut Frame, t: &T) {
         frame.write_uniform(&self, t);
     }
-
-    // pub fn upload_slice(
-    //     &self,
-    //     device: &wgpu::Device,
-    //     encoder: &mut wgpu::CommandEncoder,
-    //     ts: &[T],
-    // ) {
-    //     let n = ts.len();
-    //     let staging = device
-    //         .create_buffer_mapped(n, wgpu::BufferUsage::COPY_SRC)
-    //         .fill_from_slice(ts);
-
-    //     encoder.copy_buffer_to_buffer(
-    //         &staging,
-    //         0,
-    //         &self.buffer,
-    //         0,
-    //         Self::SIZE * n as wgpu::BufferAddress,
-    //     );
-    // }
 
     pub fn buffer(&self) -> &wgpu::Buffer {
         &self.buffer
     }
 
     pub fn size(&self) -> wgpu::BufferAddress {
+        Self::SIZE
+    }
+}
+
+pub struct UniformArray<T: Copy> {
+    pub buffer: wgpu::Buffer,
+    n: u64,
+    data: PhantomData<T>,
+}
+
+impl<T: Copy> UniformArray<T> {
+    const SIZE: wgpu::BufferAddress = std::mem::size_of::<T>() as wgpu::BufferAddress;
+
+    pub fn new(device: &wgpu::Device, label: &str, n: usize) -> Self {
+        let n = n as u64;
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some(label),
+            size: Self::SIZE * n,
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        Self {
+            buffer,
+            n,
+            data: PhantomData,
+        }
+    }
+
+    pub fn upload(&self, frame: &mut Frame, ts: &[T]) {
+        self.upload_slice(frame, 0, ts)
+    }
+
+    pub fn upload_slice(&self, frame: &mut Frame, i: usize, ts: &[T]) {
+        frame.write_uniform_slice(&self, i, ts)
+    }
+
+    pub fn upload_el(&self, frame: &mut Frame, i: usize, t: &T) {
+        frame.write_uniform_el(&self, i, t);
+    }
+
+    pub fn buffer(&self) -> &wgpu::Buffer {
+        &self.buffer
+    }
+
+    pub fn size(&self) -> wgpu::BufferAddress {
+        Self::SIZE * self.n
+    }
+
+    pub fn t_size(&self) -> wgpu::BufferAddress {
         Self::SIZE
     }
 }

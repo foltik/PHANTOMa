@@ -1,20 +1,18 @@
 use lib::prelude::*;
-use lib::audio::{self, Audio};
-use lib::gfx::uniform::UniformStorage;
-use lib::gfx::pass::{SynthPass, FilterPass};
-
-use lib::cgmath::Vector4;
+use gfx::pass::{SynthPass, FilterPass};
 
 fn main() {
-    lib::app(model)
-        .update(update)
-        .view(view)
-        .run();
+    // lib::app(model)
+    //     .update(update)
+    //     .view(view)
+    //     .run();
+    // lib::app::run(model, update, view);
+    lib::app::run(model, update, view);
 }
 
 #[derive(Copy, Clone)]
 struct U {
-    c: Vector4<f32>,
+    c: Vector4,
     r: f32,
     w: f32,
     t: f32,
@@ -22,7 +20,7 @@ struct U {
 
 struct Model {
     t: f32,
-    audio: Box<dyn Audio>,
+    audio: Audio,
     uniform: UniformStorage<U>,
     synth: SynthPass,
     synth2: SynthPass,
@@ -30,7 +28,7 @@ struct Model {
     filter: FilterPass,
 }
 
-fn model(app: &App) -> Model {
+async fn model(app: &App) -> Model {
     let device = &app.device;
 
     let uniform = UniformStorage::new(&app.device, "test", U {
@@ -49,7 +47,7 @@ fn model(app: &App) -> Model {
 
     Model {
         t: 0.0,
-        audio: Box::new(audio::init()),
+        audio: Audio::default(),
         uniform,
         synth,
         synth2,
@@ -58,7 +56,7 @@ fn model(app: &App) -> Model {
     }
 }
 
-fn update(_app: &App, model: &mut Model, dt: f32) {
+async fn update(_app: &App, model: &mut Model, dt: f32) {
     model.t += dt;
 
     let freq = 1.0;
@@ -75,15 +73,17 @@ fn update(_app: &App, model: &mut Model, dt: f32) {
     u.t = model.t;
 }
 
-fn view(_app: &App, model: &Model, frame: &mut Frame) {
+async fn view(app: &mut App, model: &Model, view: &wgpu::SwapChainTextureView) {
+    let frame = &mut Frame::new(app);
+
     model.uniform.update(frame);
 
-    let encoder = &mut frame.encoder;
+    model.synth.encode(frame, &model.composite.view(0));
+    model.synth2.encode(frame, &model.composite.view(1));
 
-    model.synth.encode(encoder, &model.composite.view(0));
-    model.synth2.encode(encoder, &model.composite.view(1));
+    model.composite.encode(frame, &model.filter.view(0));
 
-    model.composite.encode(encoder, &model.filter.view(0));
+    model.filter.encode(frame, view);
 
-    model.filter.encode(encoder, &frame.view);
+    frame.submit();
 }

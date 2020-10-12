@@ -133,7 +133,7 @@ impl BeatDetect {
         }
     }
 
-    pub fn update(&mut self, delta: f32, audio: &dyn Audio) -> bool {
+    pub fn update(&mut self, delta: f32, audio: &Audio) -> bool {
         let (e, e0) = (audio.rms_range(self.f0, self.f1), self.e0);
         self.e0 = e;
 

@@ -4,10 +4,11 @@ pub use winit::window::WindowId as Id;
 use std::default::Default;
 
 use crate::gfx::wgpu;
-use crate::gfx::{frame::Frame};
 
 mod proxy;
 pub use proxy::Proxy;
+
+pub mod async_ext;
 
 pub type LogicalSize = winit::dpi::LogicalSize<f32>;
 pub type PhysicalSize = winit::dpi::PhysicalSize<u32>;
@@ -79,169 +80,6 @@ impl WindowBuilder {
         self.msaa_samples = Some(msaa_samples);
         self
     }
-
-    // /// A function for processing key press events associated with this window.
-    // pub fn key_pressed<M>(mut self, f: KeyPressedFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.key_pressed = Some(KeyPressedFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing key release events associated with this window.
-    // pub fn key_released<M>(mut self, f: KeyReleasedFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.key_released = Some(KeyReleasedFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing mouse moved events associated with this window.
-    // pub fn mouse_moved<M>(mut self, f: MouseMovedFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.mouse_moved = Some(MouseMovedFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing mouse pressed events associated with this window.
-    // pub fn mouse_pressed<M>(mut self, f: MousePressedFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.mouse_pressed = Some(MousePressedFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing mouse released events associated with this window.
-    // pub fn mouse_released<M>(mut self, f: MouseReleasedFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.mouse_released = Some(MouseReleasedFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing mouse wheel events associated with this window.
-    // pub fn mouse_wheel<M>(mut self, f: MouseWheelFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.mouse_wheel = Some(MouseWheelFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing mouse entered events associated with this window.
-    // pub fn mouse_entered<M>(mut self, f: MouseEnteredFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.mouse_entered = Some(MouseEnteredFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing mouse exited events associated with this window.
-    // pub fn mouse_exited<M>(mut self, f: MouseExitedFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.mouse_exited = Some(MouseExitedFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing touch events associated with this window.
-    // pub fn touch<M>(mut self, f: TouchFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.touch = Some(TouchFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing touchpad pressure events associated with this window.
-    // pub fn touchpad_pressure<M>(mut self, f: TouchpadPressureFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.touchpad_pressure = Some(TouchpadPressureFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing window moved events associated with this window.
-    // pub fn moved<M>(mut self, f: MovedFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.moved = Some(MovedFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing window resized events associated with this window.
-    // pub fn resized<M>(mut self, f: ResizedFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.resized = Some(ResizedFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing hovered file events associated with this window.
-    // pub fn hovered_file<M>(mut self, f: HoveredFileFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.hovered_file = Some(HoveredFileFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing hovered file cancelled events associated with this window.
-    // pub fn hovered_file_cancelled<M>(mut self, f: HoveredFileCancelledFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.hovered_file_cancelled =
-    //         Some(HoveredFileCancelledFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing dropped file events associated with this window.
-    // pub fn dropped_file<M>(mut self, f: DroppedFileFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.dropped_file = Some(DroppedFileFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing the focused event associated with this window.
-    // pub fn focused<M>(mut self, f: FocusedFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.focused = Some(FocusedFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing the unfocused event associated with this window.
-    // pub fn unfocused<M>(mut self, f: UnfocusedFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.unfocused = Some(UnfocusedFnAny::from_fn_ptr(f));
-    //     self
-    // }
-
-    // /// A function for processing the window closed event associated with this window.
-    // pub fn closed<M>(mut self, f: ClosedFn<M>) -> Self
-    // where
-    //     M: 'static,
-    // {
-    //     self.user_functions.closed = Some(ClosedFnAny::from_fn_ptr(f));
-    //     self
-    // }
 
     /// Builds the window, inserts it into the `App`'s display map and returns the unique ID.
     pub async fn build(self, event_loop: &winit::event_loop::EventLoop<()>, instance: &wgpu::Instance) -> (Window, wgpu::Adapter, wgpu::Device, wgpu::Queue) {
@@ -539,13 +377,16 @@ impl SwapChain {
         self.swap_chain = Some(device.create_swap_chain(surface, &self.descriptor));
     }
 
-    pub fn next_frame<'a>(&mut self, device: &'a wgpu::Device, staging: &'a mut wgpu::util::StagingBelt) -> Option<Frame<'a>> {
+    pub fn next_frame(&mut self) -> Option<wgpu::SwapChainTextureView> {
         let swap_chain = self.swap_chain.as_mut().unwrap();
 
-        if let Ok(frame) = swap_chain.get_current_frame() {
-            let view = wgpu::SwapChainTextureView::new(self, frame);
+        // let frame = swap_chain.get_current_frame().unwrap();
+        // {
+        //     Some(wgpu::SwapChainTextureView::new(self, frame))
+        // }
 
-            Some(Frame::new(device, staging, view))
+        if let Ok(frame) = swap_chain.get_current_frame() {
+            Some(wgpu::SwapChainTextureView::new(self, frame))
         } else {
             None
         }

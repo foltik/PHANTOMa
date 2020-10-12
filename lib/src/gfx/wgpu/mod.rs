@@ -22,13 +22,13 @@ pub use wgpu::{
     AddressMode, BindGroup, BindGroupDescriptor,
     BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
     /*Binding,*/ BindingResource, BindingType, BlendDescriptor, BlendFactor, BlendOperation,
-    Buffer, BufferAddress, /*BufferAsyncErr,*/ BufferCopyView, BufferDescriptor,
+    Buffer, BufferAddress, BufferSize, /*BufferAsyncErr,*/ BufferView, BufferViewMut, BufferCopyView, BufferDescriptor,
     /*BufferReadMapping,*/ BufferUsage, /*BufferWriteMapping,*/ Color,
     ColorStateDescriptor, ColorWrite, CommandBuffer, CommandBufferDescriptor, CommandEncoder,
     CommandEncoderDescriptor, CompareFunction, ComputePass, ComputePipeline,
     ComputePipelineDescriptor, /*CreateBufferMapped,*/ CullMode, DepthStencilStateDescriptor,
     DynamicOffset, Extent3d, Features, /*Extensions,*/
-    FilterMode, FrontFace, IndexFormat, InputStepMode, Limits, LoadOp,
+    FilterMode, FrontFace, IndexFormat, InputStepMode, Limits, LoadOp, MapMode,
     Origin3d, PipelineLayout, PipelineLayoutDescriptor, PowerPreference, PresentMode,
     PrimitiveTopology, ProgrammableStageDescriptor, PushConstantRange, Queue, RasterizationStateDescriptor,
     RenderPass, RenderPassColorAttachmentDescriptor, RenderPassDepthStencilAttachmentDescriptor,
@@ -41,5 +41,5 @@ pub use wgpu::{
     TextureFormat, TextureUsage, TextureView as RawTextureView,
     TextureViewDescriptor, TextureViewDimension, /*TimeOut,*/
     VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat, VertexStateDescriptor,
-    BIND_BUFFER_ALIGNMENT, /*MAX_BIND_GROUPS,*/
+    COPY_BUFFER_ALIGNMENT, BIND_BUFFER_ALIGNMENT, /*MAX_BIND_GROUPS,*/
 };

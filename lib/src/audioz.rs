@@ -184,7 +184,7 @@ pub fn drain<T: Copy>(rx: &mut Consumer<T>, t: &mut T) {
     *t = rx.pop().unwrap();
 }
 
-pub fn process(
+fn process(
     _j: &jack::Client,
     ps: &jack::ProcessScope,
     in_left: &Port<AudioIn>,
@@ -211,7 +211,7 @@ pub fn process(
     jack::Control::Continue
 }
 
-pub fn analyze(mut rx: Consumer<Frame>, mut fft_tx: Producer<FFT>) {
+fn analyze(mut rx: Consumer<Frame>, mut fft_tx: Producer<FFT>) {
     // Set up buffers for the input, complex FFT I/O, and result
     let mut buffer: [Frame; 4] = [FRAME_EMPTY; 4];
     let mut complex_in = vec![Complex32::zero(); FFT_IMSIZE];

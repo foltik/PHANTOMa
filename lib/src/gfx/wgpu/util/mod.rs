@@ -14,3 +14,6 @@ pub use texture::{TextureBuilder, TextureViewBuilder};
 
 mod sampler;
 pub use sampler::SamplerBuilder;
+
+mod staging;
+pub use staging::StagingPool;

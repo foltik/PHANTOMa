@@ -1,4 +1,5 @@
 #![feature(min_const_generics)]
+#![feature(async_closure)]
 
 pub mod prelude;
 pub mod app;
@@ -14,7 +15,10 @@ pub mod time;
 // pub mod twitch;
 // pub mod wavefront;
 
+pub(crate) mod async_closure;
+
 pub use cgmath;
+pub use async_std;
 
 // pub use wavefront::read_obj;
 
@@ -32,9 +36,9 @@ pub use cgmath;
 
 // TODO: Global font store
 
-pub fn app<M: 'static>(model: app::ModelFn<M>) -> app::Builder<M> {
-    app::Builder::new(model)
-}
+// pub fn app<M: 'static>(model: app::ModelFn<M>) -> app::Builder<M> {
+//     app::Builder::new(model)
+// }
 
 /*
 pub fn init() {
