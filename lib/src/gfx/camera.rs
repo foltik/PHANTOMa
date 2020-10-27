@@ -1,75 +1,42 @@
-use crate::math::{Deg, Rad, Euler};
-use crate::math::{Point3, Vector3, Matrix4};
-use crate::math::EuclideanSpace;
+use crate::math::Matrix4;
 
+use super::wgpu;
 use super::uniform::Uniform;
 
-// TODO: Have a Uniform trait that we can derive to
-// auto generate thing that returns self.clone
-//, OR we can overload it (with CameraDesc -> CameraUniform)
-// to transform data before upload
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct CameraTransform {
-    view: Matrix4,
-    proj: Matrix4,
-    pos: Point3,
-}
-
-impl CameraTransform {
-    pub fn new(d: &CameraDesc) -> Self {
-        let view = match d.rotation {
-            CameraRotation::LookAt(target) => Matrix4::look_at(
-                d.pos,
-                Point3::from_vec(target),
-                -Vector3::unit_y(),
-            ),
-            CameraRotation::EulerAngles(a) => {
-                Matrix4::from(Euler::new(Rad(a.x), Rad(a.y), Rad(a.z)))
-                    * Matrix4::look_at(
-                        d.pos,
-                        Point3::new(d.pos.x + 0.000001, d.pos.y - 1.0, d.pos.z),
-                        -Vector3::unit_y(),
-                    )
-            }
-        };
-
-        let proj = cgmath::perspective(Deg(d.fov / d.aspect), d.aspect, 0.1, 1000.0);
-
-        Self { view, proj, pos: d.pos }
-    }
-}
-
 #[derive(Debug)]
-pub enum CameraRotation {
-    LookAt(Vector3),
-    EulerAngles(Vector3),
-}
-
-#[derive(Debug)]
-pub struct CameraDesc {
-    pub pos: Point3,
-    pub rotation: CameraRotation,
-    pub fov: f32,
-    pub aspect: f32,
-}
-
 pub struct Camera {
-    pub desc: CameraDesc,
-    pub uniform: Uniform<CameraTransform>,
+    pub group: wgpu::BindGroup,
+
+    pub view: Uniform<Matrix4>,
+    pub proj: Uniform<Matrix4>,
 }
 
 impl Camera {
-    pub fn new(device: &wgpu::Device, desc: CameraDesc) -> Self {
-        let transform = &CameraTransform::new(&desc);
+    pub fn new(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, view: &Matrix4, proj: &Matrix4) -> Self {
+        let view = Uniform::new(device, "cam_view", Some(view));
+        let proj = Uniform::new(device, "cam_proj", Some(proj));
+
+        let group = wgpu::util::BindGroupBuilder::new("cam")
+            .uniform(&view)
+            .uniform(&proj)
+            .build(device, layout);
+
         Self {
-            desc,
-            uniform: Uniform::new(device, "camera", Some(transform)),
+            group,
+
+            view,
+            proj,
         }
     }
 
-    pub fn update(&self, frame: &mut crate::gfx::frame::Frame) {
-        self.uniform.upload(frame, &CameraTransform::new(&self.desc));
+    pub fn bind<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group_idx: u32) {
+        pass.set_bind_group(group_idx, &self.group, &[]);
+    }
+
+    pub fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        wgpu::util::BindGroupLayoutBuilder::new("cam")
+            .uniform(wgpu::ShaderStage::VERTEX)
+            .uniform(wgpu::ShaderStage::VERTEX)
+            .build(device)
     }
 }

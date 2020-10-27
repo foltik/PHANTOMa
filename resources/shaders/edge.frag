@@ -6,9 +6,10 @@ layout(early_fragment_tests) in;
 layout(location = 0) in vec2 tex;
 layout(location = 0) out vec4 color;
 
-layout(set = 0, binding = 0) uniform texture2D img;
+layout(set = 0, binding = 0) uniform texture2D imgs[];
 layout(set = 0, binding = 1) uniform sampler samp;
-layout(set = 0, binding = 2) uniform Uniforms {
+
+layout(set = 1, binding = 0) uniform Uniforms {
     float t;
     float tc;
     float pause;
@@ -64,18 +65,18 @@ float snoise(vec2 p) {
 void main() {
     vec2 res = vec2(1920.0, 1080.0);
 
-    vec3 i = texture(sampler2D(img, samp), tex).rgb;
+    vec3 i = texture(sampler2D(imgs[0], samp), tex).rgb;
 
-    vec3 TL = texture(sampler2D(img, samp), tex + vec2(-1.0, 1.0) / res).rgb;
-    vec3 TM = texture(sampler2D(img, samp), tex + vec2(0.0, 1.0) / res).rgb;
-    vec3 TR = texture(sampler2D(img, samp), tex + vec2(1.0, 1.0) / res).rgb;
+    vec3 TL = texture(sampler2D(imgs[0], samp), tex + vec2(-1.0, 1.0) / res).rgb;
+    vec3 TM = texture(sampler2D(imgs[0], samp), tex + vec2(0.0, 1.0) / res).rgb;
+    vec3 TR = texture(sampler2D(imgs[0], samp), tex + vec2(1.0, 1.0) / res).rgb;
 
-    vec3 ML = texture(sampler2D(img, samp), tex + vec2(-1.0, 0.0) / res).rgb;
-    vec3 MR = texture(sampler2D(img, samp), tex + vec2(1.0, 0.0) / res).rgb;
+    vec3 ML = texture(sampler2D(imgs[0], samp), tex + vec2(-1.0, 0.0) / res).rgb;
+    vec3 MR = texture(sampler2D(imgs[0], samp), tex + vec2(1.0, 0.0) / res).rgb;
 
-    vec3 BL = texture(sampler2D(img, samp), tex + vec2(-1.0, -1.0) / res).rgb;
-    vec3 BM = texture(sampler2D(img, samp), tex + vec2(0.0, -1.0) / res).rgb;
-    vec3 BR = texture(sampler2D(img, samp), tex + vec2(1.0, -1.0) / res).rgb;
+    vec3 BL = texture(sampler2D(imgs[0], samp), tex + vec2(-1.0, -1.0) / res).rgb;
+    vec3 BM = texture(sampler2D(imgs[0], samp), tex + vec2(0.0, -1.0) / res).rgb;
+    vec3 BR = texture(sampler2D(imgs[0], samp), tex + vec2(1.0, -1.0) / res).rgb;
 
     vec3 GradX = -TL + TR - 2.0 * ML + 2.0 * MR - BL + BR;
     vec3 GradY = TL + 2.0 * TM + TR - BL - 2.0 * BM - BR;

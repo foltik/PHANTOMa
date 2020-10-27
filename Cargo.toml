@@ -1,6 +1,6 @@
 [workspace]
 #members = ["lib", "phantoma", "sketches/maze"]
-members = ["lib", "phantoma", "sketches/async"]
+members = ["lib", "wgpu_glyph", "wgpu_staging", "phantoma", "sketches/syn005"]
 #members = ["lib", "phantoma", "sketches/*"]
 exclude = ["sketches/new", "sketches/template"]
 

@@ -1,8 +1,13 @@
+use std::sync::Arc;
 use std::thread;
+
+use crossbeam_queue::ArrayQueue;
 
 use super::analyze;
 use super::ringbuf::{self, Consumer, Producer, RingBuffer};
 use super::{Frame, FFT, FFT_SIZE, FRAME_SIZE};
+
+use super::midi::{Midi, MidiState, MidiBank, MidiRaw};
 
 const FRAME_QUEUE_SIZE: usize = 64;
 const FFT_QUEUE_SIZE: usize = 16;
@@ -10,7 +15,9 @@ const FFT_QUEUE_SIZE: usize = 16;
 pub struct Jack {
     pub samples: Frame,
     pub fft: FFT,
+    midi: MidiState,
 
+    midi_rx: Arc<ArrayQueue<MidiRaw>>,
     samples_rx: Consumer<Frame>,
     fft_rx: Consumer<FFT>,
 }
@@ -24,6 +31,16 @@ impl Jack {
         if !self.fft_rx.is_empty() {
             ringbuf::drain(&mut self.fft_rx, &mut self.fft);
         }
+    }
+
+    pub fn midi(&mut self) -> Vec<(MidiBank, Midi)> {
+        let mut messages = Vec::new();
+
+        while let Some(raw) = self.midi_rx.pop() {
+            messages.push(self.midi.process(raw));
+        }
+
+        messages
     }
 
     pub fn rms(&self) -> f32 {
@@ -54,6 +71,14 @@ impl Default for Jack {
             .register_port("in_right", jack::AudioIn::default())
             .unwrap();
 
+        let in_midi = client
+            .register_port("midi", jack::MidiIn::default())
+            .unwrap();
+
+        // // Create a queue for sending MIDI messages
+        let midi_rx = Arc::new(ArrayQueue::<MidiRaw>::new(128));
+        let midi_tx = Arc::clone(&midi_rx);
+
         // Create a ringbuffer for sending raw samples from the JACK processing thread to the analysis thread
         let jack_analyze_buffer = RingBuffer::<Frame>::new(FRAME_QUEUE_SIZE);
         let (mut jack_analyze_tx, jack_analyze_rx) = jack_analyze_buffer.split();
@@ -76,6 +101,8 @@ impl Default for Jack {
                         ps,
                         &in_left,
                         &in_right,
+                        &in_midi,
+                        &midi_tx,
                         &mut process_buffer,
                         &mut jack_analyze_tx,
                         &mut jack_main_tx,
@@ -95,6 +122,8 @@ impl Default for Jack {
         thread::spawn(move || analyze::analyze(jack_analyze_rx, fft_tx));
 
         Self {
+            midi: MidiState::default(),
+            midi_rx,
             fft_rx,
             samples: [0.0; FRAME_SIZE],
             samples_rx: jack_main_rx,
@@ -108,6 +137,8 @@ pub fn process(
     ps: &jack::ProcessScope,
     in_left: &jack::Port<jack::AudioIn>,
     in_right: &jack::Port<jack::AudioIn>,
+    in_midi: &jack::Port<jack::MidiIn>,
+    midi_tx: &Arc<ArrayQueue<MidiRaw>>,
     buffer: &mut Frame,
     analyze_tx: &mut Producer<Frame>,
     main_tx: &mut Producer<Frame>,
@@ -124,6 +155,16 @@ pub fn process(
             *v = sample;
         });
 
+    in_midi.iter(ps).for_each(|m| {
+        if !midi_tx.is_full() {
+            let mut buf = [0; 16];
+            for (i, b) in m.bytes.iter().take(16).enumerate() {
+                buf[i] = *b;
+            }
+            midi_tx.push(buf).unwrap();
+        }
+    });
+
     ringbuf::transmit(analyze_tx, buffer);
     ringbuf::transmit(main_tx, buffer);
 
@@ -134,24 +175,25 @@ struct Notifications;
 
 impl jack::NotificationHandler for Notifications {
     fn shutdown(&mut self, status: jack::ClientStatus, reason: &str) {
-        log::debug!(
+        log::trace!(
             "JACK: shutdown with status {:?} because \"{}\"",
-            status, reason
+            status,
+            reason
         );
     }
 
     fn buffer_size(&mut self, _: &jack::Client, sz: jack::Frames) -> jack::Control {
-        log::debug!("JACK: buffer size changed to {}", sz);
+        log::trace!("JACK: buffer size changed to {}", sz);
         jack::Control::Continue
     }
 
     fn sample_rate(&mut self, _: &jack::Client, srate: jack::Frames) -> jack::Control {
-        log::debug!("JACK: sample rate changed to {}", srate);
+        log::trace!("JACK: sample rate changed to {}", srate);
         jack::Control::Continue
     }
 
     fn xrun(&mut self, _: &jack::Client) -> jack::Control {
-        log::debug!("JACK: xrun occurred");
+        log::trace!("JACK: xrun occurred");
         jack::Control::Continue
     }
 }

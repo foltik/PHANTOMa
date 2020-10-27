@@ -8,14 +8,16 @@ edition = "2018"
 # Gfx
 winit = "0.23.0"
 wgpu = "0.6.0"
+wgpu_staging = { path = "../wgpu_staging" }
+wgpu_glyph = { path = "../wgpu_glyph" }
 
 # Gfx Support
-wavefront_obj = "8.0.0"
-obj = "0.10.1"
+#wavefront_obj = "8.0.0"
+#obj = "0.10.1"
+gltf = { version = "0.15.2", features = ["KHR_lights_punctual", "KHR_materials_unlit"] }
+image = "0.23.10"
 
 # Lib
-#nannou = "0.14.0"
-#nannou = { path = "/home/lain/Documents/dev/nannou/nannou" }
 log = "0.4.11"
 pretty_env_logger = "0.4.0"
 
@@ -23,22 +25,25 @@ pretty_env_logger = "0.4.0"
 cgmath = "0.17.0"
 splines = { version = "3.4.1", features = ["impl-cgmath"] }
 
-# Data
-safe-transmute = "0.11.0"
-
 # Audio
 jack = "0.6.5"
 apodize = "1.0.0"
 ringbuf = "0.2.2"
-rustfft = "3.0.1"
+rustfft = "4.0.0"
 
 # MIDI / OSC
 midir = { version = "0.7", features = ["jack"] }
 nannou_osc = "0.14.0"
-crossbeam-queue = "0.2.3"
+crossbeam-queue = "0.3.0"
 # twitchchat = { version = "0.13", features = ["async"]}
 
 # Async
 async-std = { version = "1.6.5", features = [] }
-async-channel = "1.5.1"
+async-scoped = "0.4.1"
 futures = "0.3.6"
+
+# Util
+bytemuck = { version = "1.4.1", features = ["derive"] }
+safe-transmute = "0.11.0"
+enum_dispatch = "0.3.3"
+petgraph = "0.5.1"

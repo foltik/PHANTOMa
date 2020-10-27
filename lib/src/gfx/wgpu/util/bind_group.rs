@@ -1,4 +1,4 @@
-use crate::gfx::uniform::Uniform;
+use crate::gfx::uniform::{Uniform, UniformArray};
 use crate::gfx::wgpu::TextureView;
 
 use std::num::NonZeroU32;
@@ -73,16 +73,15 @@ impl<'l> LayoutBuilder<'l> {
         self
     }
 
-    /// Add a uniform buffer binding to the layout.
-    // pub fn uniform_buffer(self, visibility: wgpu::ShaderStage, dynamic: bool, ) -> Self {
-    //     let ty = wgpu::BindingType::UniformBuffer {
-    //         dynamic,
-    //         min_binding_size:
-    //     };
-    //     self.binding(visibility, ty)
-    // }
-    pub fn uniform<T: Copy>(self, visibility: wgpu::ShaderStage, uniform: &Uniform<T>) -> Self {
-        self.binding(visibility, uniform.into(), None)
+    pub fn uniform(self, visibility: wgpu::ShaderStage) -> Self {
+        self.binding(visibility, wgpu::BindingType::UniformBuffer {
+            min_binding_size: None,
+            dynamic: false,
+        }.into(), None)
+    }
+
+    pub fn uniform_array(self, visibility: wgpu::ShaderStage) -> Self {
+        self.uniform(visibility)
     }
 
     /// Add a sampler binding to the layout.
@@ -99,11 +98,31 @@ impl<'l> LayoutBuilder<'l> {
         self.binding(visibility, wgpu::BindingType::Sampler { comparison: true }.into(), None)
     }
 
+    // TODO: fix this and add texture_from or just From<thing> for parameter?
+    pub fn array_tex(self, visibility: wgpu::ShaderStage) -> Self {
+        self.binding(visibility, BindingType(wgpu::BindingType::SampledTexture {
+            dimension: wgpu::TextureViewDimension::D2Array,
+            component_type: wgpu::TextureComponentType::Float,
+            multisampled: false,
+        }), None)
+    }
+    pub fn tex(self, visibility: wgpu::ShaderStage) -> Self {
+        self.binding(visibility, BindingType(wgpu::BindingType::SampledTexture {
+            dimension: wgpu::TextureViewDimension::D2,
+            component_type: wgpu::TextureComponentType::Float,
+            multisampled: false,
+        }), None)
+    }
+
     pub fn texture(self, visibility: wgpu::ShaderStage, view: &TextureView) -> Self {
         self.binding(visibility, view.into(), None)
     }
-    pub fn textures(self, visibility: wgpu::ShaderStage, views: &[TextureView]) -> Self {
-        self.binding(visibility, (&views[0]).into(), Some(views.len() as u32))
+    pub fn textures(self, visibility: wgpu::ShaderStage, n: usize) -> Self {
+        self.binding(visibility, BindingType(wgpu::BindingType::SampledTexture {
+            dimension: wgpu::TextureViewDimension::D2,
+            component_type: wgpu::TextureComponentType::Float,
+            multisampled: false,
+        }), Some(n as u32))
     }
 
     /// Add a storage buffer binding to the layout.
@@ -237,6 +256,10 @@ impl<'l, 'a> Builder<'l, 'a> {
     // }
 
     pub fn uniform<T: Copy>(self, uniform: &'a Uniform<T>) -> Self {
+        self.buffer::<T, _>(&uniform.buffer, ..)
+    }
+
+    pub fn uniform_array<T: Copy>(self, uniform: &'a UniformArray<T>) -> Self {
         self.buffer::<T, _>(&uniform.buffer, ..)
     }
 

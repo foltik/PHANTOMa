@@ -76,8 +76,8 @@ impl<E> Future for WaitFuture<'_, E> {
                 shared_state.next_event = None;
                 Poll::Pending
             }
-            Some(Event::LoopDestroyed) => unreachable!(),
             Some(Event::Suspended) | Some(Event::Resumed) => unimplemented!(),
+            Some(Event::LoopDestroyed) => unreachable!(),
             None => Poll::Pending,
         }
     }
@@ -173,8 +173,6 @@ impl<E> Future for PollFuture<'_, E> {
 
         let mut shared_state = self.shared_state.borrow_mut();
         match shared_state.next_event.take() {
-            // Some(Event::WindowEvent{window_id, event}) => Poll::Ready(Some(EventAsync::WindowEvent{window_id, event})),
-            // Some(Event::DeviceEvent{device_id, event}) => Poll::Ready(Some(EventAsync::DeviceEvent{device_id, event})),
             Some(Event::WindowEvent { window_id: _, event }) => {
                 Poll::Ready(Some(EventAsync::WindowEvent(event)))
             }

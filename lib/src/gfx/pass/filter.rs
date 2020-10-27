@@ -84,7 +84,7 @@ impl FilterPass {
     ) -> (wgpu::BindGroup, wgpu::BindGroupLayout) {
         let uniform_layout =
             wgpu::util::BindGroupLayoutBuilder::new(&format!("{}_uniform", label))
-                .uniform(wgpu::ShaderStage::FRAGMENT, uniform)
+                .uniform(wgpu::ShaderStage::FRAGMENT)
                 .build(device);
 
         let uniform_group = wgpu::util::BindGroupBuilder::new(&format!("{}_uniform", label))
@@ -122,9 +122,9 @@ impl FilterPass {
 
             let image_layout =
                 wgpu::util::BindGroupLayoutBuilder::new(&format!("{}_image", label))
-                    .textures(wgpu::ShaderStage::FRAGMENT, &views)
+                    .textures(wgpu::ShaderStage::FRAGMENT, n as usize)
                     .sampler(wgpu::ShaderStage::FRAGMENT)
-                    .uniform(wgpu::ShaderStage::FRAGMENT, &count)
+                    .uniform(wgpu::ShaderStage::FRAGMENT)
                     .build(device);
 
             let views = views.into_iter().map(|v| v.view).collect::<Vec<_>>();
@@ -161,7 +161,7 @@ impl FilterPass {
     pub fn encode(&self, frame: &mut Frame, target: &wgpu::RawTextureView) {
         let mut pass = wgpu::util::RenderPassBuilder::new()
             .color_attachment(target, |b| b)
-            .begin(frame.encoder.as_mut().unwrap());
+            .begin(frame);
 
         pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, &self.image_group, &[]);

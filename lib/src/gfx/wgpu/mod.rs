@@ -37,7 +37,7 @@ pub use wgpu::{
     StencilStateFaceDescriptor, StencilStateDescriptor, /*StoreOp,*/ Surface, SwapChain,
     SwapChainDescriptor, SwapChainFrame, /*SwapChainOutput,*/
     Texture as RawTexture,
-    TextureAspect, TextureComponentType, TextureCopyView, TextureDescriptor, TextureDimension,
+    TextureAspect, TextureComponentType, TextureCopyView, TextureDataLayout, TextureDescriptor, TextureDimension,
     TextureFormat, TextureUsage, TextureView as RawTextureView,
     TextureViewDescriptor, TextureViewDimension, /*TimeOut,*/
     VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat, VertexStateDescriptor,

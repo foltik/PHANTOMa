@@ -1,0 +1,12 @@
+[package]
+name = "wgpu_staging"
+version = "0.1.0"
+authors = ["Jack Foltz <jack@foltz.io>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wgpu = "0.6"
+futures = "0.3.7"
+async-channel = "1.5.1"

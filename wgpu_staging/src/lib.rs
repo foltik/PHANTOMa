@@ -1,4 +1,5 @@
-use crate::gfx::wgpu;
+#![feature(async_closure)]
+
 use futures::future::join_all;
 
 struct Chunk {
@@ -75,7 +76,7 @@ impl StagingPool {
             self.free_chunks.swap_remove(index)
         } else {
             let size = self.chunk_size.max(size.get());
-            log::trace!("Allocating new staging buffer with size {}", size);
+            // log::trace!("Allocating new staging buffer with size {}", size);
             Chunk {
                 buffer: device.create_buffer(&wgpu::BufferDescriptor {
                     label: Some("staging"),

@@ -1,5 +1,3 @@
-pub use wgpu::util::StagingBelt;
-
 mod pipeline;
 pub use pipeline::PipelineBuilder;
 
@@ -15,5 +13,6 @@ pub use texture::{TextureBuilder, TextureViewBuilder};
 mod sampler;
 pub use sampler::SamplerBuilder;
 
-mod staging;
-pub use staging::StagingPool;
+pub use wgpu_staging::StagingPool;
+
+pub mod image;

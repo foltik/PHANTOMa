@@ -16,7 +16,7 @@ impl SynthPass {
 
         if let Some(uniform) = uniform {
             let uniform_layout = wgpu::util::BindGroupLayoutBuilder::new(&format!("{}_uniforms", label))
-                .uniform(wgpu::ShaderStage::FRAGMENT, uniform)
+                .uniform(wgpu::ShaderStage::FRAGMENT)
                 .build(device);
 
             let uniform_group = wgpu::util::BindGroupBuilder::new(&format!("{}_uniforms", label))
@@ -49,7 +49,7 @@ impl SynthPass {
     pub fn encode(&self, frame: &mut Frame, target: &wgpu::RawTextureView) {
         let mut pass = wgpu::util::RenderPassBuilder::new()
             .color_attachment(target, |b| b)
-            .begin(frame.encoder.as_mut().unwrap());
+            .begin(frame);
 
         pass.set_pipeline(&self.pipeline);
 

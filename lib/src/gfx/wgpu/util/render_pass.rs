@@ -1,4 +1,3 @@
-
 pub struct OpsBuilder<T> {
     ops: wgpu::Operations<T>,
 }
@@ -156,7 +155,7 @@ impl<'a> Builder<'a> {
     }
 
     /// Begin a render pass with the specified parameters on the given encoder.
-    pub fn begin(self, encoder: &'a mut wgpu::CommandEncoder) -> wgpu::RenderPass {
+    pub fn begin_encoder(self, encoder: &'a mut wgpu::CommandEncoder) -> wgpu::RenderPass {
         let Builder {
             color_attachments,
             depth_stencil_attachment
@@ -168,5 +167,9 @@ impl<'a> Builder<'a> {
         };
 
         encoder.begin_render_pass(&descriptor)
+    }
+
+    pub fn begin(self, frame: &'a mut crate::gfx::frame::Frame) -> wgpu::RenderPass<'a> {
+        self.begin_encoder(frame.encoder.as_mut().unwrap())
     }
 }

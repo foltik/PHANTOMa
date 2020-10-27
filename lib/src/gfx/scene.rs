@@ -1,256 +1,199 @@
-use nannou::math::cgmath::{self, Array, Vector3, Vector4};
-use nannou::wgpu;
+use std::collections::HashMap;
 
-use super::camera::{Camera, CameraDesc, CameraMetaUniform, CameraUniform};
-use super::lights::{Lights, LightsInfoUniform, PointLight, PointLightUniform};
-use super::material::MaterialUniform;
-use super::model::{Model, TransformUniform, VertexDescriptor};
-use super::Uniform;
-use super::{Composite, Effect};
+use crate::math::prelude::*;
 
-use crate as lib;
+use super::frame::Frame;
+use super::wgpu;
 
-pub struct SceneParam {
-    pub bloom: f32,
+use super::camera::Camera;
+use super::light::{LightDesc, Lights};
+use super::material::MaterialDesc;
+use super::mesh::{Mesh, MeshDesc};
+use super::animation::Animation;
+
+type Graph<T> = petgraph::stable_graph::StableDiGraph<T, ()>;
+pub type NodeIndex = petgraph::graph::NodeIndex;
+pub type MaterialIndex = usize;
+
+#[derive(Debug, Clone, Copy)]
+pub struct Transform {
+    pub translate: Vector3,
+    pub rotate: Quat,
+    pub scale: Vector3,
 }
 
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct VertexEffectState {
-    pub vals: Vector4<f32>,
+impl Transform {
+    pub fn identity() -> Self {
+        Self {
+            translate: Vector3::zero(),
+            rotate: Quat::new(1.0, 0.0, 0.0, 0.0),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        }
+    }
+}
+
+impl From<Transform> for Matrix4 {
+    fn from(tr: Transform) -> Self {
+        let t = Matrix4::from_translation(tr.translate);
+        let r = Matrix4::from(tr.rotate);
+        let s = Matrix4::from_nonuniform_scale(tr.scale.x, tr.scale.y, tr.scale.z);
+        t * r * s
+    }
+}
+
+#[derive(Clone)]
+pub struct Node {
+    pub name: String,
+    pub transform: Transform,
+}
+
+pub struct SceneAnim {
+    pub name: String,
+    pub desc: Animation,
+}
+
+pub struct SceneMeshDesc {
+    pub desc: MeshDesc,
+    pub material: MaterialIndex,
+    pub i: NodeIndex,
+}
+
+pub struct SceneLightDesc {
+    pub desc: LightDesc,
+    pub i: NodeIndex,
+}
+
+pub struct SceneCameraDesc {
+    pub proj: Matrix4,
+    pub i: NodeIndex,
+}
+
+#[derive(Default)]
+pub struct SceneDesc {
+    pub materials: Vec<MaterialDesc>,
+
+    pub animations: Vec<SceneAnim>,
+    pub lights: Vec<SceneLightDesc>,
+    pub meshes: Vec<SceneMeshDesc>,
+    pub camera: Option<SceneCameraDesc>,
+
+    // skins: Vec<Skin>,
+    pub nodes: Graph<Node>,
+    pub root: NodeIndex,
+
+    pub names: HashMap<String, NodeIndex>,
+}
+
+impl SceneDesc {
+    pub fn flat(&self) -> HashMap<NodeIndex, Matrix4> {
+        let mut nodes = self.nodes.clone();
+
+        fn visit(
+            map: &mut HashMap<NodeIndex, Matrix4>,
+            nodes: &mut Graph<Node>,
+            node: NodeIndex,
+            parent: Option<NodeIndex>,
+        ) {
+            let mut transform = Matrix4::from(nodes[node].transform);
+            if let Some(parent) = parent {
+                transform = Matrix4::from(nodes[parent].transform) * transform;
+            }
+            map.insert(node, transform);
+
+            let mut neighbors = nodes.neighbors_directed(node, petgraph::Outgoing).detach();
+            while let Some((_, c)) = neighbors.next(nodes) {
+                visit(map, nodes, c, Some(node))
+            }
+        }
+
+        let mut map = HashMap::new();
+
+        visit(&mut map, &mut nodes, self.root, None);
+        map
+    }
 }
 
 pub struct Scene {
-    pub models: Vec<Model>,
+    pub desc: SceneDesc,
+
+    pub cam: Camera,
+    pub cam_idx: NodeIndex,
+    pub cam_layout: wgpu::BindGroupLayout,
+
+    pub meshes: Vec<Mesh>,
+    pub mesh_idxs: Vec<NodeIndex>,
+    pub mesh_layout: wgpu::BindGroupLayout,
+
     pub lights: Lights,
-    pub camera: Camera,
-
-    pub do_bloom: bool,
-
-    pub fx: VertexEffectState,
-    pub fx_uniform: Uniform<VertexEffectState>,
-
-    lights_group: wgpu::BindGroup,
-    camera_group: wgpu::BindGroup,
-    model_groups: Vec<(wgpu::BindGroup, Vec<wgpu::BindGroup>)>,
-
-    phong_pipeline: wgpu::RenderPipeline,
-    phong_depth: wgpu::TextureView,
-    emit_pipeline: wgpu::RenderPipeline,
-    emit_depth: wgpu::TextureView,
-
-    blur1: Effect<f32>,
-    blur2: Effect<f32>,
-    composite: Composite,
+    pub light_idxs: Vec<NodeIndex>,
+    pub light_layout: wgpu::BindGroupLayout,
 }
 
 impl Scene {
-    pub fn new(
-        device: &wgpu::Device,
-        encoder: &mut wgpu::CommandEncoder,
-        models: Vec<Model>,
-        cam: CameraDesc,
-        ambient: f32,
-        points: Vec<PointLight>,
-    ) -> Self {
-        let lights = Lights::new(device, encoder, ambient, points);
-        let camera = Camera::new(device, cam);
+    pub fn new(device: &wgpu::Device, desc: SceneDesc) -> Self {
+        let transforms = desc.flat();
 
-        let fx_uniform = Uniform::new(device);
+        let cam_layout = Camera::layout(device);
+        let mesh_layout = Mesh::layout(device);
+        let light_layout = Lights::layout(device);
 
-        let lights_layout = wgpu::BindGroupLayoutBuilder::new()
-            .uniform_buffer(wgpu::ShaderStage::FRAGMENT, false)
-            .uniform_buffer(wgpu::ShaderStage::FRAGMENT, false)
-            .build(device);
+        let cam_idx = desc.camera.as_ref().unwrap().i;
+        let view = transforms[&cam_idx].invert().unwrap();
+        let proj = &desc.camera.as_ref().unwrap().proj;
+        let cam = Camera::new(device, &cam_layout, &view, &proj);
 
-        let lights_group = wgpu::BindGroupBuilder::new()
-            .buffer::<LightsInfoUniform>(&lights.info_uniform.buffer, 0..1)
-            .buffer::<PointLightUniform>(&lights.points_uniform.buffer, 0..Lights::MAX_POINT)
-            .build(device, &lights_layout);
-
-        let camera_layout = wgpu::BindGroupLayoutBuilder::new()
-            .uniform_buffer(wgpu::ShaderStage::VERTEX, false)
-            .uniform_buffer(wgpu::ShaderStage::VERTEX, false)
-            .uniform_buffer(wgpu::ShaderStage::FRAGMENT, false)
-            .build(device);
-
-        let camera_group = wgpu::BindGroupBuilder::new()
-            .buffer::<VertexEffectState>(&fx_uniform.buffer, 0..1)
-            .buffer::<CameraUniform>(&camera.transform.buffer, 0..1)
-            .buffer::<CameraMetaUniform>(&camera.meta.buffer, 0..1)
-            .build(device, &camera_layout);
-
-        let model_layout = wgpu::BindGroupLayoutBuilder::new()
-            .uniform_buffer(wgpu::ShaderStage::VERTEX, false)
-            .build(device);
-
-        let dim = wgpu::TextureViewDimension::D2;
-        let object_layout = wgpu::BindGroupLayoutBuilder::new()
-            .uniform_buffer(wgpu::ShaderStage::VERTEX, false)
-            .uniform_buffer(wgpu::ShaderStage::FRAGMENT, false)
-            .sampler(wgpu::ShaderStage::FRAGMENT)
-            .sampled_texture(wgpu::ShaderStage::FRAGMENT, false, dim)
-            .build(device);
-
-        let model_groups = models
+        let meshes = desc
+            .meshes
             .iter()
-            .map(|m| {
-                let object_groups = m
-                    .objects
-                    .iter()
-                    .map(|o| {
-                        let sampler = wgpu::SamplerBuilder::new()
-                            .mag_filter(o.material.filter)
-                            .address_mode(wgpu::AddressMode::Repeat)
-                            .build(&device);
-
-                        let group = wgpu::BindGroupBuilder::new()
-                            .buffer::<TransformUniform>(&o.transform.uniform.buffer, 0..1)
-                            .buffer::<MaterialUniform>(&o.material.uniform.buffer, 0..1)
-                            .sampler(&sampler)
-                            .texture_view(o.material.diffuse.as_ref().unwrap())
-                            .build(device, &object_layout);
-
-                        group
-                    })
-                    .collect();
-
-                let model_group = wgpu::BindGroupBuilder::new()
-                    .buffer::<TransformUniform>(&m.transform.uniform.buffer, 0..1)
-                    .build(device, &model_layout);
-
-                (model_group, object_groups)
-            })
+            .map(|m| Mesh::new(device, &mesh_layout, &m.desc, &transforms[&m.i]))
             .collect();
+        let mesh_idxs = desc.meshes.iter().map(|m| m.i).collect();
 
-        let do_bloom = models.iter().any(|m| {
-            m.objects
-                .iter()
-                .any(|o| cgmath::dot(o.material.desc.emissive.col, Vector3::from_value(1.0)) > 0.0)
-        });
-
-        let pipeline_layout = wgpu::create_pipeline_layout(
-            device,
-            &[
-                &lights_layout,
-                &camera_layout,
-                &model_layout,
-                &object_layout,
-            ],
-        );
-
-        let vs_mod = lib::read_shader(device, "scene.vert.spv");
-        let phong_fs_mod = lib::read_shader(device, "scene_phong.frag.spv");
-        let emit_fs_mod = lib::read_shader(device, "scene_emit.frag.spv");
-
-        let phong_pipeline = wgpu::RenderPipelineBuilder::from_layout(&pipeline_layout, &vs_mod)
-            .fragment_shader(&phong_fs_mod)
-            .color_format(super::FORMAT)
-            .add_vertex_buffer::<VertexDescriptor>()
-            .depth_format(super::DEPTH_FORMAT)
-            .build(device);
-
-        let emit_pipeline = wgpu::RenderPipelineBuilder::from_layout(&pipeline_layout, &vs_mod)
-            .fragment_shader(&emit_fs_mod)
-            .color_format(super::FORMAT)
-            .add_vertex_buffer::<VertexDescriptor>()
-            .depth_format(super::DEPTH_FORMAT)
-            .build(device);
-
-        let phong_depth = super::depth_builder().build(device).view().build();
-        let emit_depth = super::depth_builder().build(device).view().build();
-
-        // TODO: Just use two images and instead of duplicating shaders
-        let blur1 = Effect::new(device, "scene_blur_h.frag.spv");
-        let blur2 = Effect::new(device, "scene_blur_v.frag.spv");
-        let composite = Composite::new(device);
+        let (light_descs, light_idxs): (Vec<_>, Vec<_>) =
+            desc.lights.iter().map(|l| (l.desc, l.i)).unzip();
+        let light_transforms = light_idxs.iter().map(|i| view * transforms[i]).collect::<Vec<_>>();
+        let lights = Lights::new(device, &light_layout, &light_descs, &light_transforms);
 
         Self {
-            models,
+            desc,
+
+            cam,
+            cam_idx,
+            cam_layout,
+
+            meshes,
+            mesh_idxs,
+            mesh_layout,
+
             lights,
-            camera,
-
-            fx: VertexEffectState { vals: Vector4::from_value(0.0) },
-            fx_uniform,
-            do_bloom,
-
-            lights_group,
-            camera_group,
-            model_groups,
-
-            phong_pipeline,
-            phong_depth,
-            emit_pipeline,
-            emit_depth,
-
-            blur1,
-            blur2,
-            composite,
+            light_idxs,
+            light_layout,
         }
     }
 
-    pub fn update(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) {
-        self.fx_uniform.upload(device, encoder, self.fx.clone());
+    pub fn update(&self, frame: &mut Frame) {
+        let transforms = self.desc.flat();
 
-        self.lights.update(device, encoder);
-        self.camera.update(device, encoder);
+        let view = transforms[&self.cam_idx].invert().unwrap();
+        self.cam.view.upload(frame, &view);
 
-        for m in &self.models {
-            m.update(device, encoder);
-        }
+        self.meshes
+            .iter()
+            .zip(self.mesh_idxs.iter())
+            .for_each(|(m, i)| {
+                m.transform.upload(frame, &transforms[i]);
+            });
+
+        let light_transforms = self.light_idxs.iter().map(|i| view * transforms[i]).collect::<Vec<_>>();
+
+        self.lights.transforms.upload(frame, &light_transforms);
     }
 
-    fn encode_to_pass(&self, pass: &mut wgpu::RenderPass) {
-        pass.set_bind_group(0, &self.lights_group, &[]);
-        pass.set_bind_group(1, &self.camera_group, &[]);
-
-        for (m, (model_group, object_groups)) in self.models.iter().zip(self.model_groups.iter()) {
-            pass.set_bind_group(2, &model_group, &[]);
-
-            for (o, group) in m.objects.iter().zip(object_groups) {
-                pass.set_bind_group(3, &group, &[]);
-                pass.set_vertex_buffers(0, &[(&o.mesh.buffer, 0)]);
-                pass.draw(0..o.mesh.verts.len() as u32, 0..1);
-            }
-        }
+    pub fn node(&self, name: &str) -> &Node {
+        &self.desc.nodes[self.desc.names[name]]
     }
 
-    pub fn encode(&self, encoder: &mut wgpu::CommandEncoder, texture: &wgpu::TextureView) {
-        {
-            let target = if self.do_bloom {
-                &self.composite.view1
-            } else {
-                texture
-            };
-
-            let mut phong_pass = wgpu::RenderPassBuilder::new()
-                .color_attachment(target, |c| c)
-                .depth_stencil_attachment(&self.phong_depth, |d| d)
-                .begin(encoder);
-
-            phong_pass.set_pipeline(&self.phong_pipeline);
-            self.encode_to_pass(&mut phong_pass);
-        }
-
-        if self.do_bloom {
-            {
-                let mut emit_pass = wgpu::RenderPassBuilder::new()
-                    .color_attachment(&self.blur1.view, |c| c)
-                    .depth_stencil_attachment(&self.emit_depth, |d| d)
-                    .begin(encoder);
-
-                emit_pass.set_pipeline(&self.emit_pipeline);
-                self.encode_to_pass(&mut emit_pass);
-            }
-
-            for _ in 0..8 {
-                self.blur1.encode(encoder, &self.blur2.view);
-                self.blur2.encode(encoder, &self.blur1.view);
-            }
-
-            self.blur1.encode(encoder, &self.composite.view2);
-
-            self.composite.encode(encoder, texture);
-        }
+    pub fn node_mut(&mut self, name: &str) -> &mut Node {
+        &mut self.desc.nodes[self.desc.names[name]]
     }
 }

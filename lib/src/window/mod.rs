@@ -8,7 +8,7 @@ use crate::gfx::wgpu;
 mod proxy;
 pub use proxy::Proxy;
 
-pub mod async_ext;
+// pub mod async_ext;
 
 pub type LogicalSize = winit::dpi::LogicalSize<f32>;
 pub type PhysicalSize = winit::dpi::PhysicalSize<u32>;
@@ -17,6 +17,8 @@ pub const DEFAULT_DIMENSIONS: LogicalSize = LogicalSize {
     width: 1024.0,
     height: 768.0,
 };
+
+pub type WindowEvent = winit::event::WindowEvent<'static>;
 
 pub struct WindowBuilder {
     window: winit::window::WindowBuilder,
@@ -160,6 +162,7 @@ impl WindowBuilder {
                 dim.into()
             });
 
+
         // Use the `initial_swapchain_dimensions` as the default dimensions for the window if none
         // were specified.
         if window.window.inner_size.is_none() && window.window.fullscreen.is_none() {
@@ -193,7 +196,7 @@ impl WindowBuilder {
 
         let window = Window {
             id: window.id(),
-            window,
+            _window: window,
             surface,
             swap_chain,
             // frame_data,
@@ -268,6 +271,14 @@ impl WindowBuilder {
     //     self.fullscreen_with(Some(fullscreen))
     // }
 
+    pub fn fullscreen(self, event_loop: &winit::event_loop::EventLoop<()>) -> Self {
+        let mon = event_loop.primary_monitor().unwrap();
+        let mode = mon.video_modes().max_by_key(|mode| mode.refresh_rate()).unwrap();
+        log::debug!("Using video mode: {:?} {}Hz, {}bit", mode.size(), mode.refresh_rate(), mode.bit_depth());
+        // self.fullscreen_with(Some(Fullscreen::Borderless(Some(mon))))
+        self.fullscreen_with(Some(Fullscreen::Exclusive(mode)))
+    }
+
     /// Set the window fullscreen state with the given settings.
     ///
     /// - `None` indicates a normal window. This is the default case.
@@ -325,7 +336,8 @@ impl Default for WindowBuilder {
 // #[derive(Debug)]
 pub struct Window {
     pub id: Id,
-    pub(crate) window: winit::window::Window,
+    // pub(crate) window: winit::window::Window,
+    _window: winit::window::Window,
 
     pub(crate) surface: wgpu::Surface,
     pub(crate) swap_chain: SwapChain,
@@ -339,9 +351,9 @@ pub struct Window {
 }
 
 impl Window {
-    pub(crate) fn request_redraw(&self) {
-        self.window.request_redraw();
-    }
+    // pub(crate) fn request_redraw(&self) {
+    //     self.window.request_redraw();
+    // }
 
     pub(crate) fn rebuild_swap_chain(&mut self, device: &wgpu::Device, size: PhysicalSize) {
         self.swap_chain.rebuild(&device, &self.surface, size);
@@ -377,19 +389,10 @@ impl SwapChain {
         self.swap_chain = Some(device.create_swap_chain(surface, &self.descriptor));
     }
 
-    pub fn next_frame(&mut self) -> Option<wgpu::SwapChainTextureView> {
+    pub fn frame(&mut self) -> wgpu::SwapChainTextureView {
         let swap_chain = self.swap_chain.as_mut().unwrap();
-
-        // let frame = swap_chain.get_current_frame().unwrap();
-        // {
-        //     Some(wgpu::SwapChainTextureView::new(self, frame))
-        // }
-
-        if let Ok(frame) = swap_chain.get_current_frame() {
-            Some(wgpu::SwapChainTextureView::new(self, frame))
-        } else {
-            None
-        }
+        let frame = swap_chain.get_current_frame().unwrap();
+        wgpu::SwapChainTextureView::new(self, frame)
     }
 }
 

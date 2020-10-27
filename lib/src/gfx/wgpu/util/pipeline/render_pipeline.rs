@@ -225,7 +225,18 @@ impl<'a> RenderPipelineBuilder<'a> {
         self
     }
 
+    // TODO: rethink this instead of just having this hack
+    pub fn color_states<const N: usize>(mut self) -> Self {
+        self.color_states = &[Self::DEFAULT_COLOR_STATE; N];
+        self
+    }
+
     // Depth / Stencil state
+
+    pub fn depth_stencil(mut self) -> Self {
+        self.depth_stencil_state = Some(Self::DEFAULT_DEPTH_STENCIL_STATE);
+        self
+    }
 
     pub fn depth_stencil_state(mut self, state: wgpu::DepthStencilStateDescriptor) -> Self {
         self.depth_stencil_state = Some(state);

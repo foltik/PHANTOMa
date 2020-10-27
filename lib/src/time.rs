@@ -20,7 +20,7 @@ impl Decay {
     }
 
     pub fn update(&mut self, delta: f32) {
-        let fr = delta / self.t;
+        let fr = (delta * 1000.0) / self.t;
         let n = (fr * Self::MAX as f32).round() as u32;
 
         if n > self.c {
@@ -96,7 +96,7 @@ impl BeatClock {
     }
 
     pub fn update(&mut self, delta: f32) -> bool {
-        self.acc += delta;
+        self.acc += delta * 1000.0;
         let ms = convert::bpm_ms(self.bpm) * self.mul;
 
         if self.acc >= ms {
@@ -137,7 +137,7 @@ impl BeatDetect {
         let (e, e0) = (audio.rms_range(self.f0, self.f1), self.e0);
         self.e0 = e;
 
-        self.decay.update(delta / convert::bpm_ms(self.bpm_max));
+        self.decay.update((delta * 1000.0) / convert::bpm_ms(self.bpm_max));
 
         if e - e0 > self.thres && self.decay.off() {
             self.decay.set();

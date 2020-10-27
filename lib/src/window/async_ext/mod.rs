@@ -5,7 +5,7 @@ use std::{
     future::Future,
     ptr,
     rc::Rc,
-    task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
+    task::{Context, Poll},
     time::Instant,
 };
 use winit::{
@@ -75,14 +75,15 @@ impl<E: 'static + std::fmt::Debug> EventLoopAsync for EventLoop<E> {
             };
             event_handler(runner).await
         });
-        let waker = unsafe { Waker::from_raw(null_waker()) };
+
+        let waker = futures::task::noop_waker_ref();
 
         self.run(move |event, _, control_flow| {
             let control_flow_ptr = control_flow as *mut ControlFlow;
-            // drop(control_flow);
             {
                 let mut shared_state = shared_state.borrow_mut();
                 shared_state.control_flow = ptr::NonNull::new(control_flow_ptr);
+                println!("sending event..");
                 shared_state.next_event = Some(
                     event
                         .to_static()
@@ -91,15 +92,15 @@ impl<E: 'static + std::fmt::Debug> EventLoopAsync for EventLoop<E> {
             }
 
             if unsafe { *control_flow_ptr } != ControlFlow::Exit {
-                let mut context = Context::from_waker(&waker);
+                let mut context = Context::from_waker(waker);
                 match future.as_mut().poll(&mut context) {
                     Poll::Ready(()) => unsafe { *control_flow_ptr = ControlFlow::Exit },
-                    Poll::Pending => (),
+                    Poll::Pending => {
+                        unsafe { *control_flow_ptr = ControlFlow::Poll };
+                        shared_state.borrow_mut().control_flow = None;
+                    },
                 }
             }
-            
-            unsafe { *control_flow_ptr = ControlFlow::Poll };
-            shared_state.borrow_mut().control_flow = None;
         });
     }
 }
@@ -124,15 +125,3 @@ impl<E> EventLoopRunnerAsync<E> {
         }
     }
 }
-
-fn null_waker() -> RawWaker {
-    RawWaker::new(ptr::null(), VTABLE)
-}
-
-const VTABLE: &RawWakerVTable = &RawWakerVTable::new(null_waker_clone, null_fn, null_fn, null_fn);
-
-unsafe fn null_waker_clone(_: *const ()) -> RawWaker {
-    null_waker()
-}
-
-unsafe fn null_fn(_: *const ()) {}

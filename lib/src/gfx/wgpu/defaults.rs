@@ -35,3 +35,7 @@ pub fn device_descriptor() -> DeviceDescriptor {
 pub fn texture_format() -> TextureFormat {
     TextureFormat::Bgra8UnormSrgb
 }
+
+pub fn depth_format() -> TextureFormat {
+    TextureFormat::Depth32Float
+}

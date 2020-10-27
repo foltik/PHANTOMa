@@ -1,5 +1,11 @@
-pub mod filter;
+mod filter;
 pub use filter::FilterPass;
 
-pub mod synth;
+mod synth;
 pub use synth::SynthPass;
+
+mod ring;
+pub use ring::RingPass;
+
+pub mod text;
+pub use text::{TextPass, TextPassBuilder};

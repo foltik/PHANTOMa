@@ -63,9 +63,34 @@ pub fn read_shader(device: &wgpu::Device, file: &str) -> wgpu::ShaderModule {
     device.create_shader_module(source)
 }
 
-// pub fn read_scene(file: &str) -> gfx::Scene {
+pub fn read_gltf(file: &str) -> crate::gfx::scene::SceneDesc {
+    let data = read(file);
 
-// }
+    let before_read = std::time::Instant::now();
+    let gltf = crate::gfx::gltf::parse(&data);
+    log::trace!("Loaded {} in {:?}", file, before_read.elapsed());
+
+    gltf
+}
+
+pub fn read_image(file: &str) -> image::DynamicImage {
+    let data = read(file);
+
+    let start = std::time::Instant::now();
+    let img = image::load_from_memory(&data).unwrap();
+    log::trace!("Loaded {} in {:?}", file, start.elapsed());
+
+    img
+}
+
+pub fn read_scene(device: &wgpu::Device, file: &str) -> crate::gfx::scene::Scene {
+    let gltf = read_gltf(file);
+    crate::gfx::scene::Scene::new(device, gltf)
+}
+
+pub fn read_font(file: &str) -> wgpu_glyph::ab_glyph::FontArc {
+    wgpu_glyph::ab_glyph::FontArc::try_from_vec(read(file)).unwrap()
+}
 
 // pub fn read_model(file: &str) -> Vec<ObjectData> {
 //     let set = obj::parse(read_resource(file)).unwrap();

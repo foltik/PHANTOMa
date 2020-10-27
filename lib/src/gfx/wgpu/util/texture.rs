@@ -12,7 +12,11 @@ impl<'l> TextureBuilder<'l> {
 
     pub const DEFAULT_DESCRIPTOR: wgpu::TextureDescriptor<'static> = wgpu::TextureDescriptor {
         label: None,
-        size: wgpu::Extent3d { width: 1920, height: 1080, depth: 1 },
+        size: wgpu::Extent3d {
+            width: 1920,
+            height: 1080,
+            depth: 1,
+        },
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
@@ -21,7 +25,10 @@ impl<'l> TextureBuilder<'l> {
     };
 
     pub fn new(label: &'l str) -> Self {
-        Self { label, descriptor: Self::DEFAULT_DESCRIPTOR }
+        Self {
+            label,
+            descriptor: Self::DEFAULT_DESCRIPTOR,
+        }
     }
 
     /// Creates a new `Default` builder
@@ -30,7 +37,9 @@ impl<'l> TextureBuilder<'l> {
     }
 
     pub fn new_depth(label: &'l str) -> Self {
-        Self::new(label).format(Self::DEPTH_FORMAT)
+        Self::new(label)
+            .format(Self::DEPTH_FORMAT)
+            .usage(wgpu::TextureUsage::OUTPUT_ATTACHMENT)
     }
 
     /// Specify the width and height of the texture.
@@ -74,9 +83,16 @@ impl<'l> TextureBuilder<'l> {
     // If `depth` is greater than `1` then `D3` is assumed, otherwise if `height` is greater than
     // `1` then `D2` is assumed, otherwise `D1` is assumed.
     fn infer_dimension_from_size(&mut self) {
-        if self.descriptor.size.depth > 1 {
-            self.descriptor.dimension = wgpu::TextureDimension::D3;
-        } else if self.descriptor.size.height > 1 {
+        // 2DArray vs 3D?
+        // if self.descriptor.size.depth > 1 {
+        //     self.descriptor.dimension = wgpu::TextureDimension::D3;
+        // } else if self.descriptor.size.height > 1 {
+        //     self.descriptor.dimension = wgpu::TextureDimension::D2;
+        // } else {
+        //     self.descriptor.dimension = wgpu::TextureDimension::D1;
+        // }
+        // 2DArray vs 3D?
+        if self.descriptor.size.height > 1 {
             self.descriptor.dimension = wgpu::TextureDimension::D2;
         } else {
             self.descriptor.dimension = wgpu::TextureDimension::D1;
@@ -108,16 +124,17 @@ pub struct TextureViewBuilder<'a> {
 }
 
 impl<'a> TextureViewBuilder<'a> {
-    pub const DEFAULT_DESCRIPTOR: wgpu::TextureViewDescriptor<'static> = wgpu::TextureViewDescriptor {
-        label: None,
-        format: None,
-        dimension: None,
-        aspect: wgpu::TextureAspect::All,
-        base_mip_level: 0,
-        level_count: None,
-        base_array_layer: 0,
-        array_layer_count: None,
-    };
+    pub const DEFAULT_DESCRIPTOR: wgpu::TextureViewDescriptor<'static> =
+        wgpu::TextureViewDescriptor {
+            label: None,
+            format: None,
+            dimension: None,
+            aspect: wgpu::TextureAspect::All,
+            base_mip_level: 0,
+            level_count: None,
+            base_array_layer: 0,
+            array_layer_count: None,
+        };
 
     pub fn new(texture: &'a wgpu::Texture) -> Self {
         let mut descriptor = Self::DEFAULT_DESCRIPTOR;
@@ -127,7 +144,10 @@ impl<'a> TextureViewBuilder<'a> {
             wgpu::TextureDimension::D2 => wgpu::TextureViewDimension::D2,
             wgpu::TextureDimension::D3 => wgpu::TextureViewDimension::D3,
         });
-        Self { texture, descriptor }
+        Self {
+            texture,
+            descriptor,
+        }
     }
 
     pub fn format(mut self, format: wgpu::TextureFormat) -> Self {
@@ -174,7 +194,8 @@ impl<'a> TextureViewBuilder<'a> {
     }
 
     pub fn array_layer_count(mut self, array_layer_count: u32) -> Self {
-        self.descriptor.array_layer_count = Some(std::num::NonZeroU32::new(array_layer_count).unwrap());
+        self.descriptor.array_layer_count =
+            Some(std::num::NonZeroU32::new(array_layer_count).unwrap());
         self
     }
 
@@ -207,4 +228,3 @@ impl<'a> TextureViewBuilder<'a> {
         }
     }
 }
-
