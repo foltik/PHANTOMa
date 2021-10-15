@@ -76,7 +76,7 @@ void main() {
     if (mat.unlit != 0) {
         color = vec4(col, 1.0);
     } else {
-        vec3 res = vec3(0.0);
+        vec3 res = col * 0.01;
         for (int i = 0; i < count.n; i++)
             res += calc_point_light(lights.l[i], transforms.m[i], col);
 

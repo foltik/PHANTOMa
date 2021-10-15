@@ -165,8 +165,13 @@ pub fn process(
         }
     });
 
-    ringbuf::transmit(analyze_tx, buffer);
-    ringbuf::transmit(main_tx, buffer);
+    if !analyze_tx.is_full() {
+        ringbuf::transmit(analyze_tx, buffer);
+    }
+
+    if !main_tx.is_full() {
+        ringbuf::transmit(main_tx, buffer);
+    }
 
     jack::Control::Continue
 }

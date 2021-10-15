@@ -7,5 +7,8 @@ pub use synth::SynthPass;
 mod ring;
 pub use ring::RingPass;
 
-pub mod text;
+mod text;
 pub use text::{TextPass, TextPassBuilder};
+
+mod image;
+pub use self::image::{ImagePass};

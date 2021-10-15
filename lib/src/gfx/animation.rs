@@ -24,20 +24,27 @@ impl Channel {
 
 #[derive(Default, Clone)]
 pub struct Animation {
+    pub name: String,
     pub channels: Vec<(Channel, NodeIndex)>,
     pub len: usize,
 }
 
 impl Animation {
     pub fn apply(&self, frame: usize, fr: f32, scene: &mut Scene) {
-        let i = frame % self.len;
-        let j = (frame + 1) % self.len;
+        let i = frame % (self.len - 1);
+        let j = i + 1;
 
         for (c, node) in &self.channels {
             let transform = &mut scene.desc.nodes[*node].transform;
             match c {
                 Channel::Translate(t) => transform.translate = t[i].lerp(t[j], fr),
-                Channel::Rotate(r) => transform.rotate = r[i].slerp(r[j], fr),
+                Channel::Rotate(r) => {
+                    if r[i].dot(r[j]) < 0.0 {
+                        transform.rotate = r[i].slerp(-r[j], fr);
+                    } else {
+                        transform.rotate = r[i].slerp(r[j], fr)
+                    }
+                },
                 Channel::Scale(s) => transform.scale = s[i].lerp(s[j], fr),
             }
         }
@@ -88,7 +95,7 @@ impl Animator {
     pub fn update(&mut self, t: f32, scene: &mut Scene) {
         for (s, a) in self.states.iter_mut().zip(self.animations.iter()) {
             if s.playing {
-                let t = ((t - s.start) * 60.0);
+                let t = (t - s.start) * 60.0;
 
                 let frame = t as usize;
                 let fr = t.fract();

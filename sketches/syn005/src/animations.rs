@@ -3,7 +3,9 @@ use super::pipeline::AnimatedMaterialDesc;
 pub fn animations() -> Vec<AnimatedMaterialDesc> {
     let triopt = AnimatedMaterialDesc {
         name: "TriOpt",
-        nodes: vec!["Plane"],
+        // nodes: vec!["Plane"],
+        nodes: vec![],
+        mats: vec!["_TriOpt"],
         images: vec![
             "P0021_.png",
             "P0021_1.png",

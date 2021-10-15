@@ -164,7 +164,6 @@ impl From<gltf::Gltf> for SceneDesc {
 
         for m in g.materials() {
             let pbr = m.pbr_metallic_roughness();
-
             scene.materials.push(MaterialDesc {
                 name: m.name().unwrap().to_owned(),
                 color: match pbr.base_color_texture() {
@@ -202,6 +201,7 @@ impl From<gltf::Gltf> for SceneDesc {
 
         for a in g.animations() {
             let mut anim = Animation::default();
+            anim.name = a.name().unwrap().to_owned();
 
             for c in a.channels() {
                 let target = c.target();
@@ -250,15 +250,14 @@ fn debug_print(n: &gltf::Node, depth: usize) {
     let pad = " ".repeat(depth * 4);
 
     log::trace!(
-        "{}Node: {} (tf {:?})",
+        "{}Node: {}",
         pad,
         n.name().unwrap(),
-        n.transform().decomposed()
     );
 
-    if let Some(m) = n.mesh() {
-        log::trace!("{} Mesh: {}", pad, m.name().unwrap());
-    }
+    // if let Some(m) = n.mesh() {
+    //     log::trace!("{} Mesh: {}", pad, m.name().unwrap());
+    // }
 
     if let Some(l) = n.light() {
         log::trace!("{} Light: {}", pad, l.name().unwrap());
@@ -286,18 +285,18 @@ fn debug_explore(n: &gltf::Node, depth: usize) {
 }
 
 fn debug(g: &gltf::Gltf) {
-    for b in g.buffers() {
-        log::trace!("Buffer {}[{}]", b.index(), b.length());
-    }
-    log::trace!("");
+    // for b in g.buffers() {
+    //     log::trace!("Buffer {}[{}]", b.index(), b.length());
+    // }
+    // log::trace!("");
 
     for m in g.materials() {
         let i = m.pbr_metallic_roughness();
         log::trace!("Material {}: {}", m.index().unwrap(), m.name().unwrap());
         log::trace!(" Base Color Factor: {:?}", i.base_color_factor());
         // log::trace!(" Base Color Texture: {:?}", i.base_color_texture());
-        log::trace!(" Emissive Factor: {:?}", m.emissive_factor());
-        log::trace!(" Emissive Texture: {:?}", m.emissive_texture());
+        // log::trace!(" Emissive Factor: {:?}", m.emissive_factor());
+        // log::trace!(" Emissive Texture: {:?}", m.emissive_texture());
         log::trace!(" Unlit: {}", m.unlit());
     }
     log::trace!("");

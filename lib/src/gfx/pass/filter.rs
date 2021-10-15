@@ -53,6 +53,38 @@ impl FilterPass {
         }
     }
 
+    pub fn new_add<T: Copy>(
+        device: &wgpu::Device,
+        label: &str,
+        n: u32,
+        fragment: Option<&str>,
+        uniform: Option<&Uniform<T>>,
+    ) -> Self {
+        let vs = crate::resource::read_shader(device, BILLBOARD_SHADER);
+        let fs = crate::resource::read_shader(device, fragment.unwrap_or("add.frag.spv"));
+
+        let (image_group, image_layout, views) = Self::image_group(device, label, n);
+
+        let uniform_groups =
+            uniform.map(|u| Self::uniform_group(device, label, u));
+
+        let pipeline = Self::pipeline(
+            device,
+            label,
+            &vs,
+            &fs,
+            &image_layout,
+            uniform_groups.as_ref().map(|g| &g.1),
+        );
+
+        Self {
+            views,
+            image_group,
+            uniform_group: uniform_groups.map(|g| g.0),
+            pipeline,
+        }
+    }
+
     fn pipeline(
         device: &wgpu::Device,
         label: &str,

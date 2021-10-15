@@ -1,7 +1,6 @@
 [workspace]
 #members = ["lib", "phantoma", "sketches/maze"]
-members = ["lib", "wgpu_glyph", "wgpu_staging", "phantoma", "sketches/syn005"]
-#members = ["lib", "phantoma", "sketches/*"]
+members = ["lib", "wgpu_glyph", "wgpu_staging", "phantoma", "sketches/syn005", "sketches/abyss"]
 exclude = ["sketches/new", "sketches/template"]
 
 [profile.release]

@@ -1,22 +1,22 @@
 use std::collections::HashMap;
 
-use wgpu_glyph::{ab_glyph::FontArc, FontId, GlyphBrush, GlyphBrushBuilder, Section, Text};
+use wgpu_glyph::{ab_glyph::FontArc, FontId, GlyphBrush, GlyphBrushBuilder, Section, Text, OwnedSection, OwnedText};
 
 use crate::gfx::frame::Frame;
 use crate::gfx::wgpu;
 use crate::math::{Vector2, Vector4};
 use crate::resource;
 
-pub struct TextBuilder<'a, 'b> {
+pub struct TextBuilder<'a> {
     pass: &'a TextPass,
-    text: Text<'b>,
+    text: OwnedText,
 }
 
-impl<'a, 'b> TextBuilder<'a, 'b> {
-    fn new(pass: &'a TextPass, text: &'b str) -> Self {
+impl<'a> TextBuilder<'a> {
+    fn new(pass: &'a TextPass, text: &str) -> Self {
         Self {
             pass,
-            text: Text::new(text),
+            text: OwnedText::new(text.to_owned()),
         }
     }
 
@@ -36,16 +36,16 @@ impl<'a, 'b> TextBuilder<'a, 'b> {
     }
 }
 
-pub struct DrawBuilder<'a, 'b> {
+pub struct DrawBuilder<'a> {
     pass: &'a TextPass,
-    section: Section<'b>,
+    section: OwnedSection,
 }
 
-impl<'a, 'b> DrawBuilder<'a, 'b> {
+impl<'a> DrawBuilder<'a> {
     pub fn new(pass: &'a TextPass) -> Self {
         Self {
             pass,
-            section: Section::default(),
+            section: OwnedSection::default(),
         }
     }
 
@@ -54,9 +54,9 @@ impl<'a, 'b> DrawBuilder<'a, 'b> {
         self
     }
 
-    pub fn text<F: FnOnce(TextBuilder<'a, 'b>) -> TextBuilder<'a, 'b>>(
+    pub fn text<F: FnOnce(TextBuilder<'a>) -> TextBuilder<'a>>(
         mut self,
-        text: &'b str,
+        text: &str,
         f: F,
     ) -> Self {
         self.section = self
@@ -107,12 +107,12 @@ impl TextPass {
         }
     }
 
-    pub fn draw<F: for<'a, 'b> FnOnce(DrawBuilder<'a, 'b>) -> DrawBuilder<'a, 'b>>(
+    pub fn draw<F: for<'a> FnOnce(DrawBuilder<'a>) -> DrawBuilder<'a>>(
         &mut self,
         f: F,
     ) {
         let section = f(DrawBuilder::new(self)).section;
-        self.brush.queue(section);
+        self.brush.queue(&section);
     }
 
     pub fn encode(&mut self, frame: &mut Frame, target: &wgpu::RawTextureView) {

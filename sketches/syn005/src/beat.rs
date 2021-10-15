@@ -1,5 +1,7 @@
-use lib::time::{BeatClock, BeatDetect};
 use lib::audio::{Audio, Midi};
+use lib::time::{BeatClock, BeatDetect};
+
+use super::mixxx::Mixxx;
 
 pub enum BeatSource {
     Detect,
@@ -37,7 +39,18 @@ impl Beat {
         }
     }
 
-    pub fn update(&mut self, dt: f32, audio: &mut Audio) -> bool {
+    pub fn beat(&mut self) {
+        self.manual = true;
+    }
+
+    pub fn update(&mut self, dt: f32, audio: &mut Audio, mixxx: &Mixxx) -> bool {
+        mixxx
+            .decks
+            .iter()
+            .filter(|d| d.active)
+            .take(1)
+            .for_each(|d| self.clock.bpm = d.bpm);
+
         let detect = self.detect.update(dt, audio);
         let clock = self.clock.update(dt);
         let manual = self.manual;
@@ -48,7 +61,9 @@ impl Beat {
             BeatSource::Clock => clock,
         };
 
-        self.active && (beat || manual)
+        // self.active && (beat || manual)
+
+        manual
     }
 }
 

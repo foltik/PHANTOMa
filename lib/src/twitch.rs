@@ -1,8 +1,12 @@
 use crossbeam_queue::SegQueue;
 use std::collections::VecDeque;
 use std::sync::Arc;
-// use twitchchat::{events, Dispatcher, Runner, Status};
-use twitchchat::{UserConfig};
+use twitchchat::{
+    connector::async_std::Connector,
+    messages::Commands,
+    runner::{AsyncRunner, Status},
+    UserConfig,
+};
 
 #[derive(Debug)]
 pub struct TwitchMessage {
@@ -20,57 +24,37 @@ pub struct Twitch {
 impl Twitch {
     pub fn init() -> Self {
         let queue = Arc::new(SegQueue::new());
+        let tx = Arc::clone(&queue);
 
-        let config = UserConfig::builder()
+        async_std::task::spawn(async move {
+            let connector = Connector::twitch().unwrap();
+            let config = UserConfig::builder().anonymous().build().unwrap();
 
-        let input_queue = Arc::clone(&queue);
-        tokio::task::spawn(async move {
-            let dispatcher = Dispatcher::new();
+            let mut runner = AsyncRunner::connect(connector, &config).await.unwrap();
 
-            let dp = dispatcher.clone();
-            tokio::task::spawn(async move {
-                // subscribe to 'PRIVMSG' events, this is a `Stream`
-                let mut privmsgs = dp.subscribe::<events::Privmsg>();
-                // 'msg' is a twitchchat::messages::Privmsg<'static> here
-                while let Some(msg) = privmsgs.next().await {
-                    input_queue.push(TwitchMessage {
-                        channel: msg.channel.to_string(),
-                        user: msg.name.to_string(),
-                        body: msg.data.to_string(),
-                    });
+            // runner.join("#summit1g").await.unwrap();
+            // runner.join("#timthetatman").await.unwrap();
+            // runner.join("#rocketleague").await.unwrap();
+            runner.join("#eva_0nline").await.unwrap();
+            runner.join("#f0ltik").await.unwrap();
+            runner.join("#thomaslegacy").await.unwrap();
+
+            log::debug!("Twitch connected");
+
+            loop {
+                match runner.next_message().await.unwrap() {
+                    Status::Message(Commands::Privmsg(msg)) => {
+                        log::debug!("[{}] {}: {}", msg.channel(), msg.name(), msg.data());
+                        tx.push(TwitchMessage {
+                            channel: msg.channel().to_owned(),
+                            user: msg.name().to_owned(),
+                            body: msg.data().to_owned(),
+                        });
+                    }
+                    Status::Quit | Status::Eof => break,
+                    _ => {}
                 }
-            });
-
-            let (runner, mut control) =
-                Runner::new(dispatcher.clone(), twitchchat::RateLimit::default());
-
-            let (nick, pass) = twitchchat::ANONYMOUS_LOGIN;
-
-            let stream = twitchchat::connect_easy_tls(&nick, &pass).await.unwrap();
-
-            // run to completion in the background
-            let done = tokio::task::spawn(runner.run(stream));
-
-            // 'block' until connected
-            let ready = dispatcher.wait_for::<events::IrcReady>().await.unwrap();
-            //eprintln!("your irc name: {}", ready.nickname);
-
-            // the writer is also clonable
-            control.writer().join("#eva_0nline").await.unwrap();
-
-            // this resolves when the client disconnects
-            // or is forced to stop with Control::stop
-            // unwrap the JoinHandle
-            match done.await.unwrap() {
-                // client was disconnected by the server
-                Ok(Status::Eof) => {}
-                // client was canceled by the user (`stop`)
-                Ok(Status::Canceled) => {}
-                // the client's connection timed out
-                Ok(Status::Timeout) => {}
-                // an error was received when trying to read or write
-                Err(err) => eprintln!("error!: {}", err),
-            };
+            }
         });
 
         Self { queue }
@@ -89,30 +73,45 @@ impl Twitch {
 
 pub struct TwitchBuffer {
     twitch: Twitch,
-    buffer: VecDeque<TwitchMessage>,
+    buffer: VecDeque<String>,
     n: usize,
 }
 
 impl TwitchBuffer {
-    pub fn init(n: usize) -> Self {
+    pub fn new(n: usize) -> Self {
         Self {
             twitch: Twitch::init(),
-            buffer: VecDeque::with_capacity(2 * n),
+            buffer: VecDeque::with_capacity(n),
             n,
         }
     }
 
     pub fn update(&mut self) {
         for msg in self.twitch.poll() {
-            self.buffer.push_back(msg);
+            self.buffer
+                .push_front(format!("[{}]: {}", msg.user, msg.body));
         }
 
         while self.buffer.len() > self.n {
-            self.buffer.pop_front();
+            self.buffer.pop_back();
         }
     }
 
-    pub fn latest(&self) -> impl DoubleEndedIterator<Item = &TwitchMessage> {
-        self.buffer.iter()
+    pub fn block(&self, w: usize, h: usize) -> Vec<String> {
+        self.buffer
+            .iter()
+            .flat_map(|s| {
+                s.chars()
+                    .collect::<Vec<_>>()
+                    .chunks(w)
+                    .map(|c| c.iter().collect::<String>())
+                    .rev()
+                    .collect::<Vec<_>>()
+            })
+            .take(h)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect()
     }
 }

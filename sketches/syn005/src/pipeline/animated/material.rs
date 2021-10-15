@@ -8,6 +8,7 @@ use lib::gfx::wgpu;
 pub struct MaterialDesc {
     pub name: &'static str,
     pub nodes: Vec<&'static str>,
+    pub mats: Vec<&'static str>,
     pub images: Vec<&'static str>,
     pub fps: usize,
     pub unlit: bool,

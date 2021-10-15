@@ -22,7 +22,7 @@ pub fn resize(image: RgbaImage) -> (RgbaImage, Vector2) {
             }
         }
 
-        log::debug!("Resized image from {}x{} to {}x{}", ow, oh, w, h);
+        // log::trace!("Resized image from {}x{} to {}x{}", ow, oh, w, h);
 
         (resized, scale)
     } else {

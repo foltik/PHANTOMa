@@ -1,7 +1,7 @@
 pub use cgmath::SquareMatrix;
 pub use cgmath::Zero;
 pub use cgmath::{Deg, Euler, Rad};
-pub use cgmath::{EuclideanSpace, MetricSpace, VectorSpace};
+pub use cgmath::{EuclideanSpace, MetricSpace, VectorSpace, InnerSpace};
 
 pub type Vector2 = cgmath::Vector2<f32>;
 pub type Vector3 = cgmath::Vector3<f32>;
@@ -38,7 +38,7 @@ pub fn v4(x: f32, y: f32, z: f32, w: f32) -> Vector4 {
 
 pub mod prelude {
     pub use super::SquareMatrix;
-    pub use super::{EuclideanSpace, MetricSpace, VectorSpace};
+    pub use super::{EuclideanSpace, MetricSpace, VectorSpace, InnerSpace};
     pub use super::Zero;
     pub use super::{p2, p3, v2, v3, v4};
     pub use super::{Deg, Rad};

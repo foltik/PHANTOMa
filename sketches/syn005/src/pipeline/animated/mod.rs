@@ -18,7 +18,6 @@ pub struct Animated {
     pub mats_named: HashMap<String, usize>,
     pub meshes: Vec<Vec<usize>>,
 
-    depth: wgpu::TextureView,
     pipeline: wgpu::RenderPipeline,
 }
 
@@ -39,11 +38,6 @@ impl Animated {
             .min_filter(wgpu::FilterMode::Nearest)
             .build(&app.device);
 
-        let depth = wgpu::util::TextureBuilder::new_depth("depth")
-            .build(&app.device)
-            .view()
-            .build();
-
         let pipeline = wgpu::util::PipelineBuilder::new("phong")
             .with_layout(&scene.cam_layout)
             .with_layout(&scene.light_layout)
@@ -56,6 +50,8 @@ impl Animated {
             .depth_stencil()
             .build(&app.device);
 
+            log::debug!("loading mats");
+
         let mats = descs
             .iter()
             .map(|desc| {
@@ -67,6 +63,8 @@ impl Animated {
 
                 let (image, scale) = wgpu::util::image::load_array(app, &imgs);
 
+                log::debug!("done load array");
+
                 let view = image
                     .view()
                     .dimension(wgpu::TextureViewDimension::D2Array)
@@ -76,6 +74,8 @@ impl Animated {
                 Material::new(app, &desc, scale, &layout, &sampler, &view)
             })
             .collect::<Vec<_>>();
+
+            log::debug!("done mats");
 
         let mut mats_named = HashMap::new();
         for (i, mat) in mats.iter().enumerate() {
@@ -93,10 +93,20 @@ impl Animated {
             }
         }
 
+        for (i, mesh) in scene.desc.meshes.iter().enumerate() {
+            let name = &scene.desc.materials[mesh.material].name;
+            for d in descs {
+                if d.mats.iter().find(|n| *n == name).is_some() {
+                    meshes[mats_named[d.name]].push(i);
+                }
+            }
+        }
+
+        log::debug!("done animated");
+
         Self {
             layout,
             sampler,
-            depth,
             pipeline,
 
             mats,
@@ -118,10 +128,16 @@ impl Animated {
         }
     }
 
-    pub fn encode(&self, frame: &mut Frame, scene: &Scene, target: &wgpu::RawTextureView) {
+    pub fn encode(
+        &self,
+        frame: &mut Frame,
+        scene: &Scene,
+        depth: &wgpu::RawTextureView,
+        target: &wgpu::RawTextureView,
+    ) {
         let mut pass = wgpu::util::RenderPassBuilder::new()
-            .color_attachment(target, |c| c)
-            .depth_stencil_attachment(&self.depth, |d| d)
+            .color_attachment(target, |c| c.color(|o| o.load()))
+            .depth_stencil_attachment(depth, |d| d.depth(|o| o.load()))
             .begin(frame);
 
         pass.set_pipeline(&self.pipeline);

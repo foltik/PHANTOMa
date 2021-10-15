@@ -10,9 +10,9 @@ pub mod gfx;
 pub mod audio;
 // pub mod interp;
 pub mod midi;
-// pub mod osc;
+pub mod osc;
 pub mod time;
-// pub mod twitch;
+pub mod twitch;
 // pub mod wavefront;
 pub mod procedural;
 

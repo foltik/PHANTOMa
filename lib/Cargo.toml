@@ -33,9 +33,10 @@ rustfft = "4.0.0"
 
 # MIDI / OSC
 midir = { version = "0.7", features = ["jack"] }
-nannou_osc = "0.14.0"
+rosc = "0.4.2"
+nannou_osc = "0.15.0"
 crossbeam-queue = "0.3.0"
-# twitchchat = { version = "0.13", features = ["async"]}
+twitchchat = { version = "0.14.5", features = ["async", "async-std"] }
 
 # Async
 async-std = { version = "1.6.5", features = [] }
@@ -47,3 +48,4 @@ bytemuck = { version = "1.4.1", features = ["derive"] }
 safe-transmute = "0.11.0"
 enum_dispatch = "0.3.3"
 petgraph = "0.5.1"
+itertools = "0.9.0"
