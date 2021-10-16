@@ -24,7 +24,10 @@ pub fn features() -> Features {
 pub fn device_descriptor() -> DeviceDescriptor {
     DeviceDescriptor {
         features: features(),
-        limits: Default::default(),
+        limits: wgpu::Limits {
+            max_sampled_textures_per_shader_stage: 32,
+            ..Default::default()
+        },
         shader_validation: true,
     }
 }
