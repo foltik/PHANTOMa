@@ -35,8 +35,8 @@ impl Camera {
 
     pub fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
         wgpu::util::BindGroupLayoutBuilder::new("cam")
-            .uniform(wgpu::ShaderStage::VERTEX)
-            .uniform(wgpu::ShaderStage::VERTEX)
+            .uniform(wgpu::ShaderStages::VERTEX)
+            .uniform(wgpu::ShaderStages::VERTEX)
             .build(device)
     }
 }

@@ -20,7 +20,7 @@ impl RingPass {
         let views = (0..n)
             .map(|_| {
                 wgpu::util::TextureBuilder::new_color("ring")
-                    .usage(wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED)
+                    .usage(wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING)
                     .build(device)
                     .view()
                     .build()
@@ -28,8 +28,8 @@ impl RingPass {
             .collect::<Vec<_>>();
 
         let layout = wgpu::util::BindGroupLayoutBuilder::new("ring")
-            .texture(wgpu::ShaderStage::FRAGMENT, &views[0])
-            .sampler(wgpu::ShaderStage::FRAGMENT)
+            .texture(wgpu::ShaderStages::FRAGMENT, &views[0])
+            .sampler(wgpu::ShaderStages::FRAGMENT)
             .build(device);
 
         let groups = views
@@ -45,7 +45,7 @@ impl RingPass {
         let pipeline = wgpu::util::PipelineBuilder::new("ring")
             .with_layout(&layout)
             .render(&vs_mod)
-            .fragment_shader(&fs_mod)
+            .fragment(&fs_mod)
             .build(device);
 
         Self {

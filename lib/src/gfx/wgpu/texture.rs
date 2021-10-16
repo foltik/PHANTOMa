@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use crate::window::SwapChain;
+// use crate::window::SwapChain;
 use crate::gfx::wgpu::util::TextureViewBuilder;
 
 pub struct Texture {
@@ -105,32 +105,32 @@ impl Into<wgpu::TextureView> for TextureView {
     }
 }
 
-pub struct SwapChainTextureView {
-    frame: wgpu::SwapChainFrame,
-    pub size: wgpu::Extent3d,
-    pub dimension: wgpu::TextureViewDimension,
-    pub format: wgpu::TextureFormat,
-}
+// pub struct SwapChainTextureView {
+//     frame: wgpu::SwapChainFrame,
+//     pub size: wgpu::Extent3d,
+//     pub dimension: wgpu::TextureViewDimension,
+//     pub format: wgpu::TextureFormat,
+// }
 
-impl SwapChainTextureView {
-    pub(crate) fn new(swap_chain: &SwapChain, frame: wgpu::SwapChainFrame) -> Self {
-        Self {
-            frame,
-            size: wgpu::Extent3d { 
-                width: swap_chain.descriptor.width,
-                height: swap_chain.descriptor.height,
-                depth: 1,
-            },
-            dimension: wgpu::TextureViewDimension::D2,
-            format: swap_chain.descriptor.format,
-        }
-    }
-}
+// impl SwapChainTextureView {
+//     pub(crate) fn new(swap_chain: &SwapChain, frame: wgpu::SwapChainFrame) -> Self {
+//         Self {
+//             frame,
+//             size: wgpu::Extent3d { 
+//                 width: swap_chain.descriptor.width,
+//                 height: swap_chain.descriptor.height,
+//                 depth_or_array_layers: 1,
+//             },
+//             dimension: wgpu::TextureViewDimension::D2,
+//             format: swap_chain.descriptor.format,
+//         }
+//     }
+// }
 
-impl Deref for SwapChainTextureView {
-    type Target = wgpu::TextureView;
+// impl Deref for SwapChainTextureView {
+//     type Target = wgpu::TextureView;
 
-    fn deref(&self) -> &Self::Target {
-        &self.frame.output.view
-    }
-}
+//     fn deref(&self) -> &Self::Target {
+//         &self.frame.output.view
+//     }
+// }

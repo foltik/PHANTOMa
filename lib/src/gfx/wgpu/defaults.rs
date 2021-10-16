@@ -8,37 +8,46 @@ pub fn power_preference() -> PowerPreference {
 }
 
 /// Nannou's default WGPU backend preferences.
-pub fn backends() -> BackendBit {
-    BackendBit::PRIMARY
+pub const fn backends() -> Backends {
+    Backends::PRIMARY
 }
 
 /// The default set of `Features` used within the `default_device_descriptor()` function.
 pub fn features() -> Features {
-    Features::SAMPLED_TEXTURE_BINDING_ARRAY
+    // allow uniform texture2D textures[]
+    Features::TEXTURE_BINDING_ARRAY |
+    Features::UNSIZED_BINDING_ARRAY |
+
+    Features::SPIRV_SHADER_PASSTHROUGH
 }
 
+pub fn limits() -> Limits {
+    Limits {
+        max_sampled_textures_per_shader_stage: 32,
+        ..Default::default()
+    }
+}
 
 
 // Device defaults
 
-pub fn device_descriptor() -> DeviceDescriptor {
+pub fn device_descriptor() -> DeviceDescriptor<'static> {
     DeviceDescriptor {
+        label: None,
         features: features(),
-        limits: wgpu::Limits {
-            max_sampled_textures_per_shader_stage: 32,
-            ..Default::default()
-        },
-        shader_validation: true,
+        limits: limits(),
     }
 }
 
 
 // Window defaults
 
-pub fn texture_format() -> TextureFormat {
+pub const fn texture_format() -> TextureFormat {
     TextureFormat::Bgra8UnormSrgb
 }
-
-pub fn depth_format() -> TextureFormat {
+pub const fn depth_format() -> TextureFormat {
     TextureFormat::Depth32Float
+}
+pub const fn index_format() -> IndexFormat {
+    IndexFormat::Uint32
 }

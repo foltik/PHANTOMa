@@ -59,8 +59,19 @@ pub fn read_buffered(file: &str) -> impl std::io::BufRead {
 // TODO: Separate shader model creation from this method
 pub fn read_shader(device: &wgpu::Device, file: &str) -> wgpu::ShaderModule {
     let data = read(file);
-    let source = wgpu::util::make_spirv(&data);
-    device.create_shader_module(source)
+    // FIXME: Need shader validation
+    // let source = wgpu::ShaderSource::SpirV(wgpu::util::make_spirv_raw(&data));
+    let source = wgpu::util::make_spirv_raw(&data);
+    unsafe { 
+        device.create_shader_module_spirv(&::wgpu::ShaderModuleDescriptorSpirV {
+            label: None,
+            source,
+        })
+        // device.create_shader_module_unchecked(&wgpu::ShaderModuleDescriptor {
+        //     label: None,
+        //     source,
+        // })
+    }
 }
 
 pub fn read_gltf(file: &str) -> crate::gfx::scene::SceneDesc {

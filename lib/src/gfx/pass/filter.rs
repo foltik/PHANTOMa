@@ -5,7 +5,7 @@ const BILLBOARD_SHADER: &str = "billboard.vert.spv";
 const COMPOSITE_SHADER: &str = "composite.frag.spv";
 const PASSTHROUGH_SHADER: &str = "passthrough.frag.spv";
 
-// TODO: Need to find a better way to abstract out size. Right now it's a mess.
+// FIXME: Need to find a better way to abstract out size. Right now it's a mess.
 // Make it a builder?
 
 pub struct FilterPass {
@@ -131,13 +131,13 @@ impl FilterPass {
                 .with_layout(&image_layout)
                 .with_layout(&uniform_layout)
                 .render(&vs)
-                .fragment_shader(&fs)
+                .fragment(&fs)
                 .build(device)
         } else {
             wgpu::util::PipelineBuilder::new(label)
                 .with_layout(&image_layout)
                 .render(&vs)
-                .fragment_shader(&fs)
+                .fragment(&fs)
                 .build(device)
         }
     }
@@ -149,7 +149,7 @@ impl FilterPass {
     ) -> (wgpu::BindGroup, wgpu::BindGroupLayout) {
         let uniform_layout =
             wgpu::util::BindGroupLayoutBuilder::new(&format!("{}_uniform", label))
-                .uniform(wgpu::ShaderStage::FRAGMENT)
+                .uniform(wgpu::ShaderStages::FRAGMENT)
                 .build(device);
 
         let uniform_group = wgpu::util::BindGroupBuilder::new(&format!("{}_uniform", label))
@@ -174,7 +174,7 @@ impl FilterPass {
         let views = (0..n)
             .map(|i| {
                 wgpu::util::TextureBuilder::new(&format!("{}_input_{}", label, i))
-                    .usage(wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED)
+                    .usage(wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING)
                     .size([size.0 as u32, size.1 as u32, 1])
                     .build(device)
                     .view()
@@ -189,15 +189,16 @@ impl FilterPass {
 
             let image_layout =
                 wgpu::util::BindGroupLayoutBuilder::new(&format!("{}_image", label))
-                    .textures(wgpu::ShaderStage::FRAGMENT, n as usize)
-                    .sampler(wgpu::ShaderStage::FRAGMENT)
-                    .uniform(wgpu::ShaderStage::FRAGMENT)
+                    .textures(wgpu::ShaderStages::FRAGMENT, n as usize)
+                    .sampler(wgpu::ShaderStages::FRAGMENT)
+                    .uniform(wgpu::ShaderStages::FRAGMENT)
                     .build(device);
 
             let views = views.into_iter().map(|v| v.view).collect::<Vec<_>>();
 
+            let view_refs = views.iter().collect::<Vec<_>>();
             let image_group = wgpu::util::BindGroupBuilder::new(&format!("{}_image", label))
-                .textures(&views)
+                .textures(&view_refs)
                 .sampler(&sampler)
                 .uniform(&count)
                 .build(device, &image_layout);
@@ -206,8 +207,8 @@ impl FilterPass {
         } else {
             let image_layout =
                 wgpu::util::BindGroupLayoutBuilder::new(&format!("{}_image", label))
-                    .texture(wgpu::ShaderStage::FRAGMENT, &views[0])
-                    .sampler(wgpu::ShaderStage::FRAGMENT)
+                    .texture(wgpu::ShaderStages::FRAGMENT, &views[0])
+                    .sampler(wgpu::ShaderStages::FRAGMENT)
                     .build(device);
 
             let image_group = wgpu::util::BindGroupBuilder::new(&format!("{}_image", label))

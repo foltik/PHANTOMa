@@ -1,5 +1,5 @@
 use crate::gfx::uniform::Uniform;
-use crate::gfx::wgpu::{self, VertexAttributeDescriptor, VertexFormat};
+use crate::gfx::wgpu::{self, VertexAttribute, VertexFormat};
 use crate::math::{Matrix4, Vector2, Vector3, Vector4};
 
 pub enum VertexType {
@@ -8,7 +8,7 @@ pub enum VertexType {
 }
 
 impl VertexType {
-    pub fn attrs(&self) -> &'static [VertexAttributeDescriptor] {
+    pub fn attrs(&self) -> &'static [VertexAttribute] {
         match self {
             VertexType::Simple => VERTEX_SIMPLE_ATTRS,
             VertexType::Skinned => VERTEX_SKINNED_ATTRS,
@@ -23,56 +23,56 @@ impl VertexType {
     }
 }
 
-const VERTEX_SIMPLE_ATTRS: &[VertexAttributeDescriptor] = &[
-    VertexAttributeDescriptor {
+const VERTEX_SIMPLE_ATTRS: &[VertexAttribute] = &[
+    VertexAttribute {
         // pos
         offset: 0,
-        format: VertexFormat::Float3,
+        format: VertexFormat::Float32x3,
         shader_location: 0,
     },
-    VertexAttributeDescriptor {
+    VertexAttribute {
         // tex
         offset: 3 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-        format: VertexFormat::Float2,
+        format: VertexFormat::Float32x2,
         shader_location: 1,
     },
-    VertexAttributeDescriptor {
+    VertexAttribute {
         // norm
         offset: 5 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-        format: VertexFormat::Float3,
+        format: VertexFormat::Float32x3,
         shader_location: 2,
     },
 ];
 
-const VERTEX_SKINNED_ATTRS: &[VertexAttributeDescriptor] = &[
-    VertexAttributeDescriptor {
+const VERTEX_SKINNED_ATTRS: &[VertexAttribute] = &[
+    VertexAttribute {
         // pos
         offset: 0,
-        format: VertexFormat::Float3,
+        format: VertexFormat::Float32x3,
         shader_location: 0,
     },
-    VertexAttributeDescriptor {
+    VertexAttribute {
         // tex
         offset: 3 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-        format: VertexFormat::Float2,
+        format: VertexFormat::Float32x2,
         shader_location: 1,
     },
-    VertexAttributeDescriptor {
+    VertexAttribute {
         // norm
         offset: 5 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-        format: VertexFormat::Float3,
+        format: VertexFormat::Float32x3,
         shader_location: 2,
     },
-    VertexAttributeDescriptor {
+    VertexAttribute {
         // skin indices
         offset: 8 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-        format: VertexFormat::Float4,
+        format: VertexFormat::Float32x4,
         shader_location: 3,
     },
-    VertexAttributeDescriptor {
+    VertexAttribute {
         // skin weights
         offset: 12 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-        format: VertexFormat::Float4,
+        format: VertexFormat::Float32x4,
         shader_location: 4,
     },
 ];
@@ -154,7 +154,7 @@ impl Mesh {
     ) -> Self {
         let vertex = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("vertices"),
-            usage: wgpu::BufferUsage::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX,
             size: desc.verts.len() as wgpu::BufferAddress,
             mapped_at_creation: true,
         });
@@ -168,7 +168,7 @@ impl Mesh {
 
         let index = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("indices"),
-            usage: wgpu::BufferUsage::INDEX,
+            usage: wgpu::BufferUsages::INDEX,
             size: desc.inds.len() as wgpu::BufferAddress,
             mapped_at_creation: true,
         });
@@ -201,14 +201,14 @@ impl Mesh {
         pass.set_bind_group(group_idx, &self.group, &[]);
 
         pass.set_vertex_buffer(0, self.vertex.slice(..));
-        pass.set_index_buffer(self.index.slice(..));
+        pass.set_index_buffer(self.index.slice(..), wgpu::IndexFormat::Uint32);
 
         pass.draw_indexed(0..self.n, 0, 0..1);
     }
 
     pub fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
         wgpu::util::BindGroupLayoutBuilder::new("model")
-            .uniform(wgpu::ShaderStage::VERTEX)
+            .uniform(wgpu::ShaderStages::VERTEX)
             .build(device)
     }
 }

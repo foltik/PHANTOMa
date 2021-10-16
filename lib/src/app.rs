@@ -54,7 +54,7 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
     InputFn: for<'a, 'e> AsyncFnMut4<&'a App, &'a mut M, KeyState, Key> + 'static + Send,
     UpdateFn: for<'a> AsyncFnMut3<&'a App, &'a mut M, f32> + 'static + Send,
     ViewFn:
-        for<'a> AsyncFnMut3<&'a mut App, &'a mut M, &'a wgpu::SwapChainTextureView> + 'static + Send,
+        for<'a> AsyncFnMut3<&'a mut App, &'a mut M, &'a wgpu::RawTextureView> + 'static + Send,
 {
     init_logging();
 
@@ -120,7 +120,14 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
                                 app.height = size.height;
                                 window.size = size;
 
-                                window.rebuild_swap_chain(&app.device, size);
+                                window.surface.configure(&device, &wgpu::SurfaceConfiguration {
+                                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                                    format: wgpu::defaults::texture_format(),
+                                    width: size.width,
+                                    height: size.height,
+                                    present_mode: wgpu::PresentMode::Mailbox,
+                                });
+                                // window.rebuild_swap_chain(&app.device, size);
                             }
                         }
 
@@ -154,9 +161,24 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
                 last = now;
                 // log::trace!("Updated in {:?}", now.elapsed());
 
-                view_fn
-                    .call_mut(&mut app, &mut model, &window.swap_chain.frame())
-                    .await;
+                if let Ok(surface) = window.surface.get_current_texture() {
+                    let view = surface.texture.create_view(&wgpu::TextureViewDescriptor {
+                        label: None,
+                        format: Some(wgpu::defaults::texture_format()),
+                        dimension: Some(wgpu::TextureViewDimension::D2),
+                        aspect: wgpu::TextureAspect::All,
+                        base_mip_level: 0,
+                        mip_level_count: None,
+                        base_array_layer: 0,
+                        array_layer_count: None,
+                    });
+
+                    view_fn
+                        .call_mut(&mut app, &mut model, &view)
+                        .await;
+
+                    surface.present();
+                }
 
                 app.staging.recall().await;
             }

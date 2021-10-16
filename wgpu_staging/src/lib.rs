@@ -81,7 +81,7 @@ impl StagingPool {
                 buffer: device.create_buffer(&wgpu::BufferDescriptor {
                     label: Some("staging"),
                     size,
-                    usage: wgpu::BufferUsage::MAP_WRITE | wgpu::BufferUsage::COPY_SRC,
+                    usage: wgpu::BufferUsages::MAP_WRITE | wgpu::BufferUsages::COPY_SRC,
                     mapped_at_creation: true,
                 }),
                 size,

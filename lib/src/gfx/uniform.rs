@@ -17,13 +17,13 @@ impl<T: Copy> Uniform<T> {
             None => device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(label),
                 size: Self::SIZE,
-                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             }),
             Some(t) => device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(label),
                 contents: unsafe { safe_transmute::to_bytes::transmute_to_bytes_unchecked(t) },
-                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             }),
         };
 
@@ -61,7 +61,7 @@ impl<T: Copy> UniformArray<T> {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some(label),
             size: Self::SIZE * n,
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: true,
         });
 

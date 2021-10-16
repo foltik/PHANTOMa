@@ -1,3 +1,5 @@
+// FIXME: Add border color builder param
+
 /// Simplifies the construction of a `Sampler` with a set of reasonable defaults.
 #[derive(Debug)]
 pub struct SamplerBuilder<'l> {
@@ -11,6 +13,7 @@ impl<'l> SamplerBuilder<'l> {
         address_mode_u: wgpu::AddressMode::ClampToEdge,
         address_mode_v: wgpu::AddressMode::ClampToEdge,
         address_mode_w: wgpu::AddressMode::ClampToEdge,
+        border_color: None,
         mag_filter: wgpu::FilterMode::Linear,
         min_filter: wgpu::FilterMode::Linear,
         mipmap_filter: wgpu::FilterMode::Nearest,

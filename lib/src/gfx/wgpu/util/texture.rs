@@ -15,13 +15,13 @@ impl<'l> TextureBuilder<'l> {
         size: wgpu::Extent3d {
             width: 1920,
             height: 1080,
-            depth: 1,
+            depth_or_array_layers: 1,
         },
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
         format: Self::COLOR_FORMAT,
-        usage: wgpu::TextureUsage::empty(),
+        usage: wgpu::TextureUsages::empty(),
     };
 
     pub fn new(label: &'l str) -> Self {
@@ -39,7 +39,7 @@ impl<'l> TextureBuilder<'l> {
     pub fn new_depth(label: &'l str) -> Self {
         Self::new(label)
             .format(Self::DEPTH_FORMAT)
-            .usage(wgpu::TextureUsage::OUTPUT_ATTACHMENT)
+            .usage(wgpu::TextureUsages::COPY_SRC)
     }
 
     /// Specify the width and height of the texture.
@@ -50,7 +50,7 @@ impl<'l> TextureBuilder<'l> {
     pub fn size(mut self, [width, height, depth]: [u32; 3]) -> Self {
         self.descriptor.size.width = width;
         self.descriptor.size.height = height;
-        self.descriptor.size.depth = depth;
+        self.descriptor.size.depth_or_array_layers = depth;
         self.infer_dimension_from_size();
         self
     }
@@ -75,7 +75,7 @@ impl<'l> TextureBuilder<'l> {
     /// Describes to the implementation how the texture is to be used.
     ///
     /// It is important that the set of usage bits reflects the
-    pub fn usage(mut self, usage: wgpu::TextureUsage) -> Self {
+    pub fn usage(mut self, usage: wgpu::TextureUsages) -> Self {
         self.descriptor.usage = usage;
         self
     }
@@ -131,7 +131,7 @@ impl<'a> TextureViewBuilder<'a> {
             dimension: None,
             aspect: wgpu::TextureAspect::All,
             base_mip_level: 0,
-            level_count: None,
+            mip_level_count: None,
             base_array_layer: 0,
             array_layer_count: None,
         };
@@ -171,7 +171,7 @@ impl<'a> TextureViewBuilder<'a> {
     }
 
     pub fn level_count(mut self, level_count: u32) -> Self {
-        self.descriptor.level_count = Some(std::num::NonZeroU32::new(level_count).unwrap());
+        self.descriptor.mip_level_count = Some(std::num::NonZeroU32::new(level_count).unwrap());
         self
     }
 

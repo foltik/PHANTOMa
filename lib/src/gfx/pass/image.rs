@@ -45,15 +45,15 @@ impl ImagePass {
             .build(device);
 
         let layout = wgpu::util::BindGroupLayoutBuilder::new("image_pass_uniforms")
-            .tex(wgpu::ShaderStage::FRAGMENT)
-            .sampler(wgpu::ShaderStage::FRAGMENT)
-            .uniform(wgpu::ShaderStage::FRAGMENT)
+            .tex(wgpu::ShaderStages::FRAGMENT)
+            .sampler(wgpu::ShaderStages::FRAGMENT)
+            .uniform(wgpu::ShaderStages::FRAGMENT)
             .build(device);
 
         let pipeline = wgpu::util::PipelineBuilder::new("image_pass")
             .with_layout(&layout)
             .render(&vs_mod)
-            .fragment_shader(&fs_mod)
+            .fragment(&fs_mod)
             .build(device);
 
         Self {

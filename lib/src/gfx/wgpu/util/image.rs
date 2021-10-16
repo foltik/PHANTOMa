@@ -4,6 +4,8 @@ use crate::gfx::wgpu;
 use crate::math::Vector2;
 use image::{DynamicImage, RgbaImage};
 
+use std::num::NonZeroU32;
+
 fn nearest(n: u32) -> u32 {
     std::cmp::max(64, 2u32.pow((n as f32).log2().ceil() as u32))
 }
@@ -38,19 +40,19 @@ pub fn load(app: &App, image: &DynamicImage) -> (wgpu::Texture, Vector2) {
     let extent = wgpu::Extent3d {
         width,
         height,
-        depth: 1,
+        depth_or_array_layers: 1,
     };
 
     let texture = wgpu::util::TextureBuilder::new("image")
         .format(wgpu::TextureFormat::Rgba8UnormSrgb)
         .size([width, height, 1])
-        .usage(wgpu::TextureUsage::COPY_DST | wgpu::TextureUsage::SAMPLED)
+        .usage(wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT)
         .build(&app.device);
 
     let buffer = app.device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("staging"),
         size: sz as wgpu::BufferAddress,
-        usage: wgpu::BufferUsage::COPY_SRC,
+        usage: wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: true,
     });
 
@@ -63,17 +65,18 @@ pub fn load(app: &App, image: &DynamicImage) -> (wgpu::Texture, Vector2) {
 
     buffer.unmap();
 
-    let buffer_copy_view = wgpu::BufferCopyView {
+    let buffer_copy_view = wgpu::ImageCopyBuffer {
         buffer: &buffer,
-        layout: wgpu::TextureDataLayout {
+        layout: wgpu::ImageDataLayout {
             offset: 0,
-            bytes_per_row: width * 4,
-            rows_per_image: height,
+            bytes_per_row: NonZeroU32::new(width * 4),
+            rows_per_image: NonZeroU32::new(height),
         },
     };
 
-    let texture_copy_view = wgpu::TextureCopyView {
+    let texture_copy_view = wgpu::ImageCopyTexture {
         texture: &texture,
+        aspect: wgpu::TextureAspect::All,
         origin: wgpu::Origin3d::ZERO,
         mip_level: 0,
     };
@@ -96,19 +99,19 @@ pub fn load_array(app: &App, images: &[DynamicImage]) -> (wgpu::Texture, Vector2
     let extent = wgpu::Extent3d {
         width,
         height,
-        depth: n as u32,
+        depth_or_array_layers: n as u32,
     };
 
     let texture = wgpu::util::TextureBuilder::new("image")
         .format(wgpu::TextureFormat::Rgba8UnormSrgb)
         .size([width, height, n as u32])
-        .usage(wgpu::TextureUsage::COPY_DST | wgpu::TextureUsage::SAMPLED)
+        .usage(wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT)
         .build(&app.device);
 
     let buffer = app.device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("staging"),
         size: (width * height * 4 * n as u32) as wgpu::BufferAddress,
-        usage: wgpu::BufferUsage::COPY_SRC,
+        usage: wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: true,
     });
 
@@ -124,17 +127,18 @@ pub fn load_array(app: &App, images: &[DynamicImage]) -> (wgpu::Texture, Vector2
 
     buffer.unmap();
 
-    let buffer_copy_view = wgpu::BufferCopyView {
+    let buffer_copy_view = wgpu::ImageCopyBuffer {
         buffer: &buffer,
-        layout: wgpu::TextureDataLayout {
+        layout: wgpu::ImageDataLayout {
             offset: 0,
-            bytes_per_row: width * 4,
-            rows_per_image: height,
+            bytes_per_row: NonZeroU32::new(width * 4),
+            rows_per_image: NonZeroU32::new(height),
         },
     };
 
-    let texture_copy_view = wgpu::TextureCopyView {
+    let texture_copy_view = wgpu::ImageCopyTexture {
         texture: &texture,
+        aspect: wgpu::TextureAspect::All,
         origin: wgpu::Origin3d::ZERO,
         mip_level: 0,
     };

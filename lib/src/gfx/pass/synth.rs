@@ -16,7 +16,7 @@ impl SynthPass {
 
         if let Some(uniform) = uniform {
             let uniform_layout = wgpu::util::BindGroupLayoutBuilder::new(&format!("{}_uniforms", label))
-                .uniform(wgpu::ShaderStage::FRAGMENT)
+                .uniform(wgpu::ShaderStages::FRAGMENT)
                 .build(device);
 
             let uniform_group = wgpu::util::BindGroupBuilder::new(&format!("{}_uniforms", label))
@@ -26,7 +26,7 @@ impl SynthPass {
             let pipeline = wgpu::util::PipelineBuilder::new(label)
                 .with_layout(&uniform_layout)
                 .render(&vs_mod)
-                .fragment_shader(&fs_mod)
+                .fragment(&fs_mod)
                 .build(device);
 
             Self {
@@ -36,7 +36,7 @@ impl SynthPass {
         } else {
             let pipeline = wgpu::util::PipelineBuilder::new(label)
                 .render(&vs_mod)
-                .fragment_shader(&fs_mod)
+                .fragment(&fs_mod)
                 .build(device);
 
             Self {

@@ -1,3 +1,5 @@
+// FIXME: Add label param to render pass
+
 pub struct OpsBuilder<T> {
     ops: wgpu::Operations<T>,
 }
@@ -31,7 +33,7 @@ impl<T> OpsBuilder<T> {
 /// A builder type to simplify the process of creating a render pass descriptor.
 #[derive(Debug)]
 pub struct ColorAttachmentDescriptorBuilder<'a> {
-    descriptor: wgpu::RenderPassColorAttachmentDescriptor<'a>,
+    descriptor: wgpu::RenderPassColorAttachment<'a>,
 }
 
 impl<'a> ColorAttachmentDescriptorBuilder<'a> {
@@ -41,10 +43,10 @@ impl<'a> ColorAttachmentDescriptorBuilder<'a> {
     };
 
     /// Begin building a new render pass color attachment descriptor.
-    fn new(attachment: &'a wgpu::TextureView) -> Self {
+    fn new(view: &'a wgpu::TextureView) -> Self {
         Self {
-            descriptor: wgpu::RenderPassColorAttachmentDescriptor {
-                attachment,
+            descriptor: wgpu::RenderPassColorAttachment {
+                view,
                 resolve_target: None,
                 ops: Self::DEFAULT_COLOR_OPS,
             },
@@ -67,7 +69,7 @@ impl<'a> ColorAttachmentDescriptorBuilder<'a> {
 /// A builder type to simplify the process of creating a render pass descriptor.
 #[derive(Debug)]
 pub struct DepthStencilAttachmentDescriptorBuilder<'a> {
-    descriptor: wgpu::RenderPassDepthStencilAttachmentDescriptor<'a>,
+    descriptor: wgpu::RenderPassDepthStencilAttachment<'a>,
 }
 
 impl<'a> DepthStencilAttachmentDescriptorBuilder<'a> {
@@ -81,10 +83,10 @@ impl<'a> DepthStencilAttachmentDescriptorBuilder<'a> {
         store: true,
     };
 
-    fn new(attachment: &'a wgpu::TextureView) -> Self {
+    fn new(view: &'a wgpu::TextureView) -> Self {
         DepthStencilAttachmentDescriptorBuilder {
-            descriptor: wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                attachment,
+            descriptor: wgpu::RenderPassDepthStencilAttachment {
+                view,
                 depth_ops: Some(Self::DEFAULT_DEPTH_OPS),
                 stencil_ops: None,
             },
@@ -106,9 +108,9 @@ impl<'a> DepthStencilAttachmentDescriptorBuilder<'a> {
 /// A builder type to simplify the process of creating a render pass descriptor.
 #[derive(Debug, Default)]
 pub struct Builder<'a> {
-    color_attachments: Vec<wgpu::RenderPassColorAttachmentDescriptor<'a>>,
+    color_attachments: Vec<wgpu::RenderPassColorAttachment<'a>>,
     depth_stencil_attachment:
-        Option<wgpu::RenderPassDepthStencilAttachmentDescriptor<'a>>,
+        Option<wgpu::RenderPassDepthStencilAttachment<'a>>,
 }
 
 impl<'a> Builder<'a> {
@@ -162,6 +164,7 @@ impl<'a> Builder<'a> {
         } = self;
 
         let descriptor = wgpu::RenderPassDescriptor {
+            label: None,
             color_attachments: &color_attachments,
             depth_stencil_attachment,
         };

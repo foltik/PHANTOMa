@@ -4,42 +4,63 @@ pub mod defaults;
 pub mod util;
 
 mod texture;
-pub use texture::{Texture, TextureView, SwapChainTextureView};
-
+pub use texture::{Texture, TextureView};
 
 // Main instance
 pub use wgpu::Instance;
 
 // Backend selection
-pub use wgpu::{/*Backend, */BackendBit};
+pub use wgpu::{Backends, Backend};
 
 // Device
 pub use wgpu::{Adapter, Device, DeviceDescriptor};
 // Device polling
 pub use wgpu::Maintain;
 
+pub use wgpu::{Features, Limits};
+
+pub use wgpu::{Surface, SurfaceConfiguration, PresentMode};
+
+// Pipeline State
 pub use wgpu::{
-    AddressMode, BindGroup, BindGroupDescriptor,
-    BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-    /*Binding,*/ BindingResource, BindingType, BlendDescriptor, BlendFactor, BlendOperation,
-    Buffer, BufferAddress, BufferSize, /*BufferAsyncErr,*/ BufferView, BufferViewMut, BufferCopyView, BufferDescriptor,
-    /*BufferReadMapping,*/ BufferUsage, /*BufferWriteMapping,*/ Color,
-    ColorStateDescriptor, ColorWrite, CommandBuffer, CommandBufferDescriptor, CommandEncoder,
-    CommandEncoderDescriptor, CompareFunction, ComputePass, ComputePipeline,
-    ComputePipelineDescriptor, /*CreateBufferMapped,*/ CullMode, DepthStencilStateDescriptor,
-    DynamicOffset, Extent3d, Features, /*Extensions,*/
-    FilterMode, FrontFace, IndexFormat, InputStepMode, Limits, LoadOp, MapMode,
-    Origin3d, PipelineLayout, PipelineLayoutDescriptor, PowerPreference, PresentMode,
-    PrimitiveTopology, ProgrammableStageDescriptor, PushConstantRange, Queue, RasterizationStateDescriptor,
-    RenderPass, RenderPassColorAttachmentDescriptor, RenderPassDepthStencilAttachmentDescriptor,
-    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler,
-    SamplerDescriptor, ShaderLocation, ShaderModule, ShaderStage, StencilOperation,
-    StencilStateFaceDescriptor, StencilStateDescriptor, /*StoreOp,*/ Surface, SwapChain,
-    SwapChainDescriptor, SwapChainFrame, /*SwapChainOutput,*/
-    Texture as RawTexture,
-    TextureAspect, TextureComponentType, TextureCopyView, TextureDataLayout, TextureDescriptor, TextureDimension,
-    TextureFormat, TextureUsage, TextureView as RawTextureView,
-    TextureViewDescriptor, TextureViewDimension, /*TimeOut,*/
-    VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat, VertexStateDescriptor,
-    COPY_BUFFER_ALIGNMENT, BIND_BUFFER_ALIGNMENT, /*MAX_BIND_GROUPS,*/
+    FragmentState, MultisampleState, RenderPipeline, RenderPipelineDescriptor, VertexState,
+};
+// Depth Stencil State
+pub use wgpu::{DepthBiasState, DepthStencilState, StencilFaceState, StencilState};
+// Primitive State
+pub use wgpu::{Face, FrontFace, PolygonMode, PrimitiveState, PrimitiveTopology};
+
+pub use wgpu::{RenderPassColorAttachment, RenderPassDepthStencilAttachment};
+
+// Vertex Shader Buffers
+pub use wgpu::{VertexAttribute, VertexBufferLayout, VertexStepMode};
+
+// Fragment Shader Targets
+pub use wgpu::{ColorTargetState, BlendState, BlendComponent, ColorWrites};
+
+// Sampler
+pub use wgpu::{AddressMode, FilterMode, Sampler, SamplerBorderColor, SamplerDescriptor};
+
+pub use wgpu::{BindingType, BufferBindingType, BindingResource};
+
+pub use wgpu::{ShaderModule, ShaderSource, ShaderStages, ShaderModuleDescriptor};
+
+pub use wgpu::{BufferUsages, TextureUsages};
+
+pub use wgpu::{TextureView as RawTextureView, TextureViewDescriptor, TextureViewDimension};
+pub use wgpu::{Texture as RawTexture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType};
+
+pub use wgpu::{
+    BindGroup, BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BlendFactor, BlendOperation, Buffer,
+    BufferAddress, BufferDescriptor, BufferSize, BufferView, BufferViewMut, Color,
+    CommandBuffer, CommandBufferDescriptor, CommandEncoder, CommandEncoderDescriptor,
+    CompareFunction, ComputePass, ComputePipeline, ComputePipelineDescriptor, DynamicOffset,
+    Extent3d, /*Extensions,*/
+    ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, IndexFormat, LoadOp,
+    MapMode, Origin3d, PipelineLayout, PipelineLayoutDescriptor, PowerPreference,
+    PushConstantRange, Queue, RenderPass, RenderPassDescriptor, RequestAdapterOptions,
+    ShaderLocation, StencilOperation, 
+    VertexFormat,
+    COPY_BUFFER_ALIGNMENT,
 };

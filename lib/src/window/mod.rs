@@ -10,6 +10,11 @@ pub use proxy::Proxy;
 
 // pub mod async_ext;
 
+// FIXME: ALLOW DEVICE DESCRIPTOR TO NOT BE STATIC.
+// NEEDS <'a>. UGH.
+
+// FIXME: ADD SURFACE CONFIG ABSTRACTION
+
 pub type LogicalSize = winit::dpi::LogicalSize<f32>;
 pub type PhysicalSize = winit::dpi::PhysicalSize<u32>;
 
@@ -23,9 +28,9 @@ pub type WindowEvent = winit::event::WindowEvent<'static>;
 pub struct WindowBuilder {
     window: winit::window::WindowBuilder,
     title_was_set: bool,
-    swap_chain_builder: SwapChainBuilder,
+    // swap_chain_builder: SwapChainBuilder,
     power_preference: wgpu::PowerPreference,
-    device_desc: Option<wgpu::DeviceDescriptor>,
+    device_desc: Option<wgpu::DeviceDescriptor<'static>>,
     // user_functions: UserFunctions,
     msaa_samples: Option<u32>,
 }
@@ -37,11 +42,11 @@ impl WindowBuilder {
         self
     }
 
-    /// Specify a set of parameters for building the window surface swap chain.
-    pub fn swap_chain_builder(mut self, swap_chain_builder: SwapChainBuilder) -> Self {
-        self.swap_chain_builder = swap_chain_builder;
-        self
-    }
+    // /// Specify a set of parameters for building the window surface swap chain.
+    // pub fn swap_chain_builder(mut self, swap_chain_builder: SwapChainBuilder) -> Self {
+    //     self.swap_chain_builder = swap_chain_builder;
+    //     self
+    // }
 
     /// Specify the power preference desired for the WGPU adapter.
     ///
@@ -53,7 +58,7 @@ impl WindowBuilder {
 
     /// Specify a device descriptor to use when requesting the logical device from the adapter.
     /// This allows for specifying custom wgpu device extensions.
-    pub fn device_descriptor(mut self, device_desc: wgpu::DeviceDescriptor) -> Self {
+    pub fn device_descriptor(mut self, device_desc: wgpu::DeviceDescriptor<'static>) -> Self {
         self.device_desc = Some(device_desc);
         self
     }
@@ -88,7 +93,7 @@ impl WindowBuilder {
         let WindowBuilder {
             mut window,
             title_was_set,
-            swap_chain_builder,
+            // swap_chain_builder,
             power_preference,
             device_desc,
             //user_functions,
@@ -181,6 +186,7 @@ impl WindowBuilder {
         let request_adapter_opts = wgpu::RequestAdapterOptions {
             power_preference,
             compatible_surface: Some(&surface),
+            force_fallback_adapter: false,
         };
         let adapter = instance
             .request_adapter(&request_adapter_opts)
@@ -192,13 +198,21 @@ impl WindowBuilder {
         let (device, queue) = adapter.request_device(&device_desc, None).await.unwrap();
 
         // Build the swapchain.
-        let swap_chain = swap_chain_builder.build(&device, &surface, size);
+        // let swap_chain = swap_chain_builder.build(&device, &surface, size);
+
+        surface.configure(&device, &wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: wgpu::defaults::texture_format(),
+            width: size.width,
+            height: size.height,
+            present_mode: wgpu::PresentMode::Mailbox,
+        });
 
         let window = Window {
             id: window.id(),
             _window: window,
             surface,
-            swap_chain,
+            // swap_chain,
             // frame_data,
             // frame_count,
             // user_functions,
@@ -324,7 +338,7 @@ impl Default for WindowBuilder {
         WindowBuilder {
             window: winit::window::WindowBuilder::new(),
             title_was_set: false,
-            swap_chain_builder: Default::default(),
+            // swap_chain_builder: Default::default(),
             power_preference: wgpu::defaults::power_preference(),
             device_desc: None,
             //user_functions: Default::default(),
@@ -340,7 +354,6 @@ pub struct Window {
     _window: winit::window::Window,
 
     pub(crate) surface: wgpu::Surface,
-    pub(crate) swap_chain: SwapChain,
 
     // TODO: not pub
     pub msaa_samples: u32,
@@ -355,102 +368,102 @@ impl Window {
     //     self.window.request_redraw();
     // }
 
-    pub(crate) fn rebuild_swap_chain(&mut self, device: &wgpu::Device, size: PhysicalSize) {
-        self.swap_chain.rebuild(&device, &self.surface, size);
-    }
+    // pub(crate) fn rebuild_swap_chain(&mut self, device: &wgpu::Device, size: PhysicalSize) {
+        // self.swap_chain.rebuild(&device, &self.surface, size);
+    // }
 }
 
-/// A swap_chain and its images associated with a single window.
-pub(crate) struct SwapChain {
-    // The descriptor used to create the original swap chain. Useful for recreation.
-    pub(crate) descriptor: wgpu::SwapChainDescriptor,
-    // TODO: during frame request, not redraw
-    // This is an `Option` in order to allow for separating ownership of the swapchain from the
-    // window during a `RedrawRequest`. Other than during `RedrawRequest`, this should always be
-    // `Some`.
-    pub(crate) swap_chain: Option<wgpu::SwapChain>,
-}
+// /// A swap_chain and its images associated with a single window.
+// pub(crate) struct SwapChain {
+//     // The descriptor used to create the original swap chain. Useful for recreation.
+//     pub(crate) descriptor: wgpu::SwapChainDescriptor,
+//     // TODO: during frame request, not redraw
+//     // This is an `Option` in order to allow for separating ownership of the swapchain from the
+//     // window during a `RedrawRequest`. Other than during `RedrawRequest`, this should always be
+//     // `Some`.
+//     pub(crate) swap_chain: Option<wgpu::SwapChain>,
+// }
 
-impl SwapChain {
-    pub(crate) fn build(device: &wgpu::Device, surface: &wgpu::Surface, descriptor: wgpu::SwapChainDescriptor) -> Self {
-        let swap_chain = device.create_swap_chain(surface, &descriptor);
-        Self {
-            swap_chain: Some(swap_chain),
-            descriptor,
-        }
-    }
+// impl SwapChain {
+//     pub(crate) fn build(device: &wgpu::Device, surface: &wgpu::Surface, descriptor: wgpu::SwapChainDescriptor) -> Self {
+//         let swap_chain = device.create_swap_chain(surface, &descriptor);
+//         Self {
+//             swap_chain: Some(swap_chain),
+//             descriptor,
+//         }
+//     }
 
-    pub(crate) fn rebuild(&mut self, device: &wgpu::Device, surface: &wgpu::Surface, size: PhysicalSize) {
-        std::mem::drop(self.swap_chain.take());
+//     pub(crate) fn rebuild(&mut self, device: &wgpu::Device, surface: &wgpu::Surface, size: PhysicalSize) {
+//         std::mem::drop(self.swap_chain.take());
 
-        self.descriptor.width = size.width;
-        self.descriptor.height = size.height;
+//         self.descriptor.width = size.width;
+//         self.descriptor.height = size.height;
 
-        self.swap_chain = Some(device.create_swap_chain(surface, &self.descriptor));
-    }
+//         self.swap_chain = Some(device.create_swap_chain(surface, &self.descriptor));
+//     }
 
-    pub fn frame(&mut self) -> wgpu::SwapChainTextureView {
-        let swap_chain = self.swap_chain.as_mut().unwrap();
-        let frame = swap_chain.get_current_frame().unwrap();
-        wgpu::SwapChainTextureView::new(self, frame)
-    }
-}
+//     pub fn frame(&mut self) -> wgpu::SwapChainTextureView {
+//         let swap_chain = self.swap_chain.as_mut().unwrap();
+//         let frame = swap_chain.get_current_frame().unwrap();
+//         wgpu::SwapChainTextureView::new(self, frame)
+//     }
+// }
 
 
-/// SwapChain building parameters for which Nannou will provide a default if unspecified.
-///
-/// See the builder methods for more details on each parameter.
-#[derive(Clone, Debug, Default)]
-pub struct SwapChainBuilder {
-    pub usage: Option<wgpu::TextureUsage>,
-    pub format: Option<wgpu::TextureFormat>,
-    pub present_mode: Option<wgpu::PresentMode>,
-}
+// /// SwapChain building parameters for which Nannou will provide a default if unspecified.
+// ///
+// /// See the builder methods for more details on each parameter.
+// #[derive(Clone, Debug, Default)]
+// pub struct SwapChainBuilder {
+//     pub usage: Option<wgpu::TextureUsage>,
+//     pub format: Option<wgpu::TextureFormat>,
+//     pub present_mode: Option<wgpu::PresentMode>,
+// }
 
-impl SwapChainBuilder {
-    pub const DEFAULT_USAGE: wgpu::TextureUsage = wgpu::TextureUsage::OUTPUT_ATTACHMENT;
-    pub const DEFAULT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
-    pub const DEFAULT_PRESENT_MODE: wgpu::PresentMode = wgpu::PresentMode::Fifo;
+// impl SwapChainBuilder {
+//     pub const DEFAULT_USAGE: wgpu::TextureUsage = wgpu::TextureUsage::COPY_SRC;
+//     pub const DEFAULT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
+//     pub const DEFAULT_PRESENT_MODE: wgpu::PresentMode = wgpu::PresentMode::Fifo;
 
-    /// A new empty **SwapChainBuilder** with all parameters set to `None`.
-    pub fn new() -> Self {
-        Default::default()
-    }
+//     /// A new empty **SwapChainBuilder** with all parameters set to `None`.
+//     pub fn new() -> Self {
+//         Default::default()
+//     }
 
-    /// Specify the texture format for the swap chain.
-    pub fn format(mut self, format: wgpu::TextureFormat) -> Self {
-        self.format = Some(format);
-        self
-    }
+//     /// Specify the texture format for the swap chain.
+//     pub fn format(mut self, format: wgpu::TextureFormat) -> Self {
+//         self.format = Some(format);
+//         self
+//     }
 
-    /// The way in which swap chain images are presented to the display.
-    ///
-    /// By default, nannou will attempt to select the ideal present mode depending on the current
-    /// app `LoopMode`.
-    pub fn present_mode(mut self, present_mode: wgpu::PresentMode) -> Self {
-        self.present_mode = Some(present_mode);
-        self
-    }
+//     /// The way in which swap chain images are presented to the display.
+//     ///
+//     /// By default, nannou will attempt to select the ideal present mode depending on the current
+//     /// app `LoopMode`.
+//     pub fn present_mode(mut self, present_mode: wgpu::PresentMode) -> Self {
+//         self.present_mode = Some(present_mode);
+//         self
+//     }
 
-    /// Build the swap chain.
-    pub(crate) fn build(
-        self,
-        device: &wgpu::Device,
-        surface: &wgpu::Surface,
-        size: PhysicalSize,
-    ) -> SwapChain {
-        let usage = self.usage.unwrap_or(Self::DEFAULT_USAGE);
-        let format = self.format.unwrap_or(Self::DEFAULT_FORMAT);
-        let present_mode = self.present_mode.unwrap_or(Self::DEFAULT_PRESENT_MODE);
+//     /// Build the swap chain.
+//     pub(crate) fn build(
+//         self,
+//         device: &wgpu::Device,
+//         surface: &wgpu::Surface,
+//         size: PhysicalSize,
+//     ) -> SwapChain {
+//         let usage = self.usage.unwrap_or(Self::DEFAULT_USAGE);
+//         let format = self.format.unwrap_or(Self::DEFAULT_FORMAT);
+//         let present_mode = self.present_mode.unwrap_or(Self::DEFAULT_PRESENT_MODE);
 
-        let desc = wgpu::SwapChainDescriptor {
-            usage,
-            format,
-            width: size.width,
-            height: size.height,
-            present_mode,
-        };
+//         let desc = wgpu::SwapChainDescriptor {
+//             usage,
+//             format,
+//             width: size.width,
+//             height: size.height,
+//             present_mode,
+//         };
 
-        SwapChain::build(device, surface, desc)
-    }
-}
+//         SwapChain::build(device, surface, desc)
+//     }
+// }

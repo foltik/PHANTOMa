@@ -59,9 +59,9 @@ impl Lights {
 
     pub fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
         wgpu::util::BindGroupLayoutBuilder::new("lights")
-            .uniform_array(wgpu::ShaderStage::FRAGMENT)
-            .uniform_array(wgpu::ShaderStage::FRAGMENT)
-            .uniform(wgpu::ShaderStage::FRAGMENT)
+            .uniform_array(wgpu::ShaderStages::FRAGMENT)
+            .uniform_array(wgpu::ShaderStages::FRAGMENT)
+            .uniform(wgpu::ShaderStages::FRAGMENT)
             .build(device)
     }
 }

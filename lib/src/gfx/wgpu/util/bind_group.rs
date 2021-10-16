@@ -20,8 +20,9 @@ impl Into<BindingType> for wgpu::BindingType {
 
 impl<T: Copy> Into<BindingType> for &Uniform<T> {
     fn into(self) -> BindingType {
-        BindingType(wgpu::BindingType::UniformBuffer {
-            dynamic: false,
+        BindingType(wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Uniform,
+            has_dynamic_offset: false,
             min_binding_size: Some(std::num::NonZeroU64::new(self.size()).unwrap()),
         })
     }
@@ -29,9 +30,9 @@ impl<T: Copy> Into<BindingType> for &Uniform<T> {
 
 impl Into<BindingType> for &TextureView {
     fn into(self) -> BindingType {
-        BindingType(wgpu::BindingType::SampledTexture {
-            dimension: self.dimension,
-            component_type: self.format.into(),
+        BindingType(wgpu::BindingType::Texture {
+            view_dimension: self.dimension,
+            sample_type: self.format.describe().sample_type,
             multisampled: self.sample_count > 1,
         })
     }
@@ -41,7 +42,7 @@ impl Into<BindingType> for &TextureView {
 #[derive(Debug)]
 pub struct LayoutBuilder<'l> {
     label: &'l str,
-    bindings: Vec<(wgpu::ShaderStage, wgpu::BindingType, Option<NonZeroU32>)>,
+    bindings: Vec<(wgpu::ShaderStages, wgpu::BindingType, Option<NonZeroU32>)>,
 }
 
 impl<'l> LayoutBuilder<'l> {
@@ -61,7 +62,7 @@ impl<'l> LayoutBuilder<'l> {
     /// constructing the `BindGroupLayout` and `BindGroup` manually.
     pub fn binding(
         mut self,
-        visibility: wgpu::ShaderStage,
+        visibility: wgpu::ShaderStages,
         ty: BindingType,
         count: Option<u32>,
     ) -> Self {
@@ -73,54 +74,55 @@ impl<'l> LayoutBuilder<'l> {
         self
     }
 
-    pub fn uniform(self, visibility: wgpu::ShaderStage) -> Self {
-        self.binding(visibility, wgpu::BindingType::UniformBuffer {
+    pub fn uniform(self, visibility: wgpu::ShaderStages) -> Self {
+        self.binding(visibility, wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Uniform,
             min_binding_size: None,
-            dynamic: false,
+            has_dynamic_offset: false,
         }.into(), None)
     }
 
-    pub fn uniform_array(self, visibility: wgpu::ShaderStage) -> Self {
+    pub fn uniform_array(self, visibility: wgpu::ShaderStages) -> Self {
         self.uniform(visibility)
     }
 
     /// Add a sampler binding to the layout.
-    pub fn sampler(self, visibility: wgpu::ShaderStage) -> Self {
+    pub fn sampler(self, visibility: wgpu::ShaderStages) -> Self {
         self.binding(
             visibility,
-            wgpu::BindingType::Sampler { comparison: false }.into(),
+            wgpu::BindingType::Sampler { comparison: false, filtering: true }.into(),
             None,
         )
     }
 
     /// Add a sampler binding to the layout.
-    pub fn comparison_sampler(self, visibility: wgpu::ShaderStage) -> Self {
-        self.binding(visibility, wgpu::BindingType::Sampler { comparison: true }.into(), None)
+    pub fn comparison_sampler(self, visibility: wgpu::ShaderStages) -> Self {
+        self.binding(visibility, wgpu::BindingType::Sampler { comparison: true, filtering: true }.into(), None)
     }
 
     // TODO: fix this and add texture_from or just From<thing> for parameter?
-    pub fn array_tex(self, visibility: wgpu::ShaderStage) -> Self {
-        self.binding(visibility, BindingType(wgpu::BindingType::SampledTexture {
-            dimension: wgpu::TextureViewDimension::D2Array,
-            component_type: wgpu::TextureComponentType::Float,
+    pub fn array_tex(self, visibility: wgpu::ShaderStages) -> Self {
+        self.binding(visibility, BindingType(wgpu::BindingType::Texture {
+            view_dimension: wgpu::TextureViewDimension::D2Array,
+            sample_type: wgpu::TextureSampleType::Float { filterable: false },
             multisampled: false,
         }), None)
     }
-    pub fn tex(self, visibility: wgpu::ShaderStage) -> Self {
-        self.binding(visibility, BindingType(wgpu::BindingType::SampledTexture {
-            dimension: wgpu::TextureViewDimension::D2,
-            component_type: wgpu::TextureComponentType::Float,
+    pub fn tex(self, visibility: wgpu::ShaderStages) -> Self {
+        self.binding(visibility, BindingType(wgpu::BindingType::Texture {
+            view_dimension: wgpu::TextureViewDimension::D2,
+            sample_type: wgpu::TextureSampleType::Float { filterable: false },
             multisampled: false,
         }), None)
     }
 
-    pub fn texture(self, visibility: wgpu::ShaderStage, view: &TextureView) -> Self {
+    pub fn texture(self, visibility: wgpu::ShaderStages, view: &TextureView) -> Self {
         self.binding(visibility, view.into(), None)
     }
-    pub fn textures(self, visibility: wgpu::ShaderStage, n: usize) -> Self {
-        self.binding(visibility, BindingType(wgpu::BindingType::SampledTexture {
-            dimension: wgpu::TextureViewDimension::D2,
-            component_type: wgpu::TextureComponentType::Float,
+    pub fn textures(self, visibility: wgpu::ShaderStages, n: usize) -> Self {
+        self.binding(visibility, BindingType(wgpu::BindingType::Texture {
+            view_dimension: wgpu::TextureViewDimension::D2,
+            sample_type: wgpu::TextureSampleType::Float { filterable: false },
             multisampled: false,
         }), Some(n as u32))
     }
@@ -233,7 +235,7 @@ impl<'l, 'a> Builder<'l, 'a> {
         T: Copy,
         S: RangeBounds<wgpu::BufferAddress>,
     {
-        let resource = wgpu::BindingResource::Buffer(buffer.slice(range));
+        let resource = buffer.as_entire_binding();
         self.binding(resource)
     }
 
@@ -274,8 +276,9 @@ impl<'l, 'a> Builder<'l, 'a> {
         let resource = wgpu::BindingResource::TextureView(view);
         self.binding(resource)
     }
+    // FIXME: Automatically ref this stuff to make calling easier
     /// Specify a texture view to be bound.
-    pub fn textures(self, views: &'a [wgpu::TextureView]) -> Self {
+    pub fn textures(self, views: &'a [&'a wgpu::TextureView]) -> Self {
         let resource = wgpu::BindingResource::TextureViewArray(views);
         self.binding(resource)
     }
