@@ -20,6 +20,7 @@ image = "0.23.10"
 # Lib
 log = "0.4.11"
 pretty_env_logger = "0.4.0"
+thiserror = "1"
 
 # Math
 cgmath = "0.17.0"
@@ -42,6 +43,7 @@ twitchchat = { version = "0.14.5", features = ["async", "async-std"] }
 async-std = { version = "1.6.5", features = [] }
 async-scoped = "0.4.1"
 futures = "0.3.6"
+parking_lot = "0.11"
 
 # Util
 bytemuck = { version = "1.4.1", features = ["derive"] }

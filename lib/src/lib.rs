@@ -1,4 +1,4 @@
-#![feature(min_const_generics)]
+#![feature(associated_type_defaults)]
 #![feature(async_closure)]
 
 pub mod prelude;
@@ -10,6 +10,7 @@ pub mod gfx;
 pub mod audio;
 // pub mod interp;
 pub mod midi;
+pub mod midi2;
 pub mod osc;
 pub mod time;
 pub mod twitch;
