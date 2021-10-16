@@ -3,6 +3,10 @@ use crate::gfx::{uniform::Uniform, wgpu};
 
 const BILLBOARD_SHADER: &str = "billboard.vert.spv";
 const COMPOSITE_SHADER: &str = "composite.frag.spv";
+const PASSTHROUGH_SHADER: &str = "passthrough.frag.spv";
+
+// TODO: Need to find a better way to abstract out size. Right now it's a mess.
+// Make it a builder?
 
 pub struct FilterPass {
     views: Vec<wgpu::RawTextureView>,
@@ -18,7 +22,17 @@ impl FilterPass {
         fragment: &str,
         uniform: Option<&Uniform<T>>,
     ) -> Self {
-        Self::new_composite(device, label, 1, Some(fragment), uniform)
+        Self::new_sized(device, label, fragment, uniform, (1920, 1080))
+    }
+
+    pub fn new_sized<T: Copy>(
+        device: &wgpu::Device,
+        label: &str,
+        fragment: &str,
+        uniform: Option<&Uniform<T>>,
+        size: (usize, usize),
+    ) -> Self {
+        Self::new_composite_sized(device, label, 1, Some(fragment), uniform, size)
     }
 
     pub fn new_composite<T: Copy>(
@@ -28,10 +42,21 @@ impl FilterPass {
         fragment: Option<&str>,
         uniform: Option<&Uniform<T>>,
     ) -> Self {
+        Self::new_composite_sized(device, label, n, fragment, uniform, (1920, 1080))
+    }
+
+    pub fn new_composite_sized<T: Copy>(
+        device: &wgpu::Device,
+        label: &str,
+        n: u32,
+        fragment: Option<&str>,
+        uniform: Option<&Uniform<T>>,
+        size: (usize, usize),
+    ) -> Self {
         let vs = crate::resource::read_shader(device, BILLBOARD_SHADER);
         let fs = crate::resource::read_shader(device, fragment.unwrap_or(COMPOSITE_SHADER));
 
-        let (image_group, image_layout, views) = Self::image_group(device, label, n);
+        let (image_group, image_layout, views) = Self::image_group(device, label, n, size);
 
         let uniform_groups =
             uniform.map(|u| Self::uniform_group(device, label, u));
@@ -63,7 +88,7 @@ impl FilterPass {
         let vs = crate::resource::read_shader(device, BILLBOARD_SHADER);
         let fs = crate::resource::read_shader(device, fragment.unwrap_or("add.frag.spv"));
 
-        let (image_group, image_layout, views) = Self::image_group(device, label, n);
+        let (image_group, image_layout, views) = Self::image_group(device, label, n, (1920, 1080));
 
         let uniform_groups =
             uniform.map(|u| Self::uniform_group(device, label, u));
@@ -83,6 +108,14 @@ impl FilterPass {
             uniform_group: uniform_groups.map(|g| g.0),
             pipeline,
         }
+    }
+
+    pub fn new_passthrough(device: &wgpu::Device) -> Self {
+        Self::new::<()>(device, "passthrough", PASSTHROUGH_SHADER, None)
+    }
+
+    pub fn new_passthrough_sized(device: &wgpu::Device, size: (usize, usize)) -> Self {
+        Self::new_sized::<()>(device, "passthrough", PASSTHROUGH_SHADER, None, size)
     }
 
     fn pipeline(
@@ -130,6 +163,7 @@ impl FilterPass {
         device: &wgpu::Device,
         label: &str,
         n: u32,
+        size: (usize, usize),
     ) -> (
         wgpu::BindGroup,
         wgpu::BindGroupLayout,
@@ -141,6 +175,7 @@ impl FilterPass {
             .map(|i| {
                 wgpu::util::TextureBuilder::new(&format!("{}_input_{}", label, i))
                     .usage(wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED)
+                    .size([size.0 as u32, size.1 as u32, 1])
                     .build(device)
                     .view()
                     .build()

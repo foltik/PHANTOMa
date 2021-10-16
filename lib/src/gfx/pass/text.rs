@@ -69,6 +69,7 @@ impl<'a> DrawBuilder<'a> {
 pub struct TextPassBuilder {
     fonts: Vec<FontArc>,
     alias: HashMap<String, FontId>,
+    size: (usize, usize),
 }
 
 impl TextPassBuilder {
@@ -76,7 +77,13 @@ impl TextPassBuilder {
         Self {
             fonts: vec![],
             alias: HashMap::new(),
+            size: (1920, 1080),
         }
+    }
+
+    pub fn size(mut self, size: (usize, usize)) -> Self {
+        self.size = size;
+        self
     }
 
     pub fn with(mut self, alias: &str, file: &str) -> Self {
@@ -94,6 +101,7 @@ impl TextPassBuilder {
 pub struct TextPass {
     alias: HashMap<String, FontId>,
     brush: GlyphBrush<()>,
+    size: (usize, usize),
 }
 
 impl TextPass {
@@ -104,6 +112,7 @@ impl TextPass {
         Self {
             alias: builder.alias,
             brush,
+            size: builder.size,
         }
     }
 
@@ -122,8 +131,8 @@ impl TextPass {
                 &mut frame.app.staging,
                 frame.encoder.as_mut().unwrap(),
                 target,
-                1920,
-                1080,
+                self.size.0 as u32,
+                self.size.1 as u32,
             )
             .unwrap();
     }
