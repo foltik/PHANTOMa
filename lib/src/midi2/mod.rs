@@ -86,6 +86,7 @@ impl<D: Device + Clone + Send> Midi<D> {
                     //     .recv()
                     //     .await
                     //     .expect(&format!("{}: output receiver dropped", &_out_name));
+                    // log::info!("pad sending {:?}", output);
 
                     let data = _state.lock().process_output(output);
                     // log::trace!("{} -> {:X?}", &_out_name, &data);
@@ -105,8 +106,8 @@ impl<D: Device + Clone + Send> Midi<D> {
                 &in_port,
                 "in",
                 move |_, data, _| {
+                    // log::info!("pad <- [{:X?}]", data);
                     if let Some(i) = _state.lock().process_input(data) {
-                        // log::trace!("{} <- [{:X?}]", &_in_name, data);
                         _input.push(i);
                     }
                 },
@@ -122,6 +123,16 @@ impl<D: Device + Clone + Send> Midi<D> {
 
             _conn: Arc::new(Mutex::new(input_conn)),
         })
+    }
+
+    pub fn maybe_open(name: &str) -> Option<Self> {
+        match Self::open(name) {
+            Ok(device) => Some(device),
+            Err(e) => {
+                log::warn!("Failed to open MIDI device '{}' : {:?}", name, e);
+                None
+            }
+        }
     }
 
     pub fn state(&self) -> Arc<Mutex<D>> {

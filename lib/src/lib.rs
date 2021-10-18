@@ -20,6 +20,6 @@ pub mod procedural;
 pub(crate) mod async_closure;
 
 pub use cgmath;
-pub use async_std;
+pub use tokio;
 pub use futures;
 pub use image;

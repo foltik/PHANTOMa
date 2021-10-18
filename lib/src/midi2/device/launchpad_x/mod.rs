@@ -42,12 +42,13 @@ pub enum Input {
 
 #[derive(Copy, Clone, Debug)]
 pub enum Output {
-    Light(Pos, PaletteColor),
-    Flash(Pos, PaletteColor),
-    Pulse(Pos, PaletteColor),
+    Light(Pos, Color),
+    Flash(Pos, Color),
+    Pulse(Pos, Color),
     Off(Pos),
     Rgb(Pos, (u8, u8, u8)),
     Clear,
+    ClearAll,
 
     Mode(Mode),
     Brightness(f32),
@@ -89,6 +90,18 @@ impl Device for LaunchpadX {
                     }
                 }
             },
+            0x80 => {
+                match raw[2] {
+                    0x40 => match self.mode {
+                        Mode::Live => Input::Unknown,
+                        Mode::Programmer => {
+                            let i = Index::from_byte(raw[1]);
+                            Input::Release(i)
+                        }
+                    },
+                    _ => Input::Unknown,
+                }
+            }
             0xB0 => {
                 let b = raw[2] == 0x7F;
                 match raw[1] {
@@ -125,6 +138,17 @@ impl Device for LaunchpadX {
             Output::Off(p) => vec![0x80, p.byte(), 0x0],
             Output::Rgb(p, col) => vec![0xF0, 0x0, 0x20, 0x29, 0x2, 0xC, 0x3, 0x3, p.byte(), col.0, col.1, col.2, 0xF7],
             Output::Clear => {
+                let mut data = Vec::with_capacity(8 + (64 * 3));
+
+                data.extend_from_slice(&[0xF0, 0x0, 0x20, 0x29, 0x2, 0xC, 0x3]);
+                for i in 0..64 {
+                    data.extend_from_slice(&[0x0, Index(i).byte(), 0x0]);
+                }
+                data.push(0xF7);
+
+                data
+            }
+            Output::ClearAll => {
                 let mut data = Vec::with_capacity(8 + (81 * 3));
 
                 data.extend_from_slice(&[0xF0, 0x0, 0x20, 0x29, 0x2, 0xC, 0x3]);

@@ -182,7 +182,9 @@ impl FilterPass {
             })
             .collect::<Vec<_>>();
 
-        let sampler = wgpu::util::SamplerBuilder::new(&format!("{}_sampler", label)).build(device);
+        let sampler = wgpu::util::SamplerBuilder::new(&format!("{}_sampler", label))
+            .address_mode(wgpu::AddressMode::Repeat)
+            .build(device);
 
         if n > 1 {
             let count = Uniform::new(device, &format!("{}_tex_count", label), Some(&n));

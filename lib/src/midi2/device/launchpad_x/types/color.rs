@@ -1,5 +1,5 @@
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum PaletteColor {
+pub enum Color {
     Index(u8),
     Off,
     White,
@@ -16,23 +16,23 @@ pub enum PaletteColor {
     Pink,
 }
 
-impl PaletteColor {
+impl Color {
     pub fn byte(&self) -> u8 {
         match self {
-            PaletteColor::Index(b) => *b,
-            PaletteColor::Red     => 72,
-            PaletteColor::Orange  => 84,
-            PaletteColor::Yellow  => 74,
-            PaletteColor::Pea     => 17,
-            PaletteColor::Lime    => 87,
-            PaletteColor::Mint    => 77,
-            PaletteColor::Cyan    => 78,
-            PaletteColor::Blue    => 67,
-            PaletteColor::Violet  => 81,
-            PaletteColor::Magenta => 53,
-            PaletteColor::Pink    => 95,
-            PaletteColor::White   => 3,
-            PaletteColor::Off     => 0,
+            Color::Index(b) => *b,
+            Color::Red     => 72,
+            Color::Orange  => 84,
+            Color::Yellow  => 74,
+            Color::Pea     => 17,
+            Color::Lime    => 87,
+            Color::Mint    => 77,
+            Color::Cyan    => 78,
+            Color::Blue    => 67,
+            Color::Violet  => 81,
+            Color::Magenta => 53,
+            Color::Pink    => 95,
+            Color::White   => 3,
+            Color::Off     => 0,
         }
     }
 }

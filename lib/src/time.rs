@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 pub struct Decay {
     c: u32,
+    hold: bool,
     pub t: f32,
 }
 
@@ -12,7 +13,7 @@ impl Decay {
     const MAX: u32 = 1_000_000_000;
 
     pub fn new(t: f32) -> Self {
-        Self { c: 0, t }
+        Self { c: 0, hold: false, t }
     }
 
     pub fn v(&self) -> f32 {
@@ -20,13 +21,15 @@ impl Decay {
     }
 
     pub fn update(&mut self, delta: f32) {
-        let fr = (delta * 1000.0) / self.t;
-        let n = (fr * Self::MAX as f32).round() as u32;
+        if !self.hold {
+            let fr = (delta * 1000.0) / self.t;
+            let n = (fr * Self::MAX as f32).round() as u32;
 
-        if n > self.c {
-            self.c = 0;
-        } else {
-            self.c -= n;
+            if n > self.c {
+                self.c = 0;
+            } else {
+                self.c -= n;
+            }
         }
     }
 
@@ -36,6 +39,10 @@ impl Decay {
 
     pub fn off(&self) -> bool {
         self.c == 0
+    }
+
+    pub fn hold(&mut self, hold: bool) {
+        self.hold = hold;
     }
 }
 
@@ -69,6 +76,10 @@ impl DecayEnv {
 
     pub fn off(&self, key: &'static str) -> bool {
         self.map.get(key).unwrap().off()
+    }
+
+    pub fn hold(&mut self, key: &'static str, hold: bool) {
+        self.map.get_mut(key).unwrap().hold(hold);
     }
 }
 

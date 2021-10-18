@@ -43,7 +43,7 @@ pub fn device_descriptor() -> DeviceDescriptor<'static> {
 // Window defaults
 
 pub const fn texture_format() -> TextureFormat {
-    TextureFormat::Bgra8UnormSrgb
+    TextureFormat::Bgra8Unorm
 }
 pub const fn depth_format() -> TextureFormat {
     TextureFormat::Depth32Float

@@ -1,6 +1,6 @@
 pub use crate::app::{App, Key, KeyState};
 pub use crate::gfx::frame::Frame;
-pub use crate::audio::{Audio, MidiBank, Midi};
+pub use crate::midi2::Midi;
 pub use crate::osc::{Osc, OscMessage, MixxxMessage};
 // pub use crate::midi::{Midi, MidiBank, MidiMessage};
 

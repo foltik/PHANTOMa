@@ -422,7 +422,6 @@ impl Window {
 
 // impl SwapChainBuilder {
 //     pub const DEFAULT_USAGE: wgpu::TextureUsage = wgpu::TextureUsage::COPY_SRC;
-//     pub const DEFAULT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 //     pub const DEFAULT_PRESENT_MODE: wgpu::PresentMode = wgpu::PresentMode::Fifo;
 
 //     /// A new empty **SwapChainBuilder** with all parameters set to `None`.

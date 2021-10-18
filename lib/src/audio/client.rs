@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::thread;
 
 use crossbeam_queue::ArrayQueue;
+use anyhow::Result;
 
 use super::analyze;
 use super::ringbuf::{self, Consumer, Producer, RingBuffer};
@@ -23,57 +24,18 @@ pub struct Jack {
 }
 
 impl Jack {
-    pub fn update(&mut self) {
-        if !self.samples_rx.is_empty() {
-            ringbuf::drain(&mut self.samples_rx, &mut self.samples);
-        }
-
-        if !self.fft_rx.is_empty() {
-            ringbuf::drain(&mut self.fft_rx, &mut self.fft);
-        }
-    }
-
-    pub fn midi(&mut self) -> Vec<(MidiBank, Midi)> {
-        let mut messages = Vec::new();
-
-        while let Some(raw) = self.midi_rx.pop() {
-            messages.push(self.midi.process(raw));
-        }
-
-        messages
-    }
-
-    pub fn rms(&self) -> f32 {
-        analyze::rms(&self.fft)
-    }
-
-    pub fn rms_range(&self, f0: f32, f1: f32) -> f32 {
-        let (i, j) = (analyze::bin(f0), analyze::bin(f1));
-        analyze::rms(&self.fft[i..j])
-    }
-
-    pub fn peak(&self) -> f32 {
-        analyze::peak(&self.samples)
-    }
-}
-
-impl Default for Jack {
-    fn default() -> Self {
+    fn open() -> Result<Self> {
         // Create JACK client
-        let (client, _status) = jack::Client::new("PHANTOMa", jack::ClientOptions::NO_START_SERVER)
-            .expect("Failed to connect to JACK audio server!");
+        let (client, _status) = jack::Client::new("PHANTOMa", jack::ClientOptions::NO_START_SERVER)?;
 
         // Register audio ports
         let in_left = client
-            .register_port("in_left", jack::AudioIn::default())
-            .unwrap();
+            .register_port("in_left", jack::AudioIn::default())?;
         let in_right = client
-            .register_port("in_right", jack::AudioIn::default())
-            .unwrap();
+            .register_port("in_right", jack::AudioIn::default())?;
 
         let in_midi = client
-            .register_port("midi", jack::MidiIn::default())
-            .unwrap();
+            .register_port("midi", jack::MidiIn::default())?;
 
         // // Create a queue for sending MIDI messages
         let midi_rx = Arc::new(ArrayQueue::<MidiRaw>::new(128));
@@ -111,7 +73,8 @@ impl Default for Jack {
             );
 
             // Activate the JACK processing thread
-            let _client = client.activate_async(Notifications, process).unwrap();
+            let _client = client.activate_async(Notifications, process)
+                .expect("Failed to active JACK processing thread");
 
             loop {
                 thread::park();
@@ -121,14 +84,57 @@ impl Default for Jack {
         // Create the analysis thread
         thread::spawn(move || analyze::analyze(jack_analyze_rx, fft_tx));
 
-        Self {
+        Ok(Self {
             midi: MidiState::default(),
             midi_rx,
             fft_rx,
             samples: [0.0; FRAME_SIZE],
             samples_rx: jack_main_rx,
             fft: [0.0; FFT_SIZE],
+        })
+    }
+
+    pub fn maybe_open() -> Option<Self> {
+        match Self::open() {
+            Ok(a) => Some(a),
+            Err(e) => {
+                log::warn!("Failed to open JACK: {:?}", e);
+                None
+            }
         }
+    }
+
+    pub fn update(&mut self) {
+        if !self.samples_rx.is_empty() {
+            ringbuf::drain(&mut self.samples_rx, &mut self.samples);
+        }
+
+        if !self.fft_rx.is_empty() {
+            ringbuf::drain(&mut self.fft_rx, &mut self.fft);
+        }
+    }
+
+    pub fn midi(&mut self) -> Vec<(MidiBank, Midi)> {
+        let mut messages = Vec::new();
+
+        while let Some(raw) = self.midi_rx.pop() {
+            messages.push(self.midi.process(raw));
+        }
+
+        messages
+    }
+
+    pub fn rms(&self) -> f32 {
+        analyze::rms(&self.fft)
+    }
+
+    pub fn rms_range(&self, f0: f32, f1: f32) -> f32 {
+        let (i, j) = (analyze::bin(f0), analyze::bin(f1));
+        analyze::rms(&self.fft[i..j])
+    }
+
+    pub fn peak(&self) -> f32 {
+        analyze::peak(&self.samples)
     }
 }
 

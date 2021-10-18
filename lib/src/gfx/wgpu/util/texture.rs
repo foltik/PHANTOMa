@@ -7,9 +7,6 @@ pub struct TextureBuilder<'l> {
 }
 
 impl<'l> TextureBuilder<'l> {
-    pub const COLOR_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
-    pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
-
     pub const DEFAULT_DESCRIPTOR: wgpu::TextureDescriptor<'static> = wgpu::TextureDescriptor {
         label: None,
         size: wgpu::Extent3d {
@@ -20,7 +17,7 @@ impl<'l> TextureBuilder<'l> {
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: Self::COLOR_FORMAT,
+        format: wgpu::defaults::texture_format(),
         usage: wgpu::TextureUsages::empty(),
     };
 
@@ -38,7 +35,7 @@ impl<'l> TextureBuilder<'l> {
 
     pub fn new_depth(label: &'l str) -> Self {
         Self::new(label)
-            .format(Self::DEPTH_FORMAT)
+            .format(wgpu::defaults::depth_format())
             .usage(wgpu::TextureUsages::COPY_SRC)
     }
 

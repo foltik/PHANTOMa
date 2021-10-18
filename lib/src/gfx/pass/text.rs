@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::cell::RefCell;
 
 use wgpu_glyph::{ab_glyph::FontArc, FontId, GlyphBrush, GlyphBrushBuilder, Section, Text, OwnedSection, OwnedText};
 
@@ -100,7 +101,7 @@ impl TextPassBuilder {
 
 pub struct TextPass {
     alias: HashMap<String, FontId>,
-    brush: GlyphBrush<()>,
+    brush: RefCell<GlyphBrush<()>>,
     size: (usize, usize),
 }
 
@@ -111,7 +112,7 @@ impl TextPass {
 
         Self {
             alias: builder.alias,
-            brush,
+            brush: RefCell::new(brush),
             size: builder.size,
         }
     }
@@ -121,11 +122,11 @@ impl TextPass {
         f: F,
     ) {
         let section = f(DrawBuilder::new(self)).section;
-        self.brush.queue(&section);
+        self.brush.borrow_mut().queue(&section);
     }
 
-    pub fn encode(&mut self, frame: &mut Frame, target: &wgpu::RawTextureView) {
-        self.brush
+    pub fn encode(&self, frame: &mut Frame, target: &wgpu::RawTextureView) {
+        self.brush.borrow_mut()
             .draw_queued(
                 &frame.app.device,
                 &mut frame.app.staging,

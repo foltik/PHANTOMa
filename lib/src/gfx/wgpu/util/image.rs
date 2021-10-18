@@ -44,7 +44,7 @@ pub fn load(app: &App, image: &DynamicImage) -> (wgpu::Texture, Vector2) {
     };
 
     let texture = wgpu::util::TextureBuilder::new("image")
-        .format(wgpu::TextureFormat::Rgba8UnormSrgb)
+        .format(wgpu::defaults::texture_format())
         .size([width, height, 1])
         .usage(wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT)
         .build(&app.device);
@@ -103,7 +103,7 @@ pub fn load_array(app: &App, images: &[DynamicImage]) -> (wgpu::Texture, Vector2
     };
 
     let texture = wgpu::util::TextureBuilder::new("image")
-        .format(wgpu::TextureFormat::Rgba8UnormSrgb)
+        .format(wgpu::defaults::texture_format())
         .size([width, height, n as u32])
         .usage(wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT)
         .build(&app.device);
