@@ -131,8 +131,8 @@ impl TextPass {
     pub fn encode(&self, frame: &mut Frame, target: &wgpu::RawTextureView) {
         self.brush.borrow_mut()
             .draw_queued(
-                &frame.app.device,
-                &mut frame.app.staging.borrow_mut(),
+                &frame.device,
+                &mut frame.staging,
                 frame.encoder.as_mut().unwrap(),
                 target,
                 self.size.0 as u32,

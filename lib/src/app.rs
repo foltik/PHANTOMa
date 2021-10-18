@@ -1,12 +1,8 @@
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
 use std::time::Instant;
-use std::cell::RefCell;
 
+use std::sync::Arc;
 use tokio::task;
-use crossbeam_queue::SegQueue;
+use tokio::sync::mpsc;
 
 use crate::gfx::wgpu;
 use crate::gfx::frame::Frame;
@@ -14,9 +10,8 @@ use crate::window::WindowBuilder;
 
 pub struct App {
     pub device: Arc<wgpu::Device>,
-    pub(crate) queue: wgpu::Queue,
-    // pub(crate) staging: wgpu::util::StagingPool,
-    pub(crate) staging: RefCell<wgpu::util::StagingBelt>,
+    pub(crate) queue: Arc<wgpu::Queue>,
+    pub(crate) staging: Option<wgpu::util::StagingPool>,
 
     pub width: u32,
     pub height: u32,
@@ -50,26 +45,21 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
     update_fn: UpdateFn,
     view_fn: ViewFn,
 ) where
-    M: 'static,
-    ModelFn: FnOnce(&App) -> M + Send + 'static,
-    InputFn: Fn(&App, &mut M, KeyState, Key) + Send + 'static,
-    UpdateFn: Fn(&App, &mut M, f32) + Send + 'static,
+    M: Send + 'static,
+    ModelFn: FnOnce(&App) -> M + Send + Sync + 'static,
+    InputFn: Fn(&App, &mut M, KeyState, Key) + Send + Sync + 'static,
+    UpdateFn: Fn(&App, &mut M, f32) + Send + Sync + 'static,
     // ViewFn: for<'a, 'frame> Fn(&'a App, &'a M, &'frame Frame, &'a wgpu::RawTextureView) + Send + 'static,
     ViewFn: Fn(&App, &mut M, &mut Frame, &wgpu::RawTextureView) + Send + 'static,
 {
+    init_logging();
+
+    let instance = wgpu::Instance::new(wgpu::defaults::backends());
+
+    let event_loop = winit::event_loop::EventLoop::new();
+    let (event_tx, mut event_rx) = mpsc::channel(16);
+
     tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap().block_on(async {
-        init_logging();
-
-        let instance = wgpu::Instance::new(wgpu::defaults::backends());
-
-        let exit = Arc::new(AtomicBool::new(false));
-        let exit_tx = Arc::clone(&exit);
-
-        let event_tx = Arc::new(SegQueue::<winit::event::Event<'static, ()>>::new());
-        let event_rx = Arc::clone(&event_tx);
-
-        let event_loop = winit::event_loop::EventLoop::new();
-
         let (mut window, adapter, device, queue) = WindowBuilder::default()
             .title("PHANTOMa")
             .build(&event_loop, &instance).await;
@@ -77,18 +67,16 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
         let device = Arc::new(device);
         log::info!("Using device '{}'", adapter.get_info().name);
 
-        let poll_device = Arc::clone(&device);
+        // let poll_device = Arc::clone(&device);
+        // task::spawn_blocking(move || loop {
+        //     poll_device.poll(wgpu::Maintain::Wait);
+        // });
 
-        task::spawn_blocking(move || loop {
-            poll_device.poll(wgpu::Maintain::Wait);
-        });
-
-        task::spawn_blocking(move || {
-            let staging = wgpu::util::StagingBelt::new(0x100);
+        task::spawn(async move {
             let mut app = App {
                 device: Arc::clone(&device),
-                queue,
-                staging: RefCell::new(staging),
+                queue: Arc::new(queue),
+                staging: Some(wgpu::util::StagingPool::new(0x100)),
 
                 width: window.size.width,
                 height: window.size.height,
@@ -107,9 +95,11 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
             let mut last = start;
 
             loop {
-                while let Some(event) = event_rx.pop() {
-                    use winit::event::WindowEvent;
-                    if let winit::event::Event::WindowEvent { event, .. } = event {
+                let event = event_rx.recv().await.unwrap();
+
+                use winit::event::*;
+                match event {
+                    Event::WindowEvent { event, .. } => {
                         let window = &mut window;
 
                         if let WindowEvent::Resized(size) = event {
@@ -132,8 +122,7 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
                         }
 
                         if let WindowEvent::CloseRequested = event {
-                            exit_tx.store(true, Ordering::SeqCst);
-                            // TODO: Cleanly exit?
+                            // FIXME: Cleanly exit?
                         }
 
                         if let WindowEvent::KeyboardInput { input, .. } = event {
@@ -141,61 +130,60 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
                                 input_fn(&app, &mut model, input.state, key);
                             }
                         }
+                    },
+                    Event::MainEventsCleared => {
+                        // Update the app's times.
+                        let now = Instant::now();
+
+                        let since_start = now.duration_since(start);
+                        let since_last = now.duration_since(last);
+                        app.t = since_start.as_secs_f32();
+                        app.dt = since_last.as_secs_f32();
+
+                        let dt = app.dt;
+                        log::info!("FPS: {:?}", app.fps());
+
+                        // User update function.
+                        update_fn(&app, &mut model, dt);
+
+                        last = now;
+                        log::trace!("Updated in {:?}", now.elapsed());
+
+                        if let Ok(surface) = window.surface.get_current_texture() {
+                            let view = surface.texture.create_view(&wgpu::TextureViewDescriptor {
+                                label: None,
+                                format: Some(wgpu::defaults::texture_format()),
+                                dimension: Some(wgpu::TextureViewDimension::D2),
+                                aspect: wgpu::TextureAspect::All,
+                                base_mip_level: 0,
+                                mip_level_count: None,
+                                base_array_layer: 0,
+                                array_layer_count: None,
+                            });
+
+                            let mut frame = Frame::new(Arc::clone(&app.device), Arc::clone(&app.queue), app.staging.take().unwrap());
+                            view_fn(&mut app, &mut model, &mut frame, &view);
+                            app.staging = Some(frame.submit());
+
+                            surface.present();
+                        }
+
+                        app.staging.as_mut().unwrap().recall().await;
                     }
+                    _ => {}
                 }
 
-                // Update the app's times.
-                let now = Instant::now();
-
-                let since_start = now.duration_since(start);
-                let since_last = now.duration_since(last);
-                app.t = since_start.as_secs_f32();
-                app.dt = since_last.as_secs_f32();
-
-                let dt = app.dt;
-                // log::info!("FPS: {:?}", app.fps());
-
-                // User update function.
-                update_fn(&app, &mut model, dt);
-
-                last = now;
-                log::trace!("Updated in {:?}", now.elapsed());
-
-                if let Ok(surface) = window.surface.get_current_texture() {
-                    let view = surface.texture.create_view(&wgpu::TextureViewDescriptor {
-                        label: None,
-                        format: Some(wgpu::defaults::texture_format()),
-                        dimension: Some(wgpu::TextureViewDimension::D2),
-                        aspect: wgpu::TextureAspect::All,
-                        base_mip_level: 0,
-                        mip_level_count: None,
-                        base_array_layer: 0,
-                        array_layer_count: None,
-                    });
-
-                    let mut frame = Frame::new(&app);
-                    view_fn(&app, &mut model, &mut frame, &view);
-                    frame.submit();
-
-                    surface.present();
-                }
-
-                futures::executor::block_on(app.staging.borrow_mut().recall());
-            }
-        });
-
-        event_loop.run(move |event, _, flow| {
-            event_tx.push(event.to_static().unwrap());
-
-            use winit::event_loop::ControlFlow;
-            if exit.load(Ordering::SeqCst) {
-                *flow = ControlFlow::Exit;
-            } else {
-                *flow = ControlFlow::Poll;
             }
         });
     });
 
+    use winit::event_loop::ControlFlow;
+    event_loop.run(move |event, _, flow| {
+        if let Err(e) = event_tx.blocking_send(event.to_static().unwrap()) { 
+            log::debug!("dropped event: {:?}", e)
+        };
+        *flow = ControlFlow::Poll;
+    });
 }
 
 fn init_logging() {

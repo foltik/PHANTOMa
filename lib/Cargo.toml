@@ -2,13 +2,14 @@
 name = "lib"
 version = "0.1.0"
 authors = ["Jack Foltz <jack@foltz.io>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 # Gfx
-winit = "0.23.0"
+winit = "0.25"
 wgpu = { version = "0.11", features = ["spirv"] }
-wgpu_glyph = "0.15"
+wgpu_staging = { path = "../wgpu_staging" }
+wgpu_glyph = { path = "../wgpu_glyph" }
 glyph_brush = "0.7"
 # wgpu_staging = { path = "../wgpu_staging" }
 # wgpu_glyph = { path = "../wgpu_glyph" }
@@ -16,8 +17,8 @@ glyph_brush = "0.7"
 # Gfx Support
 #wavefront_obj = "8.0.0"
 #obj = "0.10.1"
-gltf = { version = "0.15.2", features = ["KHR_lights_punctual", "KHR_materials_unlit"] }
-image = "0.23.10"
+gltf = { version = "0.16", features = ["KHR_lights_punctual", "KHR_materials_unlit"] }
+image = "0.23"
 
 # Lib
 log = "0.4.11"
@@ -26,20 +27,19 @@ anyhow = "1"
 thiserror = "1"
 
 # Math
-cgmath = "0.17.0"
-splines = { version = "3.4.1", features = ["impl-cgmath"] }
+cgmath = "0.18"
+splines = { version = "4", features = ["impl-cgmath"] }
 
 # Audio
-jack = "0.6.5"
-apodize = "1.0.0"
-ringbuf = "0.2.2"
-rustfft = "4.0.0"
+jack = "0.7"
+apodize = "1"
+ringbuf = "0.2"
+rustfft = "6"
 
 # MIDI / OSC
 midir = { version = "0.7", features = ["jack"] }
-rosc = "0.4.2"
-nannou_osc = "0.15.0"
-crossbeam-queue = "0.3.0"
+rosc = "0.5"
+crossbeam-queue = "0.3"
 twitchchat = { version = "0.14.5", features = ["async", "async-std"] }
 
 # Async
@@ -53,5 +53,5 @@ parking_lot = "0.11"
 bytemuck = { version = "1.4.1", features = ["derive"] }
 safe-transmute = "0.11.0"
 enum_dispatch = "0.3.3"
-petgraph = "0.5.1"
-itertools = "0.9.0"
+petgraph = "0.6"
+itertools = "0.10"

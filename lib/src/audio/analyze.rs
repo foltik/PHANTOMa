@@ -1,19 +1,22 @@
 use super::ringbuf::{self, Consumer, Producer};
 use super::{Frame, FFT, FFT_IMSIZE, FFT_SIZE, FRAME_SIZE, NYQ};
 
+use rustfft::num_complex::Complex32;
+use rustfft::num_traits::Zero as _;
+
+use rustfft::FftPlanner;
+
 pub fn analyze(mut rx: Consumer<Frame>, mut fft_tx: Producer<FFT>) {
     // Set up buffers for the input, complex FFT I/O, and result
     let mut buffer: [Frame; 4] = [[0.0; FRAME_SIZE]; 4];
    
-    use rustfft::num_complex::Complex32;
-    use rustfft::num_traits::Zero as _;
     let mut complex_in = vec![Complex32::zero(); FFT_IMSIZE];
     let mut complex_out = vec![Complex32::zero(); FFT_IMSIZE];
     let mut result = [0.0; FFT_SIZE];
 
     // Set up the FFT
-    let mut planner = rustfft::FFTplanner::<f32>::new(false);
-    let fft = planner.plan_fft(FFT_IMSIZE);
+    let mut planner = FftPlanner::<f32>::new();
+    let fft = planner.plan_fft_forward(FFT_IMSIZE);
 
     // Set up the window and calculate the factor we need to scale the FFT result by
     let window: Vec<_> = apodize::hanning_iter(FFT_SIZE).map(|v| v as f32).collect();
@@ -30,7 +33,7 @@ pub fn analyze(mut rx: Consumer<Frame>, mut fft_tx: Producer<FFT>) {
             .zip(window.iter())
             .for_each(|((sample, c), w)| c.re = *sample * *w);
 
-        fft.process(&mut complex_in, &mut complex_out);
+        fft.process_with_scratch(&mut complex_in, &mut complex_out);
 
         // Copy the abs of each complex result scaled by the window factor into the result buffer
         complex_out

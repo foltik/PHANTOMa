@@ -1,27 +1,28 @@
-// use std::time::Instant;
-
-use crate::app::App;
+use std::sync::Arc;
 
 use super::uniform::{Uniform, UniformArray};
 use super::wgpu;
 
-pub struct Frame<'a> {
-    pub(crate) app: &'a App,
+pub struct Frame {
+    pub(crate) device: Arc<wgpu::Device>,
+    pub(crate) queue: Arc<wgpu::Queue>,
+    pub(crate) staging: wgpu::util::StagingPool,
     pub(crate) encoder: Option<wgpu::CommandEncoder>,
 
     // begin: Instant,
 }
 
-impl<'a> Frame<'a> {
-    pub fn new(app: &'a App) -> Self {
-        let encoder = app
-            .device
+impl Frame {
+    pub fn new(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>, staging: wgpu::util::StagingPool) -> Self {
+        let encoder = device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("frame_encoder"),
             });
 
         Self {
-            app,
+            device,
+            queue,
+            staging,
             encoder: Some(encoder),
             // begin: Instant::now()
         }
@@ -37,13 +38,12 @@ impl<'a> Frame<'a> {
 
         let sz = std::num::NonZeroU64::new(bytes.len() as u64).unwrap();
 
-        let mut staging = self.app.staging.borrow_mut();
-        let mut view = staging.write_buffer(
+        let mut view = self.staging.write_buffer(
             self.encoder.as_mut().unwrap(),
             buffer,
             offset,
             sz,
-            &self.app.device,
+            &self.device,
         );
         view.copy_from_slice(bytes);
     }
@@ -60,13 +60,15 @@ impl<'a> Frame<'a> {
         self.write_uniform_slice(u, i, std::slice::from_ref(t));
     }
 
-    pub fn submit(&mut self) {
-        self.app.staging.borrow_mut().finish();
+    pub fn submit(mut self) -> wgpu::util::StagingPool {
+        self.staging.finish();
         let buffer = self.encoder.take().unwrap().finish();
         // log::trace!("Frame encoded in {:?}", self.begin.elapsed());
         
         // let pre_submit = Instant::now();
-        self.app.queue.submit(Some(buffer));
+        self.queue.submit(Some(buffer));
         // log::trace!("Commands submitted in {:?}", pre_submit.elapsed());
+
+        self.staging
     }
 }

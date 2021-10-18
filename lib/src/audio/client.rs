@@ -1,14 +1,9 @@
-use std::sync::Arc;
 use std::thread;
-
-use crossbeam_queue::ArrayQueue;
 use anyhow::Result;
 
 use super::analyze;
 use super::ringbuf::{self, Consumer, Producer, RingBuffer};
 use super::{Frame, FFT, FFT_SIZE, FRAME_SIZE};
-
-use super::midi::{Midi, MidiState, MidiBank, MidiRaw};
 
 const FRAME_QUEUE_SIZE: usize = 64;
 const FFT_QUEUE_SIZE: usize = 16;
@@ -16,9 +11,7 @@ const FFT_QUEUE_SIZE: usize = 16;
 pub struct Jack {
     pub samples: Frame,
     pub fft: FFT,
-    midi: MidiState,
 
-    midi_rx: Arc<ArrayQueue<MidiRaw>>,
     samples_rx: Consumer<Frame>,
     fft_rx: Consumer<FFT>,
 }
@@ -33,13 +26,6 @@ impl Jack {
             .register_port("in_left", jack::AudioIn::default())?;
         let in_right = client
             .register_port("in_right", jack::AudioIn::default())?;
-
-        let in_midi = client
-            .register_port("midi", jack::MidiIn::default())?;
-
-        // // Create a queue for sending MIDI messages
-        let midi_rx = Arc::new(ArrayQueue::<MidiRaw>::new(128));
-        let midi_tx = Arc::clone(&midi_rx);
 
         // Create a ringbuffer for sending raw samples from the JACK processing thread to the analysis thread
         let jack_analyze_buffer = RingBuffer::<Frame>::new(FRAME_QUEUE_SIZE);
@@ -63,8 +49,6 @@ impl Jack {
                         ps,
                         &in_left,
                         &in_right,
-                        &in_midi,
-                        &midi_tx,
                         &mut process_buffer,
                         &mut jack_analyze_tx,
                         &mut jack_main_tx,
@@ -85,8 +69,6 @@ impl Jack {
         thread::spawn(move || analyze::analyze(jack_analyze_rx, fft_tx));
 
         Ok(Self {
-            midi: MidiState::default(),
-            midi_rx,
             fft_rx,
             samples: [0.0; FRAME_SIZE],
             samples_rx: jack_main_rx,
@@ -114,16 +96,6 @@ impl Jack {
         }
     }
 
-    pub fn midi(&mut self) -> Vec<(MidiBank, Midi)> {
-        let mut messages = Vec::new();
-
-        while let Some(raw) = self.midi_rx.pop() {
-            messages.push(self.midi.process(raw));
-        }
-
-        messages
-    }
-
     pub fn rms(&self) -> f32 {
         analyze::rms(&self.fft)
     }
@@ -143,8 +115,6 @@ pub fn process(
     ps: &jack::ProcessScope,
     in_left: &jack::Port<jack::AudioIn>,
     in_right: &jack::Port<jack::AudioIn>,
-    in_midi: &jack::Port<jack::MidiIn>,
-    midi_tx: &Arc<ArrayQueue<MidiRaw>>,
     buffer: &mut Frame,
     analyze_tx: &mut Producer<Frame>,
     main_tx: &mut Producer<Frame>,
@@ -160,16 +130,6 @@ pub fn process(
         .for_each(|(sample, v)| {
             *v = sample;
         });
-
-    in_midi.iter(ps).for_each(|m| {
-        if !midi_tx.is_full() {
-            let mut buf = [0; 16];
-            for (i, b) in m.bytes.iter().take(16).enumerate() {
-                buf[i] = *b;
-            }
-            midi_tx.push(buf).unwrap();
-        }
-    });
 
     if !analyze_tx.is_full() {
         ringbuf::transmit(analyze_tx, buffer);
@@ -193,10 +153,10 @@ impl jack::NotificationHandler for Notifications {
         );
     }
 
-    fn buffer_size(&mut self, _: &jack::Client, sz: jack::Frames) -> jack::Control {
-        log::trace!("JACK: buffer size changed to {}", sz);
-        jack::Control::Continue
-    }
+    // fn buffer_size(&mut self, _: &jack::Client, sz: jack::Frames) -> jack::Control {
+    //     log::trace!("JACK: buffer size changed to {}", sz);
+    //     jack::Control::Continue
+    // }
 
     fn sample_rate(&mut self, _: &jack::Client, srate: jack::Frames) -> jack::Control {
         log::trace!("JACK: sample rate changed to {}", srate);

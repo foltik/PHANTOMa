@@ -1,11 +1,13 @@
 use std::fmt::Debug;
 use std::result::Result;
 use thiserror::Error;
+use std::iter::{self, Iterator};
 
+use tokio::sync::mpsc;
+use tokio::task;
 use parking_lot::Mutex;
 use crossbeam_queue::SegQueue;
 use std::sync::Arc;
-use std::thread;
 
 use midir::{MidiInput, MidiInputConnection, MidiOutput};
 
@@ -25,10 +27,8 @@ pub enum MidiError {
 pub struct Midi<D: Device> {
     state: Arc<Mutex<D>>,
 
-    input: Arc<SegQueue<D::Input>>,
-    output: Arc<SegQueue<D::Output>>,
-    // in_tx: broadcast::Sender<D::Input>,
-    // out_tx: mpsc::Sender<D::Output>,
+    out_tx: mpsc::Sender<D::Output>,
+    in_buf: Arc<SegQueue<D::Input>>,
 
     _conn: Arc<Mutex<MidiInputConnection<()>>>,
 }
@@ -36,9 +36,6 @@ pub struct Midi<D: Device> {
 impl<D: Device + Clone + Send> Midi<D> {
     pub fn open(name: &str) -> Result<Self, MidiError> {
         let state = Arc::new(Mutex::new(D::new()));
-
-        let input = Arc::new(SegQueue::new());
-        let output = Arc::new(SegQueue::new());
 
         let midi_in =
             MidiInput::new(&format!("StageBridge_in_{}", name)).map_err(MidiError::from)?;
@@ -76,39 +73,37 @@ impl<D: Device + Clone + Send> Midi<D> {
             .connect(&out_port, "out")
             .map_err(|_| MidiError::ConnectionFailed(out_name.clone()))?;
 
+        let in_buf = Arc::new(SegQueue::new());
+        let (out_tx, mut out_rx) = mpsc::channel(1);
+
         // Output sender loop
-        let _output = Arc::clone(&output);
         let _state = Arc::clone(&state);
-        thread::spawn(move || {
+        let _name = name.to_owned();
+        task::spawn(async move {
             loop {
-                if let Some(output) = _output.pop() {
-                    // let output = out_rx
-                    //     .recv()
-                    //     .await
-                    //     .expect(&format!("{}: output receiver dropped", &_out_name));
-                    // log::info!("pad sending {:?}", output);
+                let output = out_rx.recv().await.unwrap();
 
-                    let data = _state.lock().process_output(output);
-                    // log::trace!("{} -> {:X?}", &_out_name, &data);
+                let data = _state.lock().process_output(output);
+                log::trace!("{} -> {:X?}", &_name, &data);
 
-                    if out_conn.send(&data).is_err() { 
-                        log::error!("{}: failed to send output", out_name) 
-                    }
+                if out_conn.send(&data).is_err() { 
+                    log::error!("{}: failed to send output", out_name) 
                 }
             }
         });
 
         // Input receiver loop
-        let _input = Arc::clone(&input);
+        let _in_buf = Arc::clone(&in_buf);
         let _state = Arc::clone(&state);
+        let _name = name.to_owned();
         let input_conn = midi_in
             .connect(
                 &in_port,
                 "in",
                 move |_, data, _| {
-                    // log::info!("pad <- [{:X?}]", data);
+                    log::info!("{} <- [{:X?}]", &_name, data);
                     if let Some(i) = _state.lock().process_input(data) {
-                        _input.push(i);
+                        _in_buf.push(i);
                     }
                 },
                 (),
@@ -118,8 +113,8 @@ impl<D: Device + Clone + Send> Midi<D> {
         Ok(Self {
             state,
 
-            input,
-            output,
+            in_buf,
+            out_tx,
 
             _conn: Arc::new(Mutex::new(input_conn)),
         })
@@ -140,15 +135,13 @@ impl<D: Device + Clone + Send> Midi<D> {
     }
 
     pub fn send(&self, output: D::Output) {
-        self.output.push(output);
+        self.out_tx.blocking_send(output).unwrap();
     }
 
-    pub fn recv(&self) -> Vec<D::Input> {
-        let mut input = Vec::with_capacity(self.input.len());
-        while let Some(i) = self.input.pop() {
-            input.push(i);
-        }
-        input
+    pub fn recv(&self) -> impl Iterator<Item = D::Input> + '_ {
+        iter::from_fn(move || {
+            self.in_buf.pop()
+        })
     }
 }
 
