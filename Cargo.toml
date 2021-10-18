@@ -1,8 +1,8 @@
 [workspace]
 #members = ["lib", "sketches/maze"]
 #members = ["lib", "wgpu_glyph", "wgpu_staging", "sketches/syn005"]
-#members = ["lib", "wgpu_glyph", "wgpu_staging", "sketches/abyss"]
-members = ["lib", "wgpu_glyph", "wgpu_staging", "sketches/test"]
+members = ["lib", "wgpu_glyph", "wgpu_staging", "sketches/abyss"]
+#members = ["lib", "wgpu_glyph", "wgpu_staging", "sketches/test"]
 exclude = ["sketches/new", "sketches/template"]
 resolver = "2"
 

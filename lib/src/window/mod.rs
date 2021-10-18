@@ -8,7 +8,7 @@ use crate::gfx::wgpu;
 // mod proxy;
 // pub use proxy::Proxy;
 
-// pub mod async_ext;
+pub mod async_ext;
 
 // FIXME: Allow device descriptor to not be static
 // NEEDS <'a>. UGH.
@@ -364,9 +364,9 @@ pub struct Window {
 }
 
 impl Window {
-    // pub(crate) fn request_redraw(&self) {
-    //     self.window.request_redraw();
-    // }
+    pub(crate) fn request_redraw(&self) {
+        self._window.request_redraw();
+    }
 
     // pub(crate) fn rebuild_swap_chain(&mut self, device: &wgpu::Device, size: PhysicalSize) {
         // self.swap_chain.rebuild(&device, &self.surface, size);

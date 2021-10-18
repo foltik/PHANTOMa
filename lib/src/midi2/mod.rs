@@ -74,7 +74,7 @@ impl<D: Device + Clone + Send> Midi<D> {
             .map_err(|_| MidiError::ConnectionFailed(out_name.clone()))?;
 
         let in_buf = Arc::new(SegQueue::new());
-        let (out_tx, mut out_rx) = mpsc::channel(1);
+        let (out_tx, mut out_rx) = mpsc::channel(16);
 
         // Output sender loop
         let _state = Arc::clone(&state);
@@ -101,7 +101,7 @@ impl<D: Device + Clone + Send> Midi<D> {
                 &in_port,
                 "in",
                 move |_, data, _| {
-                    log::info!("{} <- [{:X?}]", &_name, data);
+                    log::trace!("{} <- [{:X?}]", &_name, data);
                     if let Some(i) = _state.lock().process_input(data) {
                         _in_buf.push(i);
                     }
@@ -134,14 +134,12 @@ impl<D: Device + Clone + Send> Midi<D> {
         Arc::clone(&self.state)
     }
 
-    pub fn send(&self, output: D::Output) {
-        self.out_tx.blocking_send(output).unwrap();
+    pub async fn send(&self, output: D::Output) {
+        self.out_tx.send(output).await.unwrap();
     }
 
-    pub fn recv(&self) -> impl Iterator<Item = D::Input> + '_ {
-        iter::from_fn(move || {
-            self.in_buf.pop()
-        })
+    pub fn recv(&self) -> Vec<D::Input> {
+        iter::from_fn(|| self.in_buf.pop()).collect()
     }
 }
 
