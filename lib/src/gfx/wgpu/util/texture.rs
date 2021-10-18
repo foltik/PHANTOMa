@@ -101,7 +101,7 @@ impl<'l> TextureBuilder<'l> {
         let mut descriptor = self.descriptor;
 
         let label = &format!("{}_texture", self.label);
-        descriptor.label = Some(&label);
+        descriptor.label = Some(label);
 
         wgpu::Texture {
             texture: device.create_texture(&descriptor),

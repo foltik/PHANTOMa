@@ -15,7 +15,7 @@ pub struct Texture {
 
 impl Texture {
     pub fn view(&self) -> TextureViewBuilder {
-        TextureViewBuilder::new(&self)
+        TextureViewBuilder::new(self)
     }
 
     pub fn label(&self) -> &str {
@@ -94,12 +94,12 @@ impl Deref for TextureView {
     }
 }
 
-impl Into<wgpu::TextureView> for TextureView {
-    fn into(self) -> wgpu::TextureView {
-        let Self {
+impl From<TextureView> for wgpu::TextureView {
+    fn from(val: TextureView) -> Self {
+        let TextureView {
             view,
             ..
-        } = self;
+        } = val;
 
         view
     }

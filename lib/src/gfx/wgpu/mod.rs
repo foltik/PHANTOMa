@@ -41,7 +41,7 @@ pub use wgpu::{ColorTargetState, BlendState, BlendComponent, ColorWrites};
 // Sampler
 pub use wgpu::{AddressMode, FilterMode, Sampler, SamplerBorderColor, SamplerDescriptor};
 
-pub use wgpu::{BindingType, BufferBindingType, BindingResource};
+pub use wgpu::{BindingType, BufferBinding, BufferBindingType, BindingResource};
 
 pub use wgpu::{ShaderModule, ShaderSource, ShaderStages, ShaderModuleDescriptor};
 

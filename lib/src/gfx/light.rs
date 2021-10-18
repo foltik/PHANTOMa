@@ -33,7 +33,7 @@ impl Lights {
     pub const MAX: usize = 32;
 
     pub fn new(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, descs: &[LightDesc], transforms: &[Matrix4]) -> Self {
-        let lights = UniformArray::new(device, "lights", Self::MAX, Some(&descs));
+        let lights = UniformArray::new(device, "lights", Self::MAX, Some(descs));
         let transforms = UniformArray::new(device, "light_transforms", Self::MAX, Some(transforms));
 
         let n = Uniform::new(device, "lights_n", Some(&(descs.len() as u32)));

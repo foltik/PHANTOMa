@@ -1,3 +1,4 @@
+use tokio::task;
 use crossbeam_queue::SegQueue;
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -26,7 +27,7 @@ impl Twitch {
         let queue = Arc::new(SegQueue::new());
         let tx = Arc::clone(&queue);
 
-        async_std::task::spawn(async move {
+        task::spawn(async move {
             let connector = Connector::twitch().unwrap();
             let config = UserConfig::builder().anonymous().build().unwrap();
 

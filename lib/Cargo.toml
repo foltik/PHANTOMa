@@ -8,8 +8,10 @@ edition = "2018"
 # Gfx
 winit = "0.23.0"
 wgpu = { version = "0.11", features = ["spirv"] }
-wgpu_staging = { path = "../wgpu_staging" }
-wgpu_glyph = { path = "../wgpu_glyph" }
+wgpu_glyph = "0.15"
+glyph_brush = "0.7"
+# wgpu_staging = { path = "../wgpu_staging" }
+# wgpu_glyph = { path = "../wgpu_glyph" }
 
 # Gfx Support
 #wavefront_obj = "8.0.0"
@@ -20,6 +22,7 @@ image = "0.23.10"
 # Lib
 log = "0.4.11"
 pretty_env_logger = "0.4.0"
+anyhow = "1"
 thiserror = "1"
 
 # Math
@@ -40,8 +43,9 @@ crossbeam-queue = "0.3.0"
 twitchchat = { version = "0.14.5", features = ["async", "async-std"] }
 
 # Async
-async-std = { version = "1.6.5", features = [] }
-async-scoped = "0.4.1"
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "net"] }
+tokio-util = "0.6"
+#async-scoped = "0.4.1"
 futures = "0.3.6"
 parking_lot = "0.11"
 

@@ -46,6 +46,7 @@ impl Decay {
     }
 }
 
+#[derive(Default)]
 pub struct DecayEnv {
     map: HashMap<&'static str, Decay>,
 }
@@ -80,14 +81,6 @@ impl DecayEnv {
 
     pub fn hold(&mut self, key: &'static str, hold: bool) {
         self.map.get_mut(key).unwrap().hold(hold);
-    }
-}
-
-impl Default for DecayEnv {
-    fn default() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
     }
 }
 

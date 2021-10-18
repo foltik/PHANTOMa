@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::cell::RefCell;
 
-use wgpu_glyph::{ab_glyph::FontArc, FontId, GlyphBrush, GlyphBrushBuilder, Section, Text, OwnedSection, OwnedText};
+use wgpu_glyph::{ab_glyph::FontArc, FontId, GlyphBrush, GlyphBrushBuilder};
+use glyph_brush::{OwnedSection, OwnedText};
 
 use crate::gfx::frame::Frame;
 use crate::gfx::wgpu;
@@ -74,14 +75,6 @@ pub struct TextPassBuilder {
 }
 
 impl TextPassBuilder {
-    pub fn new() -> Self {
-        Self {
-            fonts: vec![],
-            alias: HashMap::new(),
-            size: (1920, 1080),
-        }
-    }
-
     pub fn size(mut self, size: (usize, usize)) -> Self {
         self.size = size;
         self
@@ -96,6 +89,16 @@ impl TextPassBuilder {
 
     pub fn build(self, device: &wgpu::Device) -> TextPass {
         TextPass::new(device, self)
+    }
+}
+
+impl Default for TextPassBuilder {
+    fn default() -> Self {
+        Self {
+            fonts: vec![],
+            alias: HashMap::new(),
+            size: (1920, 1080),
+        }
     }
 }
 
@@ -129,7 +132,7 @@ impl TextPass {
         self.brush.borrow_mut()
             .draw_queued(
                 &frame.app.device,
-                &mut frame.app.staging,
+                &mut frame.app.staging.borrow_mut(),
                 frame.encoder.as_mut().unwrap(),
                 target,
                 self.size.0 as u32,

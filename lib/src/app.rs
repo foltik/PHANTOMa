@@ -2,18 +2,21 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use std::thread;
 use std::time::Instant;
+use std::cell::RefCell;
 
+use tokio::task;
 use crossbeam_queue::SegQueue;
 
 use crate::gfx::wgpu;
+use crate::gfx::frame::Frame;
 use crate::window::WindowBuilder;
 
 pub struct App {
     pub device: Arc<wgpu::Device>,
     pub(crate) queue: wgpu::Queue,
-    pub(crate) staging: wgpu::util::StagingPool,
+    // pub(crate) staging: wgpu::util::StagingPool,
+    pub(crate) staging: RefCell<wgpu::util::StagingBelt>,
 
     pub width: u32,
     pub height: u32,
@@ -41,21 +44,18 @@ impl App {
 pub use winit::event::ElementState as KeyState;
 pub use winit::event::VirtualKeyCode as Key;
 
-// TODO: Keyboard/Mouse/(Midi)? event handling
-use crate::async_closure::{AsyncFn1, AsyncFnMut3, AsyncFnMut4};
 pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
     model_fn: ModelFn,
-    mut input_fn: InputFn,
-    mut update_fn: UpdateFn,
-    mut view_fn: ViewFn,
+    input_fn: InputFn,
+    update_fn: UpdateFn,
+    view_fn: ViewFn,
 ) where
     M: 'static,
-    ModelFn: for<'a> AsyncFn1<&'a App, Output = M> + 'static + Send,
-    InputFn: for<'a, 'e> AsyncFnMut4<&'a App, &'a mut M, KeyState, Key> + 'static + Send,
-    UpdateFn: for<'a> AsyncFnMut3<&'a App, &'a mut M, f32> + 'static + Send,
-    ViewFn: Fn<>,
-    ViewFn: for<'a> AsyncFnMut3<&'a mut App, &'a mut M, &'a wgpu::RawTextureView> + 'static + Send,
-    WindowFn: FnOnce(WindowBuilder) -> WindowBuilder,
+    ModelFn: FnOnce(&App) -> M + Send + 'static,
+    InputFn: Fn(&App, &mut M, KeyState, Key) + Send + 'static,
+    UpdateFn: Fn(&App, &mut M, f32) + Send + 'static,
+    // ViewFn: for<'a, 'frame> Fn(&'a App, &'a M, &'frame Frame, &'a wgpu::RawTextureView) + Send + 'static,
+    ViewFn: Fn(&App, &mut M, &mut Frame, &wgpu::RawTextureView) + Send + 'static,
 {
     tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap().block_on(async {
         init_logging();
@@ -71,119 +71,117 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
         let event_loop = winit::event_loop::EventLoop::new();
 
         let (mut window, adapter, device, queue) = WindowBuilder::default()
-                // .fullscreen(&event_loop)
-                .build(&event_loop, &instance),
-        );
+            .title("PHANTOMa")
+            .build(&event_loop, &instance).await;
 
         let device = Arc::new(device);
         log::info!("Using device '{}'", adapter.get_info().name);
 
         let poll_device = Arc::clone(&device);
-        thread::spawn(move || loop {
+
+        task::spawn_blocking(move || loop {
             poll_device.poll(wgpu::Maintain::Wait);
         });
 
-        thread::spawn(|| {
-            async_std::task::block_on(async move {
-                let staging = wgpu::util::StagingPool::new(0x100);
-                let mut app = App {
-                    device: Arc::clone(&device),
-                    queue,
-                    staging,
+        task::spawn_blocking(move || {
+            let staging = wgpu::util::StagingBelt::new(0x100);
+            let mut app = App {
+                device: Arc::clone(&device),
+                queue,
+                staging: RefCell::new(staging),
 
-                    width: window.size.width,
-                    height: window.size.height,
+                width: window.size.width,
+                height: window.size.height,
 
-                    frame: 0,
-                    t: 0.0,
-                    dt: 0.0,
-                };
+                frame: 0,
+                t: 0.0,
+                dt: 0.0,
+            };
 
-                let before_model = Instant::now();
-                let mut model = model_fn.call_once(&app).await;
-                log::debug!("Loaded model in {:?}", before_model.elapsed());
+            let before_model = Instant::now();
+            let mut model = model_fn(&app);
+            log::debug!("Loaded model in {:?}", before_model.elapsed());
 
-                // Track the moment the loop starts and the last update.
-                let start = Instant::now();
-                let mut last = start;
+            // Track the moment the loop starts and the last update.
+            let start = Instant::now();
+            let mut last = start;
 
-                loop {
-                    while let Some(event) = event_rx.pop() {
-                        use winit::event::WindowEvent;
-                        if let winit::event::Event::WindowEvent { event, .. } = event {
-                            let window = &mut window;
+            loop {
+                while let Some(event) = event_rx.pop() {
+                    use winit::event::WindowEvent;
+                    if let winit::event::Event::WindowEvent { event, .. } = event {
+                        let window = &mut window;
 
-                            if let WindowEvent::Resized(size) = event {
-                                if size != window.size {
-                                    log::debug!("Window resized to {}x{}", size.width, size.height);
+                        if let WindowEvent::Resized(size) = event {
+                            if size != window.size {
+                                log::debug!("Window resized to {}x{}", size.width, size.height);
 
-                                    app.width = size.width;
-                                    app.height = size.height;
-                                    window.size = size;
+                                app.width = size.width;
+                                app.height = size.height;
+                                window.size = size;
 
-                                    window.surface.configure(&device, &wgpu::SurfaceConfiguration {
-                                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                                        format: wgpu::defaults::texture_format(),
-                                        width: size.width,
-                                        height: size.height,
-                                        present_mode: wgpu::PresentMode::Mailbox,
-                                    });
-                                    // window.rebuild_swap_chain(&app.device, size);
-                                }
+                                window.surface.configure(&device, &wgpu::SurfaceConfiguration {
+                                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                                    format: wgpu::defaults::texture_format(),
+                                    width: size.width,
+                                    height: size.height,
+                                    present_mode: wgpu::PresentMode::Mailbox,
+                                });
+                                // window.rebuild_swap_chain(&app.device, size);
                             }
+                        }
 
-                            if let WindowEvent::CloseRequested = event {
-                                exit_tx.store(true, Ordering::SeqCst);
-                                // TODO: Cleanly exit?
-                            }
+                        if let WindowEvent::CloseRequested = event {
+                            exit_tx.store(true, Ordering::SeqCst);
+                            // TODO: Cleanly exit?
+                        }
 
-                            if let WindowEvent::KeyboardInput { input, .. } = event {
-                                if let Some(key) = input.virtual_keycode {
-                                    input_fn.call_mut(&app, &mut model, input.state, key).await;
-                                }
+                        if let WindowEvent::KeyboardInput { input, .. } = event {
+                            if let Some(key) = input.virtual_keycode {
+                                input_fn(&app, &mut model, input.state, key);
                             }
                         }
                     }
-
-                    // Update the app's times.
-                    let now = Instant::now();
-
-                    let since_start = now.duration_since(start);
-                    let since_last = now.duration_since(last);
-                    app.t = since_start.as_secs_f32();
-                    app.dt = since_last.as_secs_f32();
-
-                    let dt = app.dt;
-                    // log::info!("FPS: {:?}", app.fps());
-
-                    // User update function.
-                    update_fn.call_mut(&app, &mut model, dt).await;
-
-                    last = now;
-                    log::trace!("Updated in {:?}", now.elapsed());
-
-                    if let Ok(surface) = window.surface.get_current_texture() {
-                        let view = surface.texture.create_view(&wgpu::TextureViewDescriptor {
-                            label: None,
-                            format: Some(wgpu::defaults::texture_format()),
-                            dimension: Some(wgpu::TextureViewDimension::D2),
-                            aspect: wgpu::TextureAspect::All,
-                            base_mip_level: 0,
-                            mip_level_count: None,
-                            base_array_layer: 0,
-                            array_layer_count: None,
-                        });
-
-                        view_fn
-                            .call_mut(&mut app, &mut model, &view)
-                            .await;
-
-                        surface.present();
-                    }
-
-                    app.staging.recall().await;
                 }
-            });
+
+                // Update the app's times.
+                let now = Instant::now();
+
+                let since_start = now.duration_since(start);
+                let since_last = now.duration_since(last);
+                app.t = since_start.as_secs_f32();
+                app.dt = since_last.as_secs_f32();
+
+                let dt = app.dt;
+                // log::info!("FPS: {:?}", app.fps());
+
+                // User update function.
+                update_fn(&app, &mut model, dt);
+
+                last = now;
+                log::trace!("Updated in {:?}", now.elapsed());
+
+                if let Ok(surface) = window.surface.get_current_texture() {
+                    let view = surface.texture.create_view(&wgpu::TextureViewDescriptor {
+                        label: None,
+                        format: Some(wgpu::defaults::texture_format()),
+                        dimension: Some(wgpu::TextureViewDimension::D2),
+                        aspect: wgpu::TextureAspect::All,
+                        base_mip_level: 0,
+                        mip_level_count: None,
+                        base_array_layer: 0,
+                        array_layer_count: None,
+                    });
+
+                    let mut frame = Frame::new(&app);
+                    view_fn(&app, &mut model, &mut frame, &view);
+                    frame.submit();
+
+                    surface.present();
+                }
+
+                futures::executor::block_on(app.staging.borrow_mut().recall());
+            }
         });
 
         event_loop.run(move |event, _, flow| {

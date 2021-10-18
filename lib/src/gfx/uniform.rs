@@ -34,7 +34,7 @@ impl<T: Copy> Uniform<T> {
     }
 
     pub fn upload(&self, frame: &mut Frame, t: &T) {
-        frame.write_uniform(&self, t);
+        frame.write_uniform(self, t);
     }
 
     pub fn buffer(&self) -> &wgpu::Buffer {
@@ -88,11 +88,11 @@ impl<T: Copy> UniformArray<T> {
     }
 
     pub fn upload_slice(&self, frame: &mut Frame, i: usize, ts: &[T]) {
-        frame.write_uniform_slice(&self, i, ts)
+        frame.write_uniform_slice(self, i, ts)
     }
 
     pub fn upload_el(&self, frame: &mut Frame, i: usize, t: &T) {
-        frame.write_uniform_el(&self, i, t);
+        frame.write_uniform_el(self, i, t);
     }
 
     pub fn buffer(&self) -> &wgpu::Buffer {

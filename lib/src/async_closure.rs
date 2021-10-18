@@ -1,5 +1,7 @@
 use std::future::Future;
 
+// Workaround for https://github.com/rust-lang/rust/issues/51004
+
 macro_rules! impl_async_fn {
     ($(($FnOnce:ident, $FnMut:ident, $Fn:ident, ($($arg:ident: $arg_ty:ident,)*)),)*) => {
         $(

@@ -140,7 +140,7 @@ impl Scene {
         let cam_idx = desc.camera.as_ref().unwrap().i;
         let view = transforms[&cam_idx].invert().unwrap();
         let proj = &desc.camera.as_ref().unwrap().proj;
-        let cam = Camera::new(device, &cam_layout, &view, &proj);
+        let cam = Camera::new(device, &cam_layout, &view, proj);
 
         let meshes = desc
             .meshes

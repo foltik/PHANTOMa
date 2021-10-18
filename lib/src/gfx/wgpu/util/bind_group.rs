@@ -6,34 +6,34 @@ use std::ops::RangeBounds;
 
 pub struct BindingType(wgpu::BindingType);
 
-impl Into<wgpu::BindingType> for BindingType {
-    fn into(self) -> wgpu::BindingType {
-        self.0
+impl From<BindingType> for wgpu::BindingType {
+    fn from(val: BindingType) -> Self {
+        val.0
     }
 }
 
-impl Into<BindingType> for wgpu::BindingType {
-    fn into(self) -> BindingType {
-        BindingType(self)
+impl From<wgpu::BindingType> for BindingType {
+    fn from(val: wgpu::BindingType) -> Self {
+        BindingType(val)
     }
 }
 
-impl<T: Copy> Into<BindingType> for &Uniform<T> {
-    fn into(self) -> BindingType {
+impl<T: Copy> From<&Uniform<T>> for BindingType {
+    fn from(val: &Uniform<T>) -> Self {
         BindingType(wgpu::BindingType::Buffer {
             ty: wgpu::BufferBindingType::Uniform,
             has_dynamic_offset: false,
-            min_binding_size: Some(std::num::NonZeroU64::new(self.size()).unwrap()),
+            min_binding_size: Some(std::num::NonZeroU64::new(val.size()).unwrap()),
         })
     }
 }
 
-impl Into<BindingType> for &TextureView {
-    fn into(self) -> BindingType {
+impl From<&TextureView> for BindingType {
+    fn from(val: &TextureView) -> Self {
         BindingType(wgpu::BindingType::Texture {
-            view_dimension: self.dimension,
-            sample_type: self.format.describe().sample_type,
-            multisampled: self.sample_count > 1,
+            view_dimension: val.dimension,
+            sample_type: val.format.describe().sample_type,
+            multisampled: val.sample_count > 1,
         })
     }
 }
@@ -230,13 +230,29 @@ impl<'l, 'a> Builder<'l, 'a> {
     /// Specify a slice of a buffer to be bound.
     ///
     /// The given `range` represents the start and end point of the buffer to be bound in bytes.
-    pub fn buffer<T, S>(self, buffer: &'a wgpu::Buffer, range: S) -> Self
+    pub fn buffer<T, S>(self, buffer: &'a wgpu::Buffer, bounds: S) -> Self
     where
         T: Copy,
         S: RangeBounds<wgpu::BufferAddress>,
     {
-        let resource = buffer.as_entire_binding();
-        self.binding(resource)
+        use std::ops::Bound;
+        let offset = match bounds.start_bound() {
+            Bound::Included(&bound) => bound,
+            Bound::Excluded(&bound) => bound + 1,
+            Bound::Unbounded => 0,
+        };
+        let size = match bounds.end_bound() {
+            Bound::Included(&bound) => Some(bound + 1 - offset),
+            Bound::Excluded(&bound) => Some(bound - offset),
+            Bound::Unbounded => None,
+        }
+        .map(|size| wgpu::BufferSize::new(size).expect("Buffer slices can not be empty"));
+
+        self.binding(wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+            buffer,
+            offset,
+            size
+        }))
     }
 
     /// Specify a slice of a buffer of elements of type `T` to be bound.

@@ -23,7 +23,8 @@ pub struct RenderPipelineBuilder<'a> {
     vs_buffers: Vec<wgpu::VertexBufferLayout<'a>>,
 
     fs_mod: Option<&'a wgpu::ShaderModule>,
-    fs_targets: Vec<wgpu::ColorTargetState>,
+    // FIXME: NEED THIS?
+    // fs_targets: Vec<wgpu::ColorTargetState>,
 
     primitive: wgpu::PrimitiveState,
     multisample: wgpu::MultisampleState,
@@ -100,7 +101,7 @@ impl<'a> RenderPipelineBuilder<'a> {
             vs_buffers: Vec::new(),
 
             fs_mod: None,
-            fs_targets: Vec::new(),
+            // fs_targets: Vec::new(),
 
             depth_stencil: None,
 
@@ -295,7 +296,7 @@ impl<'a> RenderPipelineBuilder<'a> {
     // }
 
     // FIXME: ADD THE BUILDERS ALREADY!
-    pub fn HACK(mut self) -> Self {
+    pub fn hack_add_default_depth_stencil_state(mut self) -> Self {
         self.depth_stencil = Some(Self::DEFAULT_DEPTH_STENCIL_STATE);
         self.primitive.strip_index_format = Some(wgpu::IndexFormat::Uint32);
         self
@@ -357,10 +358,12 @@ impl<'a> RenderPipelineBuilder<'a> {
             builder,
             
             vs_mod,
-            vs_buffers,
+            // FIXME: NEED THIS?
+            vs_buffers: _,
 
             fs_mod,
-            fs_targets,
+            // FIXME: NEED THIS?
+            // fs_targets: _,
 
             depth_stencil,
 
@@ -400,7 +403,7 @@ impl<'a> RenderPipelineBuilder<'a> {
         }];
 
         let pipeline_desc = RenderPipelineDescriptor {
-            label: Some(&label),
+            label: Some(label),
             layout: Some(&layout),
 
             vertex: wgpu::VertexState {

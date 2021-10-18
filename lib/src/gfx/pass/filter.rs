@@ -128,16 +128,16 @@ impl FilterPass {
     ) -> wgpu::RenderPipeline {
         if let Some(uniform_layout) = uniform_layout {
             wgpu::util::PipelineBuilder::new(label)
-                .with_layout(&image_layout)
-                .with_layout(&uniform_layout)
-                .render(&vs)
-                .fragment(&fs)
+                .with_layout(image_layout)
+                .with_layout(uniform_layout)
+                .render(vs)
+                .fragment(fs)
                 .build(device)
         } else {
             wgpu::util::PipelineBuilder::new(label)
-                .with_layout(&image_layout)
-                .render(&vs)
-                .fragment(&fs)
+                .with_layout(image_layout)
+                .render(vs)
+                .fragment(fs)
                 .build(device)
         }
     }

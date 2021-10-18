@@ -5,15 +5,15 @@ use std::default::Default;
 
 use crate::gfx::wgpu;
 
-mod proxy;
-pub use proxy::Proxy;
+// mod proxy;
+// pub use proxy::Proxy;
 
 // pub mod async_ext;
 
-// FIXME: ALLOW DEVICE DESCRIPTOR TO NOT BE STATIC.
+// FIXME: Allow device descriptor to not be static
 // NEEDS <'a>. UGH.
 
-// FIXME: ADD SURFACE CONFIG ABSTRACTION
+// FIXME: Add surface config abstraction
 
 pub type LogicalSize = winit::dpi::LogicalSize<f32>;
 pub type PhysicalSize = winit::dpi::PhysicalSize<u32>;

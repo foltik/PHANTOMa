@@ -200,8 +200,10 @@ impl From<gltf::Gltf> for SceneDesc {
         }
 
         for a in g.animations() {
-            let mut anim = Animation::default();
-            anim.name = a.name().unwrap().to_owned();
+            let mut anim = Animation {
+                name: a.name().unwrap().to_owned(),
+                ..Animation::default()
+            };
 
             for c in a.channels() {
                 let target = c.target();

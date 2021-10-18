@@ -33,7 +33,7 @@ pub fn resize(image: RgbaImage) -> (RgbaImage, Vector2) {
 }
 
 pub fn load(app: &App, image: &DynamicImage) -> (wgpu::Texture, Vector2) {
-    let (image, scale) = resize(image.to_rgba());
+    let (image, scale) = resize(image.to_rgba8());
     let (width, height) = image.dimensions();
 
     let sz = width * height * 4;
@@ -91,7 +91,7 @@ pub fn load(app: &App, image: &DynamicImage) -> (wgpu::Texture, Vector2) {
 pub fn load_array(app: &App, images: &[DynamicImage]) -> (wgpu::Texture, Vector2) {
     let n = images.len();
 
-    let images = images.iter().map(|i| resize(i.to_rgba())).collect::<Vec<_>>();
+    let images = images.iter().map(|i| resize(i.to_rgba8())).collect::<Vec<_>>();
     let scale = images[0].1;
     let (width, height) = images[0].0.dimensions();
 

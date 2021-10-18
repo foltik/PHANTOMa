@@ -6,14 +6,14 @@ use super::uniform::{Uniform, UniformArray};
 use super::wgpu;
 
 pub struct Frame<'a> {
-    pub(crate) app: &'a mut App,
+    pub(crate) app: &'a App,
     pub(crate) encoder: Option<wgpu::CommandEncoder>,
 
     // begin: Instant,
 }
 
 impl<'a> Frame<'a> {
-    pub fn new(app: &'a mut App) -> Self {
+    pub fn new(app: &'a App) -> Self {
         let encoder = app
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -36,14 +36,15 @@ impl<'a> Frame<'a> {
         let bytes = unsafe { safe_transmute::to_bytes::transmute_to_bytes_many_unchecked(data) };
 
         let sz = std::num::NonZeroU64::new(bytes.len() as u64).unwrap();
-        let mut view = self.app.staging.write_buffer(
+
+        let mut staging = self.app.staging.borrow_mut();
+        let mut view = staging.write_buffer(
             self.encoder.as_mut().unwrap(),
             buffer,
             offset,
             sz,
             &self.app.device,
         );
-
         view.copy_from_slice(bytes);
     }
 
@@ -60,20 +61,12 @@ impl<'a> Frame<'a> {
     }
 
     pub fn submit(&mut self) {
-        self.app.staging.finish();
+        self.app.staging.borrow_mut().finish();
         let buffer = self.encoder.take().unwrap().finish();
         // log::trace!("Frame encoded in {:?}", self.begin.elapsed());
         
         // let pre_submit = Instant::now();
         self.app.queue.submit(Some(buffer));
         // log::trace!("Commands submitted in {:?}", pre_submit.elapsed());
-    }
-}
-
-impl<'a> std::ops::Drop for Frame<'a> {
-    fn drop(&mut self) {
-        if self.encoder.is_some() {
-            panic!("Frame dropped without submitting!");
-        }
     }
 }

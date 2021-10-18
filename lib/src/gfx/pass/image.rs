@@ -64,7 +64,8 @@ impl ImagePass {
         }
     }
 
-    pub fn with(mut self, app: &App, image: &str, alias: &str, pos: Vector2, rescale: Vector2) -> Self {
+    // FIXME: Use rescale?
+    pub fn with(mut self, app: &App, image: &str, alias: &str, pos: Vector2, _rescale: Vector2) -> Self {
         let (tex, scale) = wgpu::util::image::load(app, &crate::resource::read_image(image));
         let view = tex.view().build();
 
