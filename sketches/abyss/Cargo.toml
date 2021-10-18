@@ -1,0 +1,17 @@
+[package]
+name = "abyss"
+version = "0.1.0"
+authors = ["Jack Foltz <jack@foltz.io>"]
+edition = "2018"
+
+[dependencies]
+lib = { path = "../../lib" }
+log = "0.4.8"
+
+enum_dispatch = "0.3.1"
+async-trait = "0.1"
+
+itertools = "0.10"
+rand = "0.8"
+
+palette = "0.6"
