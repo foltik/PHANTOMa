@@ -61,7 +61,7 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
     let instance = wgpu::Instance::new(wgpu::defaults::backends());
 
     let event_loop = winit::event_loop::EventLoop::new();
-    let (event_tx, mut event_rx) = mpsc::channel(128);
+    let (event_tx, mut event_rx) = mpsc::channel(64);
 
     let (mut window, adapter, device, queue) = futures::executor::block_on(WindowBuilder::default()
         .title("PHANTOMa")
@@ -188,7 +188,9 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
 
                 let mut recv_events = runner.recv_events().await;
                 while let Some(event) = recv_events.next().await {
-                    event_tx.try_send(event).unwrap();
+                    if let Err(e) = event_tx.try_send(event) {
+                        log::debug!("Dropped event: {:?}", e)
+                    }
                 }
             }
         });
