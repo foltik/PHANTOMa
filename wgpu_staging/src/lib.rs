@@ -92,9 +92,9 @@ impl StagingPool {
         encoder.copy_buffer_to_buffer(&chunk.buffer, chunk.offset, target, offset, size.get());
         let old_offset = chunk.offset;
         chunk.offset += size.get();
-        let remainder = chunk.offset % wgpu::COPY_BUFFER_ALIGNMENT;
+        let remainder = chunk.offset % wgpu::MAP_ALIGNMENT;
         if remainder != 0 {
-            chunk.offset += wgpu::COPY_BUFFER_ALIGNMENT - remainder;
+            chunk.offset += wgpu::MAP_ALIGNMENT - remainder;
         }
 
         self.active_chunks.push(chunk);
