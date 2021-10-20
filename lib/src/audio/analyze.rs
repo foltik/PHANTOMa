@@ -1,17 +1,17 @@
 use super::ringbuf::{self, Consumer, Producer};
-use super::{Frame, FFT, FFT_IMSIZE, FFT_SIZE, FRAME_SIZE, NYQ};
+use super::{Buffer, FFT, FFT_IMSIZE, FFT_SIZE, FFT_BUFFERS, BUFFER_SIZE, NYQ};
 
 use rustfft::num_complex::Complex32;
 use rustfft::num_traits::Zero as _;
 
 use rustfft::FftPlanner;
 
-pub fn analyze(mut rx: Consumer<Frame>, mut fft_tx: Producer<FFT>) {
+pub fn analyze(mut rx: Consumer<Buffer>, mut fft_tx: Producer<FFT>) {
     // Set up buffers for the input, complex FFT I/O, and result
-    let mut buffer: [Frame; 4] = [[0.0; FRAME_SIZE]; 4];
-    // let mut buffer = vec![];
+    let mut buffers = vec![[0.0; BUFFER_SIZE]; FFT_BUFFERS];
    
     let mut complex = vec![Complex32::zero(); FFT_IMSIZE];
+    let zeros = complex.clone();
     let mut result = [0.0; FFT_SIZE];
 
     // Set up the FFT
@@ -25,18 +25,15 @@ pub fn analyze(mut rx: Consumer<Frame>, mut fft_tx: Producer<FFT>) {
 
     // This *shouldn't* have any allocations
     loop {
-        buffer.iter_mut().for_each(|frame| ringbuf::receive(&mut rx, frame));
-        let flat: [f32; FRAME_SIZE * 4] = unsafe { std::mem::transmute(buffer) };
+        buffers.iter_mut().for_each(|buffer| ringbuf::receive(&mut rx, buffer));
 
-        // Copy the samples into the real parts of the complex buffer and apply the window function
-        flat.iter()
+        // Copy the samples into the real parts of the complex buffer and apply
+        // the window function. The imaginary parts are already zero from when
+        // we zeroed the entire buffer in the previous loop.
+        buffers.iter().flatten()
             .zip(window.iter())
             .zip(complex.iter_mut())
-            .enumerate()
-            .for_each(|(i, ((sample, w), c))| {
-                c.re = *sample * *w;
-                c.im = 0.0;
-            });
+            .for_each(|((sample, w), c)| c.re = *sample * *w);
 
         fft.process_with_scratch(&mut complex, &mut scratch);
 
@@ -48,6 +45,15 @@ pub fn analyze(mut rx: Consumer<Frame>, mut fft_tx: Producer<FFT>) {
             .for_each(|(c, v)| {
                 *v = c.norm_sqr().sqrt() / window_factor;
             });
+
+        // Zero the complex buffer to clear out the in-place modifications.
+        // 
+        // These aren't overwritten when we copy the samples in the next loop,
+        // since we only write the samples to the first half of the complex input.
+        //
+        // TODO: Maybe we could use an out of place FFT to avoid this copy, but
+        // it's probably a negligible optimization.
+        complex.copy_from_slice(&zeros);
 
         // Send off the FFT data
         ringbuf::transmit(&mut fft_tx, &result);

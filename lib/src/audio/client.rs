@@ -3,16 +3,16 @@ use anyhow::Result;
 
 use super::analyze;
 use super::ringbuf::{self, Consumer, Producer, RingBuffer};
-use super::{Frame, FFT, FFT_SIZE, FRAME_SIZE};
+use super::{Buffer, FFT, FFT_SIZE, BUFFER_SIZE};
 
 const FRAME_QUEUE_SIZE: usize = 64;
 const FFT_QUEUE_SIZE: usize = 16;
 
 pub struct Jack {
-    pub samples: Frame,
+    pub samples: Buffer,
     pub fft: FFT,
 
-    samples_rx: Consumer<Frame>,
+    samples_rx: Consumer<Buffer>,
     fft_rx: Consumer<FFT>,
 }
 
@@ -28,11 +28,11 @@ impl Jack {
             .register_port("in_right", jack::AudioIn::default())?;
 
         // Create a ringbuffer for sending raw samples from the JACK processing thread to the analysis thread
-        let jack_analyze_buffer = RingBuffer::<Frame>::new(FRAME_QUEUE_SIZE);
+        let jack_analyze_buffer = RingBuffer::<Buffer>::new(FRAME_QUEUE_SIZE);
         let (mut jack_analyze_tx, jack_analyze_rx) = jack_analyze_buffer.split();
 
         // Create a ringbuffer for sending raw samples from the JACK processing thread to the main thread
-        let jack_main_buffer = RingBuffer::<Frame>::new(FRAME_QUEUE_SIZE);
+        let jack_main_buffer = RingBuffer::<Buffer>::new(FRAME_QUEUE_SIZE);
         let (mut jack_main_tx, jack_main_rx) = jack_main_buffer.split();
 
         // Create a ringbuffer for sending FFT data from the analysis thread back to the main thread
@@ -41,7 +41,7 @@ impl Jack {
 
         thread::spawn(move || {
             // Create the JACK processing thread
-            let mut process_buffer = [0.0; FRAME_SIZE];
+            let mut process_buffer = [0.0; BUFFER_SIZE];
             let process = jack::ClosureProcessHandler::new(
                 move |j: &jack::Client, ps: &jack::ProcessScope| -> jack::Control {
                     process(
@@ -70,7 +70,7 @@ impl Jack {
 
         Ok(Self {
             fft_rx,
-            samples: [0.0; FRAME_SIZE],
+            samples: [0.0; BUFFER_SIZE],
             samples_rx: jack_main_rx,
             fft: [0.0; FFT_SIZE],
         })
@@ -115,9 +115,9 @@ pub fn process(
     ps: &jack::ProcessScope,
     in_left: &jack::Port<jack::AudioIn>,
     in_right: &jack::Port<jack::AudioIn>,
-    buffer: &mut Frame,
-    analyze_tx: &mut Producer<Frame>,
-    main_tx: &mut Producer<Frame>,
+    buffer: &mut Buffer,
+    analyze_tx: &mut Producer<Buffer>,
+    main_tx: &mut Producer<Buffer>,
 ) -> jack::Control {
     let raw_left = in_left.as_slice(ps);
     let raw_right = in_right.as_slice(ps);
@@ -130,7 +130,7 @@ pub fn process(
         .for_each(|(sample, v)| {
             *v = sample;
         });
-
+    
     if !analyze_tx.is_full() {
         ringbuf::transmit(analyze_tx, buffer);
     }
