@@ -151,14 +151,14 @@ impl<'el, E> Future for EventReceiverBuilder<'el, E> {
 impl<'el, E> EventReceiver<'el, E> {
     pub fn next(&mut self) -> PollFuture<'_, E> {
         PollFuture {
-            shared_state: &self.shared_state,
+            shared_state: self.shared_state,
             sealed: false,
         }
     }
 
     pub fn redraw_requests(self) -> impl Future<Output=RedrawRequestReceiver<'el, E>> {
         RedrawRequestReceiverBuilder {
-            shared_state: &self.shared_state,
+            shared_state: self.shared_state,
         }
     }
 }
@@ -220,7 +220,7 @@ impl<'el, E> Future for RedrawRequestReceiverBuilder<'el, E> {
 impl<'el, E> RedrawRequestReceiver<'el, E> {
     pub fn next(&mut self) -> RedrawRequestFuture<'_, E> {
         RedrawRequestFuture {
-            shared_state: &self.shared_state,
+            shared_state: self.shared_state,
             sealed: false,
         }
     }
