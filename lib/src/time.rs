@@ -61,12 +61,19 @@ impl DecayEnv {
         self
     }
 
+    pub fn get(&self, key: &str) -> &Decay {
+        self.map.get(key).unwrap_or_else(|| panic!("no such decay {}", key))
+    }
+    pub fn get_mut(&mut self, key: &str) -> &mut Decay {
+        self.map.get_mut(key).unwrap_or_else(|| panic!("no such decay {}", key))
+    }
+
     pub fn v(&self, key: &str) -> f32 {
-        self.map.get(key).unwrap().v()
+        self.get(key).v()
     }
 
     pub fn t(&mut self, key: &str, t: f32) {
-        self.map.get_mut(key).unwrap().t = t;
+        self.get_mut(key).t = t;
     }
 
     pub fn update(&mut self, delta: f32) {
@@ -76,19 +83,19 @@ impl DecayEnv {
     }
 
     pub fn set(&mut self, key: &str) {
-        self.map.get_mut(key).unwrap().set();
+        self.get_mut(key).set();
     }
 
     pub fn set_fr(&mut self, key: &str, fr: f32) {
-        self.map.get_mut(key).unwrap().set_fr(fr);
+        self.get_mut(key).set_fr(fr);
     }
 
     pub fn off(&self, key: &str) -> bool {
-        self.map.get(key).unwrap().off()
+        self.get(key).off()
     }
 
     pub fn hold(&mut self, key: &str, hold: bool) {
-        self.map.get_mut(key).unwrap().hold(hold);
+        self.get_mut(key).hold(hold);
     }
 }
 
