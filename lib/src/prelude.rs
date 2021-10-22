@@ -5,6 +5,8 @@ pub use crate::osc::{Osc, OscMessage, MixxxMessage};
 pub use crate::audio::Audio;
 // pub use crate::midi::{Midi, MidiBank, MidiMessage};
 
+pub use crate::time::{Decay, DecayEnv};
+
 pub use crate::gfx;
 pub use crate::gfx::prelude::*;
 

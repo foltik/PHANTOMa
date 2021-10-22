@@ -37,6 +37,10 @@ impl Decay {
         self.c = Self::MAX;
     }
 
+    pub fn set_fr(&mut self, fr: f32) {
+        self.c = (fr * Self::MAX as f32) as u32;
+    }
+
     pub fn off(&self) -> bool {
         self.c == 0
     }
@@ -48,20 +52,20 @@ impl Decay {
 
 #[derive(Default)]
 pub struct DecayEnv {
-    map: HashMap<&'static str, Decay>,
+    map: HashMap<String, Decay>,
 }
 
 impl DecayEnv {
-    pub fn with(mut self, key: &'static str, t: f32) -> Self {
-        self.map.insert(key, Decay::new(t));
+    pub fn with(mut self, key: &str, t: f32) -> Self {
+        self.map.insert(key.to_owned(), Decay::new(t));
         self
     }
 
-    pub fn v(&self, key: &'static str) -> f32 {
+    pub fn v(&self, key: &str) -> f32 {
         self.map.get(key).unwrap().v()
     }
 
-    pub fn t(&mut self, key: &'static str, t: f32) {
+    pub fn t(&mut self, key: &str, t: f32) {
         self.map.get_mut(key).unwrap().t = t;
     }
 
@@ -71,15 +75,19 @@ impl DecayEnv {
         });
     }
 
-    pub fn set(&mut self, key: &'static str) {
+    pub fn set(&mut self, key: &str) {
         self.map.get_mut(key).unwrap().set();
     }
 
-    pub fn off(&self, key: &'static str) -> bool {
+    pub fn set_fr(&mut self, key: &str, fr: f32) {
+        self.map.get_mut(key).unwrap().set_fr(fr);
+    }
+
+    pub fn off(&self, key: &str) -> bool {
         self.map.get(key).unwrap().off()
     }
 
-    pub fn hold(&mut self, key: &'static str, hold: bool) {
+    pub fn hold(&mut self, key: &str, hold: bool) {
         self.map.get_mut(key).unwrap().hold(hold);
     }
 }
