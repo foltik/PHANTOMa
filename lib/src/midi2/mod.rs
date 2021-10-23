@@ -34,28 +34,28 @@ pub struct Midi<D: Device> {
 }
 
 impl<D: Device + Clone + Send> Midi<D> {
-    pub fn open(name: &str) -> Result<Self, MidiError> {
+    pub fn open(input: &str, output: &str) -> Result<Self, MidiError> {
         let state = Arc::new(Mutex::new(D::new()));
 
         let midi_in =
-            MidiInput::new(&format!("StageBridge_in_{}", name)).map_err(MidiError::from)?;
-        let midi_out = MidiOutput::new(&format!("StageBridge_out_{}", name))
+            MidiInput::new(&format!("StageBridge_in_{}", input)).map_err(MidiError::from)?;
+        let midi_out = MidiOutput::new(&format!("StageBridge_out_{}", output))
             .map_err(MidiError::from)?;
             
-        // midi_in
-        //     .ports()
-        //     .into_iter()
-        //     .for_each(|p| log::info!("input: '{}'", midi_in.port_name(&p).unwrap()));
-        // midi_out
-        //     .ports()
-        //     .into_iter()
-        //     .for_each(|p| log::info!("output: '{}'", midi_out.port_name(&p).unwrap()));
+        midi_in
+            .ports()
+            .into_iter()
+            .for_each(|p| log::debug!("input: '{}'", midi_in.port_name(&p).unwrap()));
+        midi_out
+            .ports()
+            .into_iter()
+            .for_each(|p| log::debug!("output: '{}'", midi_out.port_name(&p).unwrap()));
 
         let in_port = midi_in
             .ports()
             .into_iter()
-            .find(|p| midi_in.port_name(p).unwrap().contains(name))
-            .ok_or_else(|| MidiError::DeviceNotFound(name.to_owned()))?;
+            .find(|p| midi_in.port_name(p).unwrap().contains(input))
+            .ok_or_else(|| MidiError::DeviceNotFound(input.to_owned()))?;
         let in_name = midi_in
             .port_name(&in_port)
             .expect("failed to query MIDI port name");
@@ -63,8 +63,8 @@ impl<D: Device + Clone + Send> Midi<D> {
         let out_port = midi_out
             .ports()
             .into_iter()
-            .find(|p| midi_out.port_name(p).unwrap().contains(name))
-            .ok_or_else(|| MidiError::DeviceNotFound(name.to_owned()))?;
+            .find(|p| midi_out.port_name(p).unwrap().contains(output))
+            .ok_or_else(|| MidiError::DeviceNotFound(output.to_owned()))?;
         let out_name = midi_out
             .port_name(&out_port)
             .expect("failed to query MIDI port name");
@@ -78,7 +78,7 @@ impl<D: Device + Clone + Send> Midi<D> {
 
         // Output sender loop
         let _state = Arc::clone(&state);
-        let _name = name.to_owned();
+        let _name = output.to_owned();
         task::spawn(async move {
             loop {
                 let output = out_rx.recv().await.unwrap();
@@ -95,7 +95,7 @@ impl<D: Device + Clone + Send> Midi<D> {
         // Input receiver loop
         let _in_buf = Arc::clone(&in_buf);
         let _state = Arc::clone(&state);
-        let _name = name.to_owned();
+        let _name = input.to_owned();
         let input_conn = midi_in
             .connect(
                 &in_port,
@@ -120,11 +120,11 @@ impl<D: Device + Clone + Send> Midi<D> {
         })
     }
 
-    pub fn maybe_open(name: &str) -> Option<Self> {
-        match Self::open(name) {
+    pub fn maybe_open(input: &str, output: &str) -> Option<Self> {
+        match Self::open(input, output) {
             Ok(device) => Some(device),
             Err(e) => {
-                log::warn!("Failed to open MIDI device '{}' : {:?}", name, e);
+                log::warn!("Failed to open MIDI device '{}'/'{}' : {:?}", input, output, e);
                 None
             }
         }
