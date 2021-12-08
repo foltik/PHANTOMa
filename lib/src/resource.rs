@@ -20,6 +20,7 @@ pub fn resource(file: &str) -> PathBuf {
         Some(os) => match os.to_str().unwrap() {
             "txt" => "lorem",
             "ttf" => "fonts",
+            "otf" => "fonts",
             "spv" => "shaders",
             "obj" => "models",
             "mtl" => "models",
