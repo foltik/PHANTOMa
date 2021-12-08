@@ -1,4 +1,0 @@
-#!/bin/bash
-
-cp -ar template $1
-sed -i "s/template/$1/" $1/Cargo.toml
