@@ -2,9 +2,14 @@
 
 <table>
   <tr>
-    <td><img src="https://foltz.io/img/neurotic.webp"></td>
-    <td><img src="https://foltz.io/img/phantoma.webp"></td>
     <td><img src="https://foltz.io/img/nyxt.webp"></td>
+    <td><img src="https://foltz.io/img/phantoma.webp"></td>
+    <td><img src="https://foltz.io/img/neurotic.webp"></td>
+  </tr>
+  <tr>
+    <td><a href="https://youtu.be/J3St66XFQzE">https://youtu.be/J3St66XFQzE</a></td>
+    <td><a href="https://youtu.be/nrh4Sin6PLM">https://youtu.be/nrh4Sin6PLM</a></td>
+    <td><a href="https://youtu.be/Ow8Ewml8fz0">https://youtu.be/Ow8Ewml8fz0</a></td>
   </tr>
  </table>
 
