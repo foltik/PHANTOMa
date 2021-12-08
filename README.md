@@ -1,11 +1,32 @@
-# PHANTOMa Online
+# PHANTOMa
 
-[![Showcase](http://img.youtube.com/vi/nrh4Sin6PLM/0.jpg)](https://www.youtube.com/watch?v=nrh4Sin6PLM)
+<table>
+  <tr>
+    <td><img src="https://foltz.io/img/neurotic.webp"></td>
+    <td><img src="https://foltz.io/img/phantoma.webp"></td>
+    <td><img src="https://foltz.io/img/nyxt.webp"></td>
+  </tr>
+ </table>
+
+A music reactive environment for creating live visual effects with a custom WebGPU rendering pipeline and audio analysis tools.
+
+## Requirements
+
+PHANTOMa requires a nightly rust compiler.
+
+When cloning, be sure to also clone the required submodules: 
+
+```sh
+git clone --recurse-submodules https://github.com/Foltik/PHANTOMa
+```
 
 ## Goals
 ### App Framework
 - [X] Async event loop
 - [X] Multiple windows
+### Resources
+- [X] Load resources from crate root
+- [ ] More granular control of resource loading
 ### Rendering
 - [X] WebGPU Wrappers
 - [X] Data driven pipelines with spirv-reflect
