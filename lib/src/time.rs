@@ -99,6 +99,42 @@ impl DecayEnv {
     }
 }
 
+// A value smoother with a restoring force that follows Hooke's Law
+pub struct Spring {
+    value: f32,
+    target: f32,
+    k: f32,
+}
+
+impl Spring {
+    // t: time to go from 0 to 1
+    pub fn new(t: f32) -> Self {
+        Self { 
+            value: 0.0,
+            target: 0.0,
+            k: t,
+        }
+    }
+
+    pub fn v(&self) -> f32 {
+        self.value
+    }
+
+    pub fn set(&mut self, target: f32) {
+        self.target = f32::max(0.0, f32::min(1.0, target));
+    }
+
+    pub fn update(&mut self, delta: f32) {
+        let x = self.target - self.value;
+        if x != 0.0 {
+            let t = self.k * x;
+            let dv = ((delta * 1000.0) / t).abs();
+
+            self.value = f32::max(0.0, f32::min(1.0, self.value + dv * x));
+        }
+    }
+}
+
 pub struct BeatClock {
     pub bpm: f32,
     pub mul: f32,
