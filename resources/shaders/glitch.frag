@@ -107,7 +107,8 @@ vec4 pause(float t, float amt) {
 }
 
 vec3 glitch_blocks(float tt, float amt) {
-    vec3 c = texture(sampler2D(imgs[0], samp), tex).rgb;
+    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec3 c = texture(sampler2D(imgs[0], samp), st).rgb;
 
     float t = floor(tt * 10000.0 * 50.0);
     float r = rand(vec2(t, 0.0));
@@ -120,9 +121,9 @@ vec3 glitch_blocks(float tt, float amt) {
         float y = rand(vec2(t, i));
         float h = rand(vec2(t, i + 1.0)) * 0.25;
 
-        if (inside(tex.y, y, fract(y + h)) == 1.0) {
+        if (inside(st.y, y, fract(y + h)) == 1.0) {
             float ofs = rrand(vec2(t, i + 2.0), -f_skew, f_skew);
-            c = texture(sampler2D(imgs[0], samp), vec2(tex.x + ofs, tex.y)).rgb;
+            c = texture(sampler2D(imgs[0], samp), vec2(st.x + ofs, st.y)).rgb;
         }
     }
 
@@ -131,11 +132,11 @@ vec3 glitch_blocks(float tt, float amt) {
     float cy = rrand(vec2(t, 2.0), -f_color, f_color);
     vec2 cofs = vec2(cx, cy);
     if (r <= 0.33) {
-        c.r = texture(sampler2D(imgs[0], samp), tex + cofs).r;
+        c.r = texture(sampler2D(imgs[0], samp), st + cofs).r;
     } else if (r <= 0.66) {
-        c.g = texture(sampler2D(imgs[0], samp), tex + cofs).g;
+        c.g = texture(sampler2D(imgs[0], samp), st + cofs).g;
     } else {
-        c.b = texture(sampler2D(imgs[0], samp), tex + cofs).b;
+        c.b = texture(sampler2D(imgs[0], samp), st + cofs).b;
     }
 
     return c;
@@ -171,7 +172,8 @@ vec3 glitch_vhs(float tt, float amt) {
 }
 
 void main() {
-    vec3 img = texture(sampler2D(imgs[0], samp), tex).rgb;
+    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec3 img = texture(sampler2D(imgs[0], samp), st).rgb;
 
     if (u.glitch > 0.0 || u.mega > 0.0)
         img = glitch_blocks(u.tc * 1.0 + min(u.glitch + u.mega, 1.0), min(u.glitch + u.mega, 1.0));

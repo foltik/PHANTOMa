@@ -64,19 +64,20 @@ float snoise(vec2 p) {
 
 void main() {
     vec2 res = vec2(1920.0, 1080.0);
+    vec2 st = vec2(tex.x, 1.0 - tex.y);
 
-    vec3 i = texture(sampler2D(imgs[0], samp), tex).rgb;
+    vec3 i = texture(sampler2D(imgs[0], samp), st).rgb;
 
-    vec3 TL = texture(sampler2D(imgs[0], samp), tex + vec2(-1.0, 1.0) / res).rgb;
-    vec3 TM = texture(sampler2D(imgs[0], samp), tex + vec2(0.0, 1.0) / res).rgb;
-    vec3 TR = texture(sampler2D(imgs[0], samp), tex + vec2(1.0, 1.0) / res).rgb;
+    vec3 TL = texture(sampler2D(imgs[0], samp), st + vec2(-1.0, 1.0) / res).rgb;
+    vec3 TM = texture(sampler2D(imgs[0], samp), st + vec2(0.0, 1.0) / res).rgb;
+    vec3 TR = texture(sampler2D(imgs[0], samp), st + vec2(1.0, 1.0) / res).rgb;
 
-    vec3 ML = texture(sampler2D(imgs[0], samp), tex + vec2(-1.0, 0.0) / res).rgb;
-    vec3 MR = texture(sampler2D(imgs[0], samp), tex + vec2(1.0, 0.0) / res).rgb;
-
-    vec3 BL = texture(sampler2D(imgs[0], samp), tex + vec2(-1.0, -1.0) / res).rgb;
-    vec3 BM = texture(sampler2D(imgs[0], samp), tex + vec2(0.0, -1.0) / res).rgb;
-    vec3 BR = texture(sampler2D(imgs[0], samp), tex + vec2(1.0, -1.0) / res).rgb;
+    vec3 ML = texture(sampler2D(imgs[0], samp), st + vec2(-1.0, 0.0) / res).rgb;
+    vec3 MR = texture(sampler2D(imgs[0], samp), st + vec2(1.0, 0.0) / res).rgb;
+    
+    vec3 BL = texture(sampler2D(imgs[0], samp), st + vec2(-1.0, -1.0) / res).rgb;
+    vec3 BM = texture(sampler2D(imgs[0], samp), st + vec2(0.0, -1.0) / res).rgb;
+    vec3 BR = texture(sampler2D(imgs[0], samp), st + vec2(1.0, -1.0) / res).rgb;
 
     vec3 GradX = -TL + TR - 2.0 * ML + 2.0 * MR - BL + BR;
     vec3 GradY = TL + 2.0 * TM + TR - BL - 2.0 * BM - BR;

@@ -63,7 +63,7 @@ float snoise(vec2 p) {
 }
 
 vec4 shake(float t, float amt) {
-    vec2 uv = tex;
+    vec2 uv = vec2(tex.x, 1.0 - tex.y);
 
     uv.s += (rand(vec2(t)) - 0.5) * 0.050 * amt;
     uv.t += (rand(vec2(t + 100.0)) - 0.5) * 0.050 * amt;
@@ -72,7 +72,7 @@ vec4 shake(float t, float amt) {
 }
 
 vec4 cloth(float t, float amt) {
-    vec2 uv = tex;
+    vec2 uv = vec2(tex.x, 1.0 - tex.y);
 
     uv.s += (rand(vec2(t, tex.x)) - 0.5) * 0.030 * amt;
     uv.t += (rand(vec2(t)) - 0.5) * 0.030 * amt;
@@ -142,36 +142,38 @@ vec3 glitch_blocks(float tt, float amt) {
 }
 
 vec3 glitch_vhs(float tt, float amt) {
+    vec2 st = vec2(tex.x, 1.0 - tex.y);
     float t = tt * 100.0;
 
     const float f_a_wav = 0.42857 * 2 * amt;
     const float f_b_wav = 0.15011 * 2 * amt;
 
     // Layered noise
-    float a_wav = max(0.0, (snoise(vec2(t,        tex.y * 0.3)) - 0.3)) * f_a_wav;
-    float b_wav =          (snoise(vec2(t * 10.0, tex.y * 2.4)) - 0.5)  * f_b_wav;
+    float a_wav = max(0.0, (snoise(vec2(t,        st.y * 0.3)) - 0.3)) * f_a_wav;
+    float b_wav =          (snoise(vec2(t * 10.0, st.y * 2.4)) - 0.5)  * f_b_wav;
     float n = a_wav + b_wav;
 
     // Skew X
-    float x = tex.x - n * n * 0.25;
-    vec3 c = texture(sampler2D(imgs[0], samp), vec2(x, tex.y)).rgb;
+    float x = st.x - n * n * 0.25;
+    vec3 c = texture(sampler2D(imgs[0], samp), vec2(x, st.y)).rgb;
 
     // Interference lines
-    c.rgb = mix(c.rgb, vec3(rand(vec2(tex.y * t))), n * 0.02).rgb;
+    c.rgb = mix(c.rgb, vec3(rand(vec2(st.y * t))), n * 0.02).rgb;
 
     // Dark lines
-    if (floor(mod(tex.y * 0.25, 2.0)) == 0.0)
+    if (floor(mod(st.y * 0.25, 2.0)) == 0.0)
         c.rgb *= 1.0 - (0.15 * n);
 
     // Channel shift and dim
-    c.g = mix(c.r, texture(sampler2D(imgs[0], samp), vec2(x + n * 0.05, tex.y)).g, 1.0 - (0.5 * amt));
-    c.b = mix(c.r, texture(sampler2D(imgs[0], samp), vec2(x - n * 0.05, tex.y)).b, 1.0 - (0.5 * amt));
+    c.g = mix(c.r, texture(sampler2D(imgs[0], samp), vec2(x + n * 0.05, st.y)).g, 1.0 - (0.5 * amt));
+    c.b = mix(c.r, texture(sampler2D(imgs[0], samp), vec2(x - n * 0.05, st.y)).b, 1.0 - (0.5 * amt));
 
     return c;
 }
 
 void main() {
-    vec3 img = texture(sampler2D(imgs[0], samp), tex).rgb;
+    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec3 img = texture(sampler2D(imgs[0], samp), st).rgb;
 
     if (u.vhs > 0.0)
         img = glitch_vhs(u.tc, u.vhs);

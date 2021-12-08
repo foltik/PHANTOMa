@@ -11,12 +11,10 @@ layout(set = 0, binding = 0) uniform U {
 } u;
 
 void main() {
-    float f = fract(u.t);
-    
-    // set position
     vec2 v = vec2(1920.0, 1080.0);
     vec2 p = gl_FragCoord.xy;
-    p = (p-v*.5)*.4 / v.y;
+    p = (p - v*0.5) * 0.4 / v.y;
+
     // breathing effect
     p += p * sin(dot(p, p)*20.-u.t) * .04;
     
