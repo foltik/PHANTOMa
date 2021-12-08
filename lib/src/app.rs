@@ -3,6 +3,7 @@ use std::time::Instant;
 use std::sync::Arc;
 use tokio::task;
 use tokio::sync::mpsc;
+use parking_lot::Mutex;
 
 use crate::gfx::wgpu;
 use crate::gfx::frame::Frame;
@@ -14,7 +15,8 @@ use winit::event::WindowEvent;
 pub struct App {
     pub device: Arc<wgpu::Device>,
     pub(crate) queue: Arc<wgpu::Queue>,
-    pub(crate) staging: Option<wgpu::util::StagingPool>,
+    pub(crate) main_staging: Option<wgpu_async_staging::StagingBelt>,
+    pub(crate) frame_staging: Arc<Mutex<Option<wgpu_async_staging::StagingBelt>>>,
 
     pub width: u32,
     pub height: u32,
@@ -25,6 +27,21 @@ pub struct App {
 }
 
 impl App {
+    // FIXME: Got to be a better way to do this than Arc<Mutex<>>?
+    pub async fn frame<F>(&self, f: F)
+    where
+        F: FnOnce(&mut Frame)
+    {
+        let staging = self.frame_staging.lock().take().unwrap();
+
+        let mut frame = Frame::new(Arc::clone(&self.device), Arc::clone(&self.queue), staging);
+        f(&mut frame);
+        let mut staging = frame.submit();
+
+        staging.recall().await;
+        *self.frame_staging.lock() = Some(staging);
+    }
+
     pub fn encoder(&self, label: &str) -> wgpu::CommandEncoder {
         let desc = wgpu::CommandEncoderDescriptor { label: Some(label) };
         self.device.create_command_encoder(&desc)
@@ -81,7 +98,8 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
             let mut app = App {
                 device: Arc::clone(&device),
                 queue: Arc::new(queue),
-                staging: Some(wgpu::util::StagingPool::new(0x100)),
+                main_staging: Some(wgpu_async_staging::StagingBelt::new(0x100)),
+                frame_staging: Arc::new(Mutex::new(Some(wgpu_async_staging::StagingBelt::new(0x100)))),
 
                 width: window.size.width,
                 height: window.size.height,
@@ -169,16 +187,18 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
                         array_layer_count: None,
                     });
 
-                    let mut frame = Frame::new(Arc::clone(&app.device), Arc::clone(&app.queue), app.staging.take().unwrap());
+
+                    // FIXME: Figure out a better way to share the staging pool than doing this crap
+                    let mut frame = Frame::new(Arc::clone(&app.device), Arc::clone(&app.queue), app.main_staging.take().unwrap());
                     view_fn(&mut app, &mut model, &mut frame, &view);
-                    app.staging = Some(frame.submit());
+                    app.main_staging = Some(frame.submit());
 
                     surface.present();
                 }
 
                 // window.request_redraw();
 
-                app.staging.as_mut().unwrap().recall().await;
+                app.main_staging.as_mut().unwrap().recall().await;
             }
         });
 

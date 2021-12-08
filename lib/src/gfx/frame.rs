@@ -6,14 +6,14 @@ use super::wgpu;
 pub struct Frame {
     pub(crate) device: Arc<wgpu::Device>,
     pub(crate) queue: Arc<wgpu::Queue>,
-    pub(crate) staging: wgpu::util::StagingPool,
+    pub(crate) staging: wgpu_async_staging::StagingBelt,
     pub(crate) encoder: Option<wgpu::CommandEncoder>,
 
     // begin: Instant,
 }
 
 impl Frame {
-    pub fn new(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>, staging: wgpu::util::StagingPool) -> Self {
+    pub fn new(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>, staging: wgpu_async_staging::StagingBelt) -> Self {
         let encoder = device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("frame_encoder"),
@@ -60,7 +60,7 @@ impl Frame {
         self.write_uniform_slice(u, i, std::slice::from_ref(t));
     }
 
-    pub fn submit(mut self) -> wgpu::util::StagingPool {
+    pub fn submit(mut self) -> wgpu_async_staging::StagingBelt {
         self.staging.finish();
         let buffer = self.encoder.take().unwrap().finish();
         // log::trace!("Frame encoded in {:?}", self.begin.elapsed());

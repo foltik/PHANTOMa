@@ -8,7 +8,7 @@ edition = "2021"
 # Gfx
 winit = "0.25"
 wgpu = { version = "0.11", features = ["spirv"] }
-wgpu_staging = { path = "../wgpu_staging" }
+wgpu_async_staging = "0.1"
 wgpu_glyph = { path = "../wgpu_glyph" }
 glyph_brush = "0.7"
 # wgpu_staging = { path = "../wgpu_staging" }

@@ -1,3 +1,3 @@
 [submodule "wgpu_glyph"]
 	path = wgpu_glyph
-	url = git@github.com:hecrj/wgpu_glyph.git
+	url = https://github.com/Foltik/wgpu_glyph

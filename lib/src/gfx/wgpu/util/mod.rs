@@ -13,6 +13,4 @@ pub use texture::{TextureBuilder, TextureViewBuilder};
 mod sampler;
 pub use sampler::SamplerBuilder;
 
-pub use wgpu_staging::StagingPool;
-
 pub mod image;
