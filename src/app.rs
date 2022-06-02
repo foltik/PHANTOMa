@@ -1,3 +1,4 @@
+use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
 use std::sync::Arc;
@@ -12,6 +13,8 @@ use crate::window::WindowBuilder;
 use crate::window::async_ext::{EventLoopAsync, EventAsync as Event};
 use winit::event::WindowEvent;
 
+use anyhow::{Result, Context};
+
 pub struct App {
     pub device: Arc<wgpu::Device>,
     pub(crate) queue: Arc<wgpu::Queue>,
@@ -24,16 +27,18 @@ pub struct App {
     pub frame: u64,
     pub t: f32,
     pub dt: f32,
+
+    exit: Arc<AtomicBool>,
 }
 
 impl App {
-    // FIXME: Got to be a better way to do this than Arc<Mutex<>>?
     pub async fn frame<F>(&self, f: F)
     where
         F: FnOnce(&mut Frame)
     {
         let staging = self.frame_staging.lock().take().unwrap();
 
+        // FIXME: Got to be a better way to do this than Arc<Mutex<>>?
         let mut frame = Frame::new(Arc::clone(&self.device), Arc::clone(&self.queue), staging);
         f(&mut frame);
         let mut staging = frame.submit();
@@ -54,6 +59,10 @@ impl App {
     pub fn fps(&self) -> f32 {
         1.0 / self.dt
     }
+
+    pub fn exit(&self) {
+        self.exit.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
 }
 
 pub use winit::event::ElementState as KeyState;
@@ -61,13 +70,15 @@ pub use winit::event::VirtualKeyCode as Key;
 
 use crate::async_closure::*;
 
-pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
+pub fn run<M, WindowFn, ModelFn, InputFn, UpdateFn, ViewFn>(
+    window_fn: WindowFn,
     model_fn: ModelFn,
     mut input_fn: InputFn,
     mut update_fn: UpdateFn,
     view_fn: ViewFn,
-) where
+) -> Result<()> where
     M: Send + 'static,
+    WindowFn: Fn(WindowBuilder) -> WindowBuilder,
     ModelFn: for<'a> AsyncFn1<&'a App, Output = M> + 'static + Send,
     InputFn: for<'a, 'e> AsyncFnMut4<&'a App, &'a mut M, KeyState, Key> + 'static + Send,
     UpdateFn: for<'a> AsyncFnMut3<&'a App, &'a mut M, f32> + 'static + Send,
@@ -80,9 +91,12 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
     let event_loop = winit::event_loop::EventLoop::new();
     let (event_tx, mut event_rx) = mpsc::channel(64);
 
-    let (mut window, adapter, device, queue) = futures::executor::block_on(WindowBuilder::default()
-        .title("PHANTOMa")
-        .build(&event_loop, &instance));
+    let window = window_fn(WindowBuilder::new(event_loop));
+
+    let (mut window, event_loop, adapter, device, queue) = futures::executor::block_on(window.build(&instance));
+
+    let exit = Arc::new(AtomicBool::new(false));
+    let exit_ev = Arc::clone(&exit);
 
     let _rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap().block_on(async {
 
@@ -107,6 +121,8 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
                 frame: 0,
                 t: 0.0,
                 dt: 0.0,
+
+                exit,
             };
 
             let before_model = Instant::now();
@@ -144,6 +160,7 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
 
                             if let WindowEvent::CloseRequested = event {
                                 // FIXME: Cleanly exit?
+                                return;
                             }
 
                             if let WindowEvent::KeyboardInput { input, .. } = event {
@@ -199,6 +216,11 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
                 // window.request_redraw();
 
                 app.main_staging.as_mut().unwrap().recall().await;
+
+                if app.exit.load(std::sync::atomic::Ordering::SeqCst) {
+                    log::debug!("Update loop exiting");
+                    return;
+                }
             }
         });
 
@@ -208,6 +230,22 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
 
                 let mut recv_events = runner.recv_events().await;
                 while let Some(event) = recv_events.next().await {
+                    //
+                    // On receiving an event, exit the event loop if either:
+                    //
+                    // - We get a CloseRequested event (the user closing the app via their WM)
+                    // - The exit flag is set (some code triggers an app exit)
+                    //
+                    // We should regularly get RedrawRequested events, so tying
+                    // the exit flag to receiving events shouldn't be an issue.
+                    // 
+                    let exit_flag = exit_ev.load(std::sync::atomic::Ordering::SeqCst);
+                    let exit_event = if let Event::WindowEvent { event: WindowEvent::CloseRequested, .. } = event { true } else { false };
+                    if exit_flag || exit_event {
+                        log::debug!("Event loop exiting");
+                        return;
+                    }
+
                     if let Err(e) = event_tx.try_send(event) {
                         log::debug!("Dropped event: {:?}", e)
                     }
@@ -215,6 +253,8 @@ pub fn run<M, ModelFn, InputFn, UpdateFn, ViewFn>(
             }
         });
     });
+
+    Ok(())
 }
 
 fn init_logging() {

@@ -8,8 +8,8 @@ const FFT_IMSIZE: usize = FFT_SIZE * 2;
 pub type FFT = [f32; FFT_SIZE];
 
 mod client;
-mod analyze;
-mod ringbuf;
+pub mod analyze;
+pub mod ringbuf;
 
 pub use client::Jack as Audio;
 pub use analyze::prelude::*;

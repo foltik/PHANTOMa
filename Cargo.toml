@@ -16,7 +16,7 @@ glyph_brush = "0.7"
 #wavefront_obj = "8.0.0"
 #obj = "0.10.1"
 gltf = { version = "0.16", features = ["KHR_lights_punctual", "KHR_materials_unlit"] }
-image = "0.23"
+image = "0.24"
 
 # Lib
 log = "0.4.11"
@@ -29,13 +29,13 @@ cgmath = "0.18"
 splines = { version = "4", features = ["impl-cgmath"] }
 
 # Audio
-jack = "0.7"
+# jack = "0.7"
 apodize = "1"
 ringbuf = "0.2"
 rustfft = "6"
 
 # MIDI / OSC
-midir = { version = "0.7", features = ["jack"] }
+# midir = { version = "0.7", features = ["jack"] }
 rosc = "0.5"
 crossbeam-queue = "0.3"
 twitchchat = { version = "0.14.5", features = ["async", "async-std"] }
@@ -53,7 +53,7 @@ safe-transmute = "0.11.0"
 enum_dispatch = "0.3.3"
 petgraph = "0.6"
 itertools = "0.10"
-
+rust-embed = { path = "./rust-embed" }
 
 [dev-dependencies]
 rand = "0.8"

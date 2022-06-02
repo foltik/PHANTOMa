@@ -1,4 +1,4 @@
-use crate::audio::Audio;
+// use crate::audio::Audio;
 
 use std::collections::HashMap;
 
@@ -167,41 +167,41 @@ impl BeatClock {
     }
 }
 
-pub struct BeatDetect {
-    pub f0: f32,
-    pub f1: f32,
-    pub thres: f32,
-    pub bpm_max: f32,
-    decay: Decay,
-    e0: f32,
-}
+// pub struct BeatDetect {
+//     pub f0: f32,
+//     pub f1: f32,
+//     pub thres: f32,
+//     pub bpm_max: f32,
+//     decay: Decay,
+//     e0: f32,
+// }
 
-impl BeatDetect {
-    pub fn new(f0: f32, f1: f32, thres: f32, bpm_max: f32) -> Self {
-        Self {
-            f0,
-            f1,
-            thres,
-            bpm_max,
-            decay: Decay::new(1.0),
-            e0: 0.0,
-        }
-    }
+// impl BeatDetect {
+//     pub fn new(f0: f32, f1: f32, thres: f32, bpm_max: f32) -> Self {
+//         Self {
+//             f0,
+//             f1,
+//             thres,
+//             bpm_max,
+//             decay: Decay::new(1.0),
+//             e0: 0.0,
+//         }
+//     }
 
-    pub fn update(&mut self, delta: f32, audio: &Audio) -> bool {
-        let (e, e0) = (audio.rms_range(self.f0, self.f1), self.e0);
-        self.e0 = e;
+//     pub fn update(&mut self, delta: f32, audio: &Audio) -> bool {
+//         let (e, e0) = (audio.rms_range(self.f0, self.f1), self.e0);
+//         self.e0 = e;
 
-        self.decay.update((delta * 1000.0) / convert::bpm_ms(self.bpm_max));
+//         self.decay.update((delta * 1000.0) / convert::bpm_ms(self.bpm_max));
 
-        if e - e0 > self.thres && self.decay.off() {
-            self.decay.set();
-            true
-        } else {
-            false
-        }
-    }
-}
+//         if e - e0 > self.thres && self.decay.off() {
+//             self.decay.set();
+//             true
+//         } else {
+//             false
+//         }
+//     }
+// }
 
 pub mod convert {
     pub fn bpm_ms(bpm: f32) -> f32 {

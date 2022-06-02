@@ -1,64 +1,41 @@
-use std::env;
-use std::path::{Path, PathBuf};
+use std::borrow::Cow;
+use std::path::Path;
+use rust_embed::RustEmbed;
 
-pub const RESOURCES_PATH: &str = "resources/";
-pub fn resource(file: &str) -> PathBuf {
-    let mut curr = env::current_exe().unwrap();
+#[derive(RustEmbed)]
+#[folder = "resources/"]
+struct Resources;
 
-    // Find the target dir that the executable is running from
-    while curr.file_name().unwrap() != "target" {
-        if !curr.pop() {
-            panic!("Failed to find resources directory.");
-        }
-    }
-
-    // TODO: Better way of specifying resources dir
-    let resources = curr // repo/target/
-        .parent()
-        .unwrap() // repo/
-        .join(RESOURCES_PATH); // repo/resources/
-
+pub fn dir(file: &str) -> String {
     let path = Path::new(Path::new(file).file_name().unwrap());
 
-    let dir = match path.extension() {
-        Some(os) => match os.to_str().unwrap() {
-            "txt" => "lorem",
-            "ttf" => "fonts",
-            "otf" => "fonts",
-            "spv" => "shaders",
-            "obj" => "models",
-            "mtl" => "models",
-            "dds" => "textures",
-            "png" => "textures",
-            "jpg" => "textures",
-            "tga" => "textures",
-            "pkf" => "keyframes",
-            "glb" => "scenes",
-            ext => panic!("Unable to load format .{}!", ext),
-        },
-        None => panic!("Unable to determine resource type!"),
+    let ext = path.extension().unwrap().to_str().unwrap();
+    let dir = match ext {
+        "txt" => "lorem",
+        "ttf" => "fonts",
+        "otf" => "fonts",
+        "spv" => "shaders",
+        "obj" => "models",
+        "mtl" => "models",
+        "dds" => "textures",
+        "png" => "textures",
+        "jpg" => "textures",
+        "tga" => "textures",
+        "pkf" => "keyframes",
+        "glb" => "scenes",
+        "dem" => "demos",
+        _     => "other",
     };
 
-    let path = resources.join(dir).join(path);
-
-    if path.exists() {
-        path
-    } else {
-        panic!("Resource {}/{} not found!", dir, file);
-    }
+    Path::new(dir).join(path).into_os_string().into_string().unwrap()
 }
 
-pub fn read(file: &str) -> Vec<u8> {
-    std::fs::read(resource(file)).unwrap()
+pub fn read(file: &str) -> Cow<'static, [u8]> {
+    Resources::get(&dir(file)).expect(&format!("resource '{}' not found", file)).data
 }
 
 pub fn read_str(file: &str) -> String {
-    std::fs::read_to_string(resource(file)).unwrap()
-}
-
-pub fn read_buffered(file: &str) -> impl std::io::BufRead {
-    let file = std::fs::File::open(resource(file)).unwrap();
-    std::io::BufReader::new(file)
+    String::from_utf8(read(file).to_vec()).unwrap()
 }
 
 // TODO: Separate shader model creation from this method
@@ -105,7 +82,7 @@ pub fn read_scene(device: &wgpu::Device, file: &str) -> crate::gfx::scene::Scene
 }
 
 pub fn read_font(file: &str) -> wgpu_glyph::ab_glyph::FontArc {
-    wgpu_glyph::ab_glyph::FontArc::try_from_vec(read(file)).unwrap()
+    wgpu_glyph::ab_glyph::FontArc::try_from_vec(read(file).to_vec()).unwrap()
 }
 
 // pub fn read_model(file: &str) -> Vec<ObjectData> {

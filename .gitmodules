@@ -1,3 +1,6 @@
 [submodule "wgpu_glyph"]
 	path = wgpu_glyph
 	url = https://github.com/Foltik/wgpu_glyph
+[submodule "rust-embed"]
+	path = rust-embed
+	url = https://github.com/Foltik/rust-embed

@@ -1,7 +1,6 @@
+use winit::event_loop::EventLoop;
 pub use winit::window::Fullscreen;
 pub use winit::window::WindowId as Id;
-
-use std::default::Default;
 
 use crate::gfx::wgpu;
 
@@ -26,6 +25,7 @@ pub const DEFAULT_DIMENSIONS: LogicalSize = LogicalSize {
 pub type WindowEvent = winit::event::WindowEvent<'static>;
 
 pub struct WindowBuilder {
+    event_loop: EventLoop<()>,
     window: winit::window::WindowBuilder,
     title_was_set: bool,
     // swap_chain_builder: SwapChainBuilder,
@@ -36,6 +36,20 @@ pub struct WindowBuilder {
 }
 
 impl WindowBuilder {
+    /// Begin building a new window.
+    pub fn new(event_loop: winit::event_loop::EventLoop<()>) -> Self {
+        WindowBuilder {
+            event_loop,
+            window: winit::window::WindowBuilder::new(),
+            title_was_set: false,
+            // swap_chain_builder: Default::default(),
+            power_preference: wgpu::defaults::power_preference(),
+            device_desc: None,
+            //user_functions: Default::default(),
+            msaa_samples: None,
+        }
+    }
+
     /// Build the window with some custom window parameters.
     pub fn window(mut self, window: winit::window::WindowBuilder) -> Self {
         self.window = window;
@@ -89,8 +103,9 @@ impl WindowBuilder {
     }
 
     /// Builds the window, inserts it into the `App`'s display map and returns the unique ID.
-    pub async fn build(self, event_loop: &winit::event_loop::EventLoop<()>, instance: &wgpu::Instance) -> (Window, wgpu::Adapter, wgpu::Device, wgpu::Queue) {
+    pub async fn build(self, instance: &wgpu::Instance) -> (Window, EventLoop<()>, wgpu::Adapter, wgpu::Device, wgpu::Queue) {
         let WindowBuilder {
+            event_loop,
             mut window,
             title_was_set,
             // swap_chain_builder,
@@ -175,7 +190,7 @@ impl WindowBuilder {
         }
 
         // Build the window.
-        let window = window.build(event_loop).unwrap();
+        let window = window.build(&event_loop).unwrap();
         let size = window.inner_size();
         let scale_factor = window.scale_factor();
 
@@ -223,7 +238,7 @@ impl WindowBuilder {
             scale_factor,
         };
 
-        (window, adapter, device, queue)
+        (window, event_loop, adapter, device, queue)
     }
 
     fn map_window<F>(mut self, map: F) -> Self
@@ -285,8 +300,8 @@ impl WindowBuilder {
     //     self.fullscreen_with(Some(fullscreen))
     // }
 
-    pub fn fullscreen(self, event_loop: &winit::event_loop::EventLoop<()>) -> Self {
-        let mon = event_loop.primary_monitor().unwrap();
+    pub fn fullscreen(self) -> Self {
+        let mon = self.event_loop.primary_monitor().unwrap();
         let mode = mon.video_modes().max_by_key(|mode| mode.refresh_rate()).unwrap();
         log::debug!("Using video mode: {:?} {}Hz, {}bit", mode.size(), mode.refresh_rate(), mode.bit_depth());
         // self.fullscreen_with(Some(Fullscreen::Borderless(Some(mon))))
@@ -329,21 +344,6 @@ impl WindowBuilder {
     /// Sets the window icon.
     pub fn window_icon(self, window_icon: Option<winit::window::Icon>) -> Self {
         self.map_window(|w| w.with_window_icon(window_icon))
-    }
-}
-
-impl Default for WindowBuilder {
-    /// Begin building a new window.
-    fn default() -> Self {
-        WindowBuilder {
-            window: winit::window::WindowBuilder::new(),
-            title_was_set: false,
-            // swap_chain_builder: Default::default(),
-            power_preference: wgpu::defaults::power_preference(),
-            device_desc: None,
-            //user_functions: Default::default(),
-            msaa_samples: None,
-        }
     }
 }
 
