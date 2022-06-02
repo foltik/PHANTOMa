@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use std::path::Path;
-use rust_embed::RustEmbed;
+pub use rust_embed::RustEmbed as Embed;
 
-#[derive(RustEmbed)]
+#[derive(Embed)]
 #[folder = "resources/"]
 struct Resources;
 
