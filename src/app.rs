@@ -13,7 +13,7 @@ use crate::window::WindowBuilder;
 use crate::window::async_ext::{EventLoopAsync, EventAsync as Event};
 use winit::event::WindowEvent;
 
-use anyhow::{Result, Context};
+use anyhow::Result;
 
 pub struct App {
     pub device: Arc<wgpu::Device>,
