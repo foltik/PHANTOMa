@@ -3,7 +3,6 @@ use std::result::Result;
 use thiserror::Error;
 use std::iter::{self, Iterator};
 
-use tokio::sync::mpsc;
 use tokio::task;
 use parking_lot::Mutex;
 use crossbeam_queue::SegQueue;
@@ -27,7 +26,7 @@ pub enum MidiError {
 pub struct Midi<D: Device> {
     state: Arc<Mutex<D>>,
 
-    out_tx: mpsc::Sender<D::Output>,
+    // out_tx: mpsc::Sender<D::Output>,
     in_buf: Arc<SegQueue<D::Input>>,
 
     _conn: Arc<Mutex<MidiInputConnection<()>>>,
@@ -60,35 +59,35 @@ impl<D: Device + Clone + Send> Midi<D> {
             .port_name(&in_port)
             .expect("failed to query MIDI port name");
 
-        let out_port = midi_out
-            .ports()
-            .into_iter()
-            .find(|p| midi_out.port_name(p).unwrap().contains(output))
-            .ok_or_else(|| MidiError::DeviceNotFound(output.to_owned()))?;
-        let out_name = midi_out
-            .port_name(&out_port)
-            .expect("failed to query MIDI port name");
+        // let out_port = midi_out
+        //     .ports()
+        //     .into_iter()
+        //     .find(|p| midi_out.port_name(p).unwrap().contains(output))
+        //     .ok_or_else(|| MidiError::DeviceNotFound(output.to_owned()))?;
+        // let out_name = midi_out
+        //     .port_name(&out_port)
+        //     .expect("failed to query MIDI port name");
 
-        let mut out_conn = midi_out
-            .connect(&out_port, "out")
-            .map_err(|_| MidiError::ConnectionFailed(out_name.clone()))?;
+        // let mut out_conn = midi_out
+        //     .connect(&out_port, "out")
+        //     .map_err(|_| MidiError::ConnectionFailed(out_name.clone()))?;
 
         let in_buf = Arc::new(SegQueue::new());
-        let (out_tx, mut out_rx) = mpsc::channel(16);
+        // let (out_tx, mut out_rx) = mpsc::channel(16);
 
         // Output sender loop
         let _state = Arc::clone(&state);
         let _name = output.to_owned();
         task::spawn(async move {
             loop {
-                let output = out_rx.recv().await.unwrap();
+                // let output = out_rx.recv().await.unwrap();
 
-                let data = _state.lock().process_output(output);
-                log::trace!("{} -> {:X?}", &_name, &data);
+                // let data = _state.lock().process_output(output);
+                // log::trace!("{} -> {:X?}", &_name, &data);
 
-                if out_conn.send(&data).is_err() { 
-                    log::error!("{}: failed to send output", out_name) 
-                }
+                // if out_conn.send(&data).is_err() {
+                //     log::error!("{}: failed to send output", out_name)
+                // }
             }
         });
 
@@ -114,7 +113,7 @@ impl<D: Device + Clone + Send> Midi<D> {
             state,
 
             in_buf,
-            out_tx,
+            // out_tx,
 
             _conn: Arc::new(Mutex::new(input_conn)),
         })
@@ -134,9 +133,9 @@ impl<D: Device + Clone + Send> Midi<D> {
         Arc::clone(&self.state)
     }
 
-    pub async fn send(&self, output: D::Output) {
-        self.out_tx.send(output).await.unwrap();
-    }
+    // pub async fn send(&self, output: D::Output) {
+    //     self.out_tx.send(output).await.unwrap();
+    // }
 
     pub fn recv(&self) -> Vec<D::Input> {
         iter::from_fn(|| self.in_buf.pop()).collect()

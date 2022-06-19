@@ -17,7 +17,7 @@ layout(set = 1, binding = 0) uniform U {
 
 void main() {
     vec2 res = vec2(u.w, u.h);
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
 
     vec3 i = texture(sampler2D(imgs[0], samp), st).rgb;
 

@@ -83,7 +83,7 @@ vec4 cloth(float t, float amt) {
 }
 
 vec4 pause(float t, float amt) {
-    vec2 uv = vec2(tex.x, 1.0 - tex.y);
+    vec2 uv = vec2(tex.x, tex.y);
     vec4 c = vec4(0.0);
 
     uv.x += (rand(vec2(t, tex.y)) - 0.5) * 0.015 * amt;
@@ -169,7 +169,7 @@ vec3 glitch_vhs(float tt, float amt) {
 }
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = tex;
 
     vec3 img = texture(sampler2D(imgs[0], samp), st).rgb;
 

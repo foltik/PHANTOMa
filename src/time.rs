@@ -20,9 +20,13 @@ impl Decay {
         self.c as f32 / Self::MAX as f32
     }
 
+    pub fn vv(&self) -> Option<f32> {
+        if self.off() { None } else { Some(self.v()) }
+    }
+
     pub fn update(&mut self, delta: f32) {
         if !self.hold {
-            let fr = (delta * 1000.0) / self.t;
+            let fr = delta / self.t;
             let n = (fr * Self::MAX as f32).round() as u32;
 
             if n > self.c {
@@ -39,6 +43,11 @@ impl Decay {
 
     pub fn set_fr(&mut self, fr: f32) {
         self.c = (fr * Self::MAX as f32) as u32;
+    }
+
+    pub fn set_t(&mut self, t: f32) {
+        self.t = t;
+        self.set();
     }
 
     pub fn off(&self) -> bool {
@@ -62,6 +71,7 @@ impl DecayEnv {
     }
 
     pub fn get(&self, key: &str) -> &Decay {
+        // self.map.entry(key).or_insert_with(|| Decay::new(0.0))
         self.map.get(key).unwrap_or_else(|| panic!("no such decay {}", key))
     }
     pub fn get_mut(&mut self, key: &str) -> &mut Decay {
@@ -70,6 +80,10 @@ impl DecayEnv {
 
     pub fn v(&self, key: &str) -> f32 {
         self.get(key).v()
+    }
+
+    pub fn vv(&self, key: &str) -> Option<f32> {
+        self.get(key).vv()
     }
 
     pub fn t(&mut self, key: &str, t: f32) {
@@ -88,6 +102,10 @@ impl DecayEnv {
 
     pub fn set_fr(&mut self, key: &str, fr: f32) {
         self.get_mut(key).set_fr(fr);
+    }
+
+    pub fn set_t(&mut self, key: &str, t: f32) {
+        self.get_mut(key).set_t(t);
     }
 
     pub fn off(&self, key: &str) -> bool {

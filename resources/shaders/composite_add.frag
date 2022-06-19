@@ -14,11 +14,9 @@ layout(set = 0, binding = 2) uniform U {
 } u;
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
-
     vec3 c = vec3(0.0);
     for (int i = 0; i < u.n; i++) {
-        c += texture(sampler2D(imgs[i], samp), st).rgb;
+        c += texture(sampler2D(imgs[i], samp), tex).rgb;
     }
     color = vec4(c, 1.0);
 }

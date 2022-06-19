@@ -18,10 +18,11 @@ layout(set = 1, binding = 0) uniform Uniforms {
     float vhs;
     float red;
     float flash;
-    float shake;
+    float bloom;
     float black;
     float edge;
     float mega;
+    float shake;
 } u;
 
 float inside(float x, float lo, float hi) {
@@ -72,7 +73,7 @@ vec4 shake(float t, float amt) {
 }
 
 vec4 cloth(float t, float amt) {
-    vec2 uv = vec2(tex.x, 1.0 - tex.y);
+    vec2 uv = vec2(tex.x, tex.y);
 
     uv.s += (rand(vec2(t, tex.x)) - 0.5) * 0.030 * amt;
     uv.t += (rand(vec2(t)) - 0.5) * 0.030 * amt;
@@ -142,7 +143,7 @@ vec3 glitch_blocks(float tt, float amt) {
 }
 
 vec3 glitch_vhs(float tt, float amt) {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = tex;
     float t = tt * 100.0;
 
     const float f_a_wav = 0.42857 * 2 * amt;
@@ -172,11 +173,18 @@ vec3 glitch_vhs(float tt, float amt) {
 }
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     vec3 img = texture(sampler2D(imgs[0], samp), st).rgb;
 
-    if (u.red > 0.0 || u.mega > 0.0)
-        img = 0.2 * u.red * img + cloth(u.tc, min((u.red + u.mega) / 2.0, 1.0)).rgb;
+    if (u.mega > 0.0)
+        img = 0.2 * img + cloth(u.tc, u.mega).rgb;
+        // img = 0.2 * u.red * img + cloth(u.tc, min((u.red + u.mega) / 2.0, 1.0)).rgb;
+
+    if (u.red > 0.0)
+        img = img + vec3(u.red, 0.0, 0.0);
+
+    if (u.shake > 0.0)
+        img = shake(u.tc, u.shake).rgb;
 
     if (u.flash > 0.0)
         img = img + vec3(u.flash);

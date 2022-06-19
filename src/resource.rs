@@ -1,6 +1,7 @@
-use std::borrow::Cow;
 use std::path::Path;
 pub use rust_embed::RustEmbed as Embed;
+
+use crate::config::Config;
 
 #[derive(Embed)]
 #[folder = "resources/"]
@@ -24,12 +25,65 @@ pub fn dir(file: &str) -> String {
         "pkf" => "keyframes",
         "glb" => "scenes",
         "dem" => "demos",
+        "cfg"  => "config",
         _     => "other",
     };
 
     Path::new(dir).join(path).into_os_string().into_string().unwrap()
 }
 
+pub fn dir_live(file: &str) -> String {
+    let curr = std::env::current_exe().unwrap();
+    // TODO: Recursively search for resources dir
+    let resources = curr // phantoma/target/debug/___
+        .parent()
+        .unwrap() // phantoma/target/debug/
+        .parent()
+        .unwrap() // phantoma/target/
+        .parent()
+        .unwrap() // phantoma/
+        .join("resources/"); // phantoma/resources/
+
+    let path = Path::new(Path::new(file).file_name().unwrap());
+
+    let dir = match path.extension() {
+        Some(os) => match os.to_str().unwrap() {
+            "txt" => "lorem",
+            "ttf" => "fonts",
+            "otf" => "fonts",
+            "spv" => "shaders",
+            "obj" => "models",
+            "mtl" => "models",
+            "dds" => "textures",
+            "png" => "textures",
+            "jpg" => "textures",
+            "tga" => "textures",
+            "pkf" => "keyframes",
+            "glb" => "scenes",
+            "dem" => "demos",
+            "cfg"  => "config",
+            ext => panic!("Unable to load format .{}!", ext),
+        },
+        None => panic!("Unable to determine resource type!"),
+    };
+
+    let path = resources.join(dir).join(path);
+
+    if path.exists() {
+        let str = path.into_os_string().into_string().unwrap();
+        log::debug!("Loading {:?}", str);
+        str
+    } else {
+        panic!("Resource {}/{} not found!", dir, file);
+    }
+}
+
+
+// pub fn read(file: &str) -> Vec<u8> {
+//     std::fs::read(dir_live(file)).unwrap()
+// }
+
+use std::borrow::Cow;
 pub fn read(file: &str) -> Cow<'static, [u8]> {
     Resources::get(&dir(file)).expect(&format!("resource '{}' not found", file)).data
 }
@@ -83,6 +137,10 @@ pub fn read_scene(device: &wgpu::Device, file: &str) -> crate::gfx::scene::Scene
 
 pub fn read_font(file: &str) -> wgpu_glyph::ab_glyph::FontArc {
     wgpu_glyph::ab_glyph::FontArc::try_from_vec(read(file).to_vec()).unwrap()
+}
+
+pub fn read_cfg(file: &str) -> Config {
+    Config::from(&read_str(file))
 }
 
 // pub fn read_model(file: &str) -> Vec<ObjectData> {

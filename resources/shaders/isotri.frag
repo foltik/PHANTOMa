@@ -99,7 +99,7 @@ float smoothRepeatEnd(float a, float b, float x, float size) {
 }
     
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = tex;
     float aspect = u.aspect;
     float t = u.t * 0.1;
 

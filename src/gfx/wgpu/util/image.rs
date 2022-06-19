@@ -34,6 +34,7 @@ pub fn resize(image: RgbaImage) -> (RgbaImage, Vector2) {
 
 pub fn load(app: &App, image: &DynamicImage) -> (wgpu::Texture, Vector2) {
     let (image, scale) = resize(image.to_rgba8());
+
     let (width, height) = image.dimensions();
 
     let sz = width * height * 4;
@@ -56,7 +57,12 @@ pub fn load(app: &App, image: &DynamicImage) -> (wgpu::Texture, Vector2) {
         mapped_at_creation: true,
     });
 
-    let raw = image.into_raw();
+    let mut raw = image.into_raw();
+
+    // Convert RGBA -> BGRA for BGR8Unorm
+    for p in raw.chunks_exact_mut(4) {
+        (p[0], p[2]) = (p[2], p[0]);
+    }
 
     buffer
         .slice(..)

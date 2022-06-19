@@ -38,6 +38,7 @@ impl From<gltf::Gltf> for SceneDesc {
             let idx = scene.nodes.add_node((&n).into());
             scene.names.insert(n.name().unwrap().to_owned(), idx);
             scene.nodes.add_edge(parent, idx, ());
+            log::trace!("Visiting '{}'", n.name().unwrap());
 
             if let Some(mesh) = n.mesh() {
                 for p in mesh.primitives() {
@@ -151,7 +152,10 @@ impl From<gltf::Gltf> for SceneDesc {
                         ),
                     };
 
-                scene.camera = Some(SceneCameraDesc { proj, i: idx })
+                if scene.camera.is_none() {
+                    log::trace!("Main Camera: {:?}", camera.name().unwrap());
+                    scene.camera = Some(SceneCameraDesc { proj, i: idx })
+                }
             }
 
             for c in n.children() {

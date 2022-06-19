@@ -129,65 +129,67 @@ impl WindowBuilder {
         }
 
         // Set default dimensions in the case that none were given.
-        let initial_window_size = window
-            .window
-            .inner_size
-            .or_else(|| {
-                window
-                    .window
-                    .fullscreen
-                    .as_ref()
-                    .map(|fullscreen| match fullscreen {
-                        Fullscreen::Exclusive(video_mode) => {
-                            let monitor = video_mode.monitor();
-                            video_mode
-                                .size()
-                                .to_logical::<f32>(monitor.scale_factor())
-                                .into()
-                        }
-                        Fullscreen::Borderless(monitor) => monitor.as_ref().unwrap()
-                            .size()
-                            .to_logical::<f32>(monitor.as_ref().unwrap().scale_factor())
-                            .into(),
-                    })
-            })
-            .unwrap_or_else(|| {
-                let mut dim = DEFAULT_DIMENSIONS;
-                if let Some(min) = window.window.min_inner_size {
-                    match min {
-                        winit::dpi::Size::Logical(min) => {
-                            dim.width = dim.width.max(min.width as _);
-                            dim.height = dim.height.max(min.height as _);
-                        }
-                        winit::dpi::Size::Physical(min) => {
-                            dim.width = dim.width.max(min.width as _);
-                            dim.height = dim.height.max(min.height as _);
-                            unimplemented!("consider scale factor");
-                        }
-                    }
-                }
-                if let Some(max) = window.window.max_inner_size {
-                    match max {
-                        winit::dpi::Size::Logical(max) => {
-                            dim.width = dim.width.min(max.width as _);
-                            dim.height = dim.height.min(max.height as _);
-                        }
-                        winit::dpi::Size::Physical(max) => {
-                            dim.width = dim.width.min(max.width as _);
-                            dim.height = dim.height.min(max.height as _);
-                            unimplemented!("consider scale factor");
-                        }
-                    }
-                }
-                dim.into()
-            });
+        // let initial_window_size = window
+        //     .window
+        //     .inner_size
+        //     .or_else(|| {
+        //         window
+        //             .window
+        //             .fullscreen
+        //             .as_ref()
+        //             .map(|fullscreen| match fullscreen {
+        //                 Fullscreen::Exclusive(video_mode) => {
+        //                     let monitor = video_mode.monitor();
+        //                     video_mode
+        //                         .size()
+        //                         .to_logical::<f32>(monitor.scale_factor())
+        //                         .into()
+        //                 }
+        //                 Fullscreen::Borderless(monitor) => monitor.as_ref().unwrap()
+        //                     .size()
+        //                     .to_logical::<f32>(monitor.as_ref().unwrap().scale_factor())
+        //                     .into(),
+        //             })
+        //     })
+        //     .unwrap_or_else(|| {
+        //         let mut dim = DEFAULT_DIMENSIONS;
+        //         if let Some(min) = window.window.min_inner_size {
+        //             log::info!("window min inner: {:?}", min);
+        //             match min {
+        //                 winit::dpi::Size::Logical(min) => {
+        //                     dim.width = dim.width.max(min.width as _);
+        //                     dim.height = dim.height.max(min.height as _);
+        //                 }
+        //                 winit::dpi::Size::Physical(min) => {
+        //                     dim.width = dim.width.max(min.width as _);
+        //                     dim.height = dim.height.max(min.height as _);
+        //                     unimplemented!("consider scale factor");
+        //                 }
+        //             }
+        //         }
+        //         if let Some(max) = window.window.max_inner_size {
+        //             log::info!("window max inner: {:?}", max);
+        //             match max {
+        //                 winit::dpi::Size::Logical(max) => {
+        //                     dim.width = dim.width.min(max.width as _);
+        //                     dim.height = dim.height.min(max.height as _);
+        //                 }
+        //                 winit::dpi::Size::Physical(max) => {
+        //                     dim.width = dim.width.min(max.width as _);
+        //                     dim.height = dim.height.min(max.height as _);
+        //                     unimplemented!("consider scale factor");
+        //                 }
+        //             }
+        //         }
+        //         dim.into()
+        //     });
 
 
         // Use the `initial_swapchain_dimensions` as the default dimensions for the window if none
         // were specified.
-        if window.window.inner_size.is_none() && window.window.fullscreen.is_none() {
-            window.window.inner_size = Some(initial_window_size);
-        }
+        // if window.window.inner_size.is_none() && window.window.fullscreen.is_none() {
+        //     window.window.inner_size = Some(initial_window_size);
+        // }
 
         // Build the window.
         let window = window.build(&event_loop).unwrap();
@@ -215,18 +217,35 @@ impl WindowBuilder {
         // Build the swapchain.
         // let swap_chain = swap_chain_builder.build(&device, &surface, size);
 
+        // FIXME: These config options are duplicated in resize().
+        // Move them into some common function.
         surface.configure(&device, &wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: wgpu::defaults::texture_format(),
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Mailbox,
+            present_mode: wgpu::PresentMode::Fifo,
         });
+
+        // let msaa = wgpu::util::TextureBuilder::new_color("msaa")
+        //     .size([size.width, size.height, 1])
+        //     .sample_count(4)
+        //     .build(&device)
+        //     .view()
+        //     .build();
+
+        // let depth = wgpu::util::TextureBuilder::new_depth("depth")
+        //     .size([size.width, size.height, 1])
+        //     .build(&device)
+        //     .view()
+        //     .build();
 
         let window = Window {
             id: window.id(),
             _window: window,
             surface,
+            // msaa,
+            // depth,
             // swap_chain,
             // frame_data,
             // frame_count,
@@ -295,10 +314,10 @@ impl WindowBuilder {
     }
 
     /// Create the window fullscreened on the current monitor.
-    // pub fn fullscreen(self) -> Self {
-    //     let fullscreen = Fullscreen::Borderless(self.app.primary_monitor());
-    //     self.fullscreen_with(Some(fullscreen))
-    // }
+    pub fn fullscreen_borderless(self) -> Self {
+        let mon = self.event_loop.primary_monitor().unwrap();
+        self.fullscreen_with(Some(Fullscreen::Borderless(Some(mon))))
+    }
 
     pub fn fullscreen(self) -> Self {
         let mon = self.event_loop.primary_monitor().unwrap();
@@ -354,6 +373,8 @@ pub struct Window {
     _window: winit::window::Window,
 
     pub(crate) surface: wgpu::Surface,
+    // pub(crate) msaa: wgpu::TextureView,
+    // pub(crate) depth: wgpu::TextureView,
 
     // TODO: not pub
     pub msaa_samples: u32,
@@ -371,6 +392,32 @@ impl Window {
     // pub(crate) fn rebuild_swap_chain(&mut self, device: &wgpu::Device, size: PhysicalSize) {
         // self.swap_chain.rebuild(&device, &self.surface, size);
     // }
+
+    pub(crate) fn resize(&mut self, device: &wgpu::Device, size: winit::dpi::PhysicalSize<u32>) {
+        self.surface.configure(device, &wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: wgpu::defaults::texture_format(),
+            width: size.width,
+            height: size.height,
+            // present_mode: wgpu::PresentMode::Mailbox,
+            present_mode: wgpu::PresentMode::Fifo,
+        });
+
+        // self.msaa = wgpu::util::TextureBuilder::new_color("msaa")
+        //     .size([size.width, size.height, 1])
+        //     .sample_count(4)
+        //     .build(&device)
+        //     .view()
+        //     .build();
+
+        // self.depth = wgpu::util::TextureBuilder::new_depth("depth")
+        //     .size([size.width, size.height, 1])
+        //     .build(&device)
+        //     .view()
+        //     .build();
+
+        self.size = size;
+    }
 }
 
 // /// A swap_chain and its images associated with a single window.

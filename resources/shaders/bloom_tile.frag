@@ -26,26 +26,24 @@ vec3 bloomTile(float lod, vec2 offset, vec2 uv){
 vec3 getBloom(vec2 uv) {
     vec3 blur = vec3(0.0);
 
-    blur = pow(bloomTile(2., vec2(0.0,0.0), uv),vec3(2.2))       	   	+ blur;
-    blur = pow(bloomTile(3., vec2(0.3,0.0), uv),vec3(2.2)) * 1.3        + blur;
-    blur = pow(bloomTile(4., vec2(0.0,0.3), uv),vec3(2.2)) * 1.6        + blur;
-    blur = pow(bloomTile(5., vec2(0.1,0.3), uv),vec3(2.2)) * 1.9 	   	+ blur;
-    blur = pow(bloomTile(6., vec2(0.2,0.3), uv),vec3(2.2)) * 2.2 	   	+ blur;
+    blur = pow(bloomTile(2., vec2(0.0,0.0), uv),vec3(2.2))       + blur;
+    blur = pow(bloomTile(3., vec2(0.3,0.0), uv),vec3(2.2)) * 1.3 + blur;
+    blur = pow(bloomTile(4., vec2(0.0,0.3), uv),vec3(2.2)) * 1.6 + blur;
+    blur = pow(bloomTile(5., vec2(0.1,0.3), uv),vec3(2.2)) * 1.9 + blur;
+    blur = pow(bloomTile(6., vec2(0.2,0.3), uv),vec3(2.2)) * 2.2 + blur;
 
     float colorRange = 24.0;
     return blur * colorRange;
 }
 
 void main() {
-    vec2 uv = vec2(tex.x, 1.0 - tex.y);
-
     //original
-    vec3 col = texture(sampler2D(imgs[0], samp), uv).rgb;
+    vec3 col = texture(sampler2D(imgs[0], samp), tex).rgb;
     
     //add bloom
-    vec3 bloom = getBloom(uv) * 0.02 * u.fr;
+    vec3 bloom = getBloom(tex) * 0.02 * u.fr;
     bloom = jodieReinhardTonemap(bloom);
     col += bloom;
     
-	color = vec4(col, 1.0);
+    color = vec4(col, 1.0);
 }

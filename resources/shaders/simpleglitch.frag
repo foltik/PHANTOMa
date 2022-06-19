@@ -28,7 +28,7 @@ float rrand(vec2 p, float lo, float hi) {
 }
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     vec3 c = texture(sampler2D(imgs[0], samp), st).rgb;
 
     float t = floor(u.t * 10000.0 * 50.0);

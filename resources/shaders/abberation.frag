@@ -19,7 +19,7 @@ float hash11(float n) {
 }
 
 void main() {
-    vec2 uv = vec2(tex.x, 1.0 - tex.y);
+    vec2 uv = vec2(tex.x, tex.y);
 
     float t = abs(sin(u.t));
     float off = u.fr * (.6*(1.0 - t) + 0.08*t*hash11(u.t) + .1);

@@ -10,8 +10,12 @@ impl<'l> TextureBuilder<'l> {
     pub const DEFAULT_DESCRIPTOR: wgpu::TextureDescriptor<'static> = wgpu::TextureDescriptor {
         label: None,
         size: wgpu::Extent3d {
-            width: 1920,
-            height: 1080,
+            width: 640,
+            height: 360,
+            // width: 960,
+            // height: 540,
+            // width: 1920,
+            // height: 1080,
             depth_or_array_layers: 1,
         },
         mip_level_count: 1,
@@ -28,15 +32,21 @@ impl<'l> TextureBuilder<'l> {
         }
     }
 
+    pub fn label(mut self, label: &'l str) -> Self {
+        self.label = label;
+        self
+    }
+
     /// Creates a new `Default` builder
     pub fn new_color(label: &'l str) -> Self {
         Self::new(label)
+            .usage(wgpu::TextureUsages::RENDER_ATTACHMENT)
     }
 
     pub fn new_depth(label: &'l str) -> Self {
         Self::new(label)
             .format(wgpu::defaults::depth_format())
-            .usage(wgpu::TextureUsages::COPY_SRC)
+            .usage(wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::RENDER_ATTACHMENT)
     }
 
     /// Specify the width and height of the texture.

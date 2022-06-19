@@ -81,7 +81,7 @@ float dualfbm(float t, vec2 p) {
 }
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     float t = u.t * 0.1;
 
     vec2 p = st * 2.0 - 1.0;

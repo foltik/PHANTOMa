@@ -65,9 +65,14 @@ impl ImagePass {
     }
 
     // FIXME: Use rescale?
-    pub fn with(mut self, app: &App, image: &str, alias: &str, pos: Vector2, _rescale: Vector2) -> Self {
+    pub fn with(mut self, app: &App, image: &str, alias: &str, pos: Vector2, rescale: Vector2) -> Self {
         let (tex, scale) = wgpu::util::image::load(app, &crate::resource::read_image(image));
         let view = tex.view().build();
+
+        let scale = Vector2 {
+            x: (1.0 / scale.x) * rescale.x,
+            y: (1.0 / scale.y) * rescale.y,
+        };
 
         let uniform = UniformStorage::new(&app.device, alias, ImageUniform {
             pos,

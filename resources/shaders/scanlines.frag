@@ -142,7 +142,7 @@ float contrast(float col, float amount){
 const vec3 blue = vec3(176,197,227) / 255.;
 
 void main() {
-    vec2 uv = vec2(tex.x, 1.0 - tex.y);
+    vec2 uv = vec2(tex.x, tex.y);
     float t = u.t * 1.0;
     
     vec3 col = vec3(0.);

@@ -20,7 +20,7 @@ layout(set = 0, binding = 3) uniform T {
 } t;
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     vec3 c = vec3(0.0);
 
     for (int i = 0; i < n.n; i++) {

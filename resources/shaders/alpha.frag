@@ -14,8 +14,6 @@ layout(set = 1, binding = 0) uniform Uniforms {
 } u;
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
-
-    vec3 img = texture(sampler2D(imgs[0], samp), st).rgb;
+    vec3 img = texture(sampler2D(imgs[0], samp), tex).rgb;
     color = vec4(img * u.fr, u.fr);
 }

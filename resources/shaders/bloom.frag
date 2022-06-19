@@ -47,13 +47,11 @@ vec3 makeBloom(float lod, vec2 offset, vec2 bCoord){
 }
 
 void main() {
-    vec2 uv = vec2(tex.x, 1.0 - tex.y);
-    
-	vec3 blur = makeBloom(2.,vec2(0.0,0.0), uv);
-		blur += makeBloom(3.,vec2(0.3,0.0), uv);
-		blur += makeBloom(4.,vec2(0.0,0.3), uv);
-		blur += makeBloom(5.,vec2(0.1,0.3), uv);
-		blur += makeBloom(6.,vec2(0.2,0.3), uv);
+    vec3 blur = makeBloom(2.,vec2(0.0,0.0), tex);
+        blur += makeBloom(3.,vec2(0.3,0.0), tex);
+        blur += makeBloom(4.,vec2(0.0,0.3), tex);
+        blur += makeBloom(5.,vec2(0.1,0.3), tex);
+        blur += makeBloom(6.,vec2(0.2,0.3), tex);
 
     color = vec4(pow(blur, vec3(1.0 / 2.2)),1.0);
 }

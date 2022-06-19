@@ -63,7 +63,7 @@ float snoise(vec2 p) {
 }
 
 vec4 shake(float t, float amt) {
-    vec2 uv = vec2(tex.x, 1.0 - tex.y);
+    vec2 uv = vec2(tex.x, tex.y);
 
     uv.s += (rand(vec2(t)) - 0.5) * 0.050 * amt;
     uv.t += (rand(vec2(t + 100.0)) - 0.5) * 0.050 * amt;
@@ -72,7 +72,7 @@ vec4 shake(float t, float amt) {
 }
 
 vec4 cloth(float t, float amt) {
-    vec2 uv = vec2(tex.x, 1.0 - tex.y);
+    vec2 uv = vec2(tex.x, tex.y);
 
     uv.s += (rand(vec2(t, tex.x)) - 0.5) * 0.030 * amt;
     uv.t += (rand(vec2(t)) - 0.5) * 0.030 * amt;
@@ -142,7 +142,7 @@ vec3 glitch_blocks(float tt, float amt) {
 }
 
 vec3 glitch_vhs(float tt, float amt) {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = tex;
     float t = tt * 100.0;
 
     const float f_a_wav = 0.42857 * 2 * amt;
@@ -172,7 +172,7 @@ vec3 glitch_vhs(float tt, float amt) {
 }
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     vec3 img = texture(sampler2D(imgs[0], samp), st).rgb;
 
     if (u.vhs > 0.0)

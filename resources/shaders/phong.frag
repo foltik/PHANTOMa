@@ -34,7 +34,9 @@ layout(set = 1, binding = 2) uniform LightCount {
 layout(set = 2, binding = 0) uniform texture2D img;
 layout(set = 2, binding = 1) uniform sampler samp;
 layout(set = 2, binding = 2) uniform Material {
+    vec4 color;
     vec2 scale;
+    uint mapped;
     uint unlit;
 } mat;
 
@@ -70,8 +72,12 @@ vec3 calc_point_light(Light light, mat4 transform, vec3 col) {
 }
 
 void main() {
-    // vec3 col = vec3(0.8, 0.057, 0.162);
-    vec3 col = texture(sampler2D(img, samp), tex * mat.scale).rgb;
+    vec3 col = vec3(1.0);
+    if (mat.mapped != 0) {
+        col = texture(sampler2D(img, samp), tex * mat.scale).rgb;
+    } else {
+        col = vec3(mat.color.xyz);
+    }
 
     if (mat.unlit != 0) {
         color = vec4(col, 1.0);

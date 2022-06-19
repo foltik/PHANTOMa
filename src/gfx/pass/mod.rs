@@ -8,7 +8,7 @@ mod ring;
 pub use ring::RingPass;
 
 mod text;
-pub use text::{TextPass, TextPassBuilder};
+pub use text::{TextPass, TextPassBuilder, DrawBuilder, TextBuilder};
 
 mod image;
 pub use self::image::{ImagePass};

@@ -10,6 +10,6 @@ layout(set = 0, binding = 0) uniform texture2D img;
 layout(set = 0, binding = 1) uniform sampler samp;
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     color = texture(sampler2D(img, samp), vec2(st.y, 1.0 - st.x));
 }

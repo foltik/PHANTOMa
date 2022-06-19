@@ -51,7 +51,7 @@ float nn(float t, vec2 p){
 }
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     float t = u.t;
 
     vec2 iResolution = vec2(1920.0, 1080.0);

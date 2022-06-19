@@ -28,7 +28,7 @@ float wave(float x, float y) {
 }
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     float t = u.t * 1;
 
     float z = wave(st.x, st.y) + 2.0;

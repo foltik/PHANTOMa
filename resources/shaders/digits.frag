@@ -96,7 +96,7 @@ float easeInOutExpo(float x) {
 }
 
 void main() {
-    vec2 uv = vec2(tex.x, 1.0 - tex.y);
+    vec2 uv = vec2(tex.x, tex.y);
     uv.y = 1.0 - uv.y;
 
     vec3 v = vec3(1.0 - getPattern(uv, u.t, u.i));

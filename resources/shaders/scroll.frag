@@ -19,7 +19,7 @@ layout(set = 1, binding = 0) uniform U {
 } u;
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
 
     float fr = u.fr;
     float s;

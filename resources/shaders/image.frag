@@ -14,6 +14,11 @@ layout(set = 0, binding = 2) uniform Uniform {
 } u;
 
 void main() {
-    vec2 t = vec2(tex.x, 1 - tex.y);// + (u.pos / vec2(1920.0, 1080.0));
-    color = texture(sampler2D(img, samp), t * u.scale);
+    vec2 tl = step(u.pos, tex);
+    vec2 br = step(1.0 - u.pos - u.scale, 1.0 - tex);
+    float amt = tl.x * tl.y * br.x * br.y;
+
+    vec2 uv = (tex + u.pos) / u.scale;
+    // color = mix(vec4(0.0), vec4(uv, 0.0, 1.0), amt);
+    color = mix(vec4(0.0), texture(sampler2D(img, samp), uv), amt);
 }

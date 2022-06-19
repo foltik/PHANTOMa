@@ -21,7 +21,7 @@ float rand(vec2 p) {
 }
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
 
     float t = u.t / 4.0;
     vec2 tiles = vec2(u.nx, u.ny);

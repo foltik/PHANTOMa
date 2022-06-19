@@ -1,5 +1,6 @@
 use crate::gfx::frame::Frame;
 use crate::gfx::{uniform::Uniform, wgpu};
+use crate::gfx::wgpu::util::ColorAttachmentDescriptorBuilder;
 
 const BILLBOARD_SHADER: &str = "billboard.vert.spv";
 const COMPOSITE_SHADER: &str = "composite.frag.spv";
@@ -229,8 +230,15 @@ impl FilterPass {
     }
 
     pub fn encode(&self, frame: &mut Frame, target: &wgpu::RawTextureView) {
+        self.encode_with(frame, target, |a| a)
+    }
+
+    pub fn encode_with<F>(&self, frame: &mut Frame, target: &wgpu::RawTextureView, func: F)
+    where
+        F: FnOnce(ColorAttachmentDescriptorBuilder) -> ColorAttachmentDescriptorBuilder
+    {
         let mut pass = wgpu::util::RenderPassBuilder::new()
-            .color_attachment(target, |b| b)
+            .color_attachment(target, |a| func(a))
             .begin(frame);
 
         pass.set_pipeline(&self.pipeline);

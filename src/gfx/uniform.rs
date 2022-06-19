@@ -153,8 +153,11 @@ pub struct UniformArrayStorage<T: Copy> {
     pub uniform: UniformArray<T>,
 }
 
-impl<T: Copy> UniformArrayStorage<T> {
-    pub fn new(device: &wgpu::Device, label: &str, n: usize, vs: Vec<T>) -> Self {
+impl<T: Copy + Default> UniformArrayStorage<T> {
+    pub fn new(device: &wgpu::Device, label: &str, n: usize, vs: Option<Vec<T>>) -> Self {
+        let vs = vs.unwrap_or_else(|| vec![T::default(); n]);
+        assert!(vs.len() == n);
+
         let uniform = UniformArray::new(device, label, n, Some(&vs));
         Self {
             vs,

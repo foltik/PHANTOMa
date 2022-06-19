@@ -20,7 +20,7 @@ layout(set = 0, binding = 0) uniform U {
 } u;
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     float t = u.t * u.speed;
 
     vec2 res = vec2(u.w, u.h);

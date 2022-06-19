@@ -30,22 +30,30 @@ pub struct Animation {
 }
 
 impl Animation {
-    pub fn apply(&self, frame: usize, fr: f32, scene: &mut Scene) {
-        let i = frame % (self.len - 1);
-        let j = i + 1;
-
+    pub fn apply(&self, fr: f32, scene: &mut Scene) {
         for (c, node) in &self.channels {
+            let n = c.len() - 2;
+            let frame = fr * n as f32;
+
+            let i = frame.floor() as usize;
+            let j = i + 1;
+            let fract = frame.fract();
+
+            // log::info!("{},{} / {} ({} / {})", i, j, n, fr, fract);
+
             let transform = &mut scene.desc.nodes[*node].transform;
             match c {
-                Channel::Translate(t) => transform.translate = t[i].lerp(t[j], fr),
+                Channel::Translate(t) => {
+                    transform.translate = t[i].lerp(t[j], fract)
+                },
                 Channel::Rotate(r) => {
                     if r[i].dot(r[j]) < 0.0 {
-                        transform.rotate = r[i].slerp(-r[j], fr);
+                        transform.rotate = r[i].slerp(-r[j], fract);
                     } else {
-                        transform.rotate = r[i].slerp(r[j], fr)
+                        transform.rotate = r[i].slerp(r[j], fract)
                     }
                 },
-                Channel::Scale(s) => transform.scale = s[i].lerp(s[j], fr),
+                Channel::Scale(s) => transform.scale = s[i].lerp(s[j], fract),
             }
         }
     }
@@ -57,8 +65,7 @@ struct AnimationState {
     pub start: f32,
 }
 
-pub struct Animator {
-    animations: Vec<Animation>,
+pub struct Animator {animations: Vec<Animation>,
     states: Vec<AnimationState>,
     named: HashMap<String, usize>,
 }
@@ -75,6 +82,7 @@ impl Animator {
             .map(|(i, a)| {
                 named.insert(a.name.clone(), i);
                 (
+                    // (),
                     a.desc.clone(),
                     AnimationState {
                         playing: false,
@@ -96,16 +104,14 @@ impl Animator {
         for (s, a) in self.states.iter_mut().zip(self.animations.iter()) {
             if s.playing {
                 let t = (t - s.start) * 60.0;
+                let fr = t / (a.len - 1) as f32;
 
-                let frame = t as usize;
-                let fr = t.fract();
-
-                if frame as usize > a.len && !s.looping {
+                if fr >= 1.0 && !s.looping {
                     s.playing = false;
                     continue;
                 }
 
-                a.apply(frame as usize, fr, scene);
+                a.apply(fr % 1.0, scene);
             }
         }
     }
@@ -116,5 +122,10 @@ impl Animator {
         state.playing = true;
         state.looping = looping;
         state.start = t;
+    }
+
+    pub fn stop(&mut self, animation: &str) {
+        let state = &mut self.states[self.named[animation]];
+        state.playing = false;
     }
 }

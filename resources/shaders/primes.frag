@@ -37,7 +37,7 @@ float is_twin_prime(int num) {
 }
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     float t = u.t;
 
     vec2 uv = (1.0 - st) * vec2(u.nx, u.ny);

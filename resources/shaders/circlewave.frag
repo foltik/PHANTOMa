@@ -18,7 +18,7 @@ layout(set = 0, binding = 0) uniform U {
 // https://www.shadertoy.com/view/wdlGRM
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     float t = u.t * 1;
 
     vec2 uv = st - 0.5;

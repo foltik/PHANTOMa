@@ -41,7 +41,7 @@ float omega( float m, float n )
 }
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     float t = u.t * 1;
 
 	// Domain [-.5,-.5]x[.5,.5]

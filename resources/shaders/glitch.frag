@@ -107,7 +107,7 @@ vec4 pause(float t, float amt) {
 }
 
 vec3 glitch_blocks(float tt, float amt) {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = tex;
     vec3 c = texture(sampler2D(imgs[0], samp), st).rgb;
 
     float t = floor(tt * 10000.0 * 50.0);
@@ -172,7 +172,7 @@ vec3 glitch_vhs(float tt, float amt) {
 }
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     vec3 img = texture(sampler2D(imgs[0], samp), st).rgb;
 
     if (u.glitch > 0.0 || u.mega > 0.0)

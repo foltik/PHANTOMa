@@ -7,6 +7,6 @@ layout(location = 0) in vec2 tex;
 layout(location = 0) out vec4 color;
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     color = vec4(st, 0.0, 1.0);
 }

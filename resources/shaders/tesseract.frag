@@ -142,7 +142,7 @@ vec3 colCell(vec2 p) {
 }
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     float tt = u.t * 1;
 
     vec2 xy = st * 2.0 - 1.0;

@@ -63,8 +63,8 @@ float snoise(vec2 p) {
 }
 
 void main() {
-    vec2 res = vec2(1920.0, 1080.0);
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 res = vec2(640.0, 360.0);
+    vec2 st = tex;
 
     vec3 i = texture(sampler2D(imgs[0], samp), st).rgb;
 

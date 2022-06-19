@@ -41,7 +41,7 @@ impl<'a> TextBuilder<'a> {
 pub struct DrawBuilder<'a> {
     pass: &'a TextPass,
     section: OwnedSection,
-}
+ }
 
 impl<'a> DrawBuilder<'a> {
     pub fn new(pass: &'a TextPass) -> Self {
@@ -111,6 +111,7 @@ pub struct TextPass {
 impl TextPass {
     fn new(device: &wgpu::Device, builder: TextPassBuilder) -> Self {
         let brush = GlyphBrushBuilder::using_fonts(builder.fonts)
+            .initial_cache_size((2048, 2048))
             .build(device, wgpu::defaults::texture_format());
 
         Self {

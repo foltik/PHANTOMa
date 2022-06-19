@@ -34,7 +34,7 @@ float map (in vec3 pos, out vec2 uv) {
 }
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     float tt = u.t * u.speed * 2.0;
 
     vec2 p = (2.0 * vec2(st.x, 1.0 - st.y) - vec2(1.0));

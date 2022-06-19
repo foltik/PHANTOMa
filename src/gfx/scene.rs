@@ -126,6 +126,7 @@ pub struct Scene {
 
     pub lights: Lights,
     pub light_idxs: Vec<NodeIndex>,
+    pub light_nodes: HashMap<NodeIndex, usize>,
     pub light_layout: wgpu::BindGroupLayout,
 }
 
@@ -137,7 +138,7 @@ impl Scene {
         let mesh_layout = Mesh::layout(device);
         let light_layout = Lights::layout(device);
 
-        let cam_idx = desc.camera.as_ref().unwrap().i;
+        let cam_idx = desc.camera.as_ref().expect("no camera in scene").i;
         let view = transforms[&cam_idx].invert().unwrap();
         let proj = &desc.camera.as_ref().unwrap().proj;
         let cam = Camera::new(device, &cam_layout, &view, proj);
@@ -151,8 +152,9 @@ impl Scene {
 
         let (light_descs, light_idxs): (Vec<_>, Vec<_>) =
             desc.lights.iter().map(|l| (l.desc, l.i)).unzip();
+        let light_nodes = desc.lights.iter().enumerate().map(|(i, l)| (l.i, i)).collect();
         let light_transforms = light_idxs.iter().map(|i| view * transforms[i]).collect::<Vec<_>>();
-        let lights = Lights::new(device, &light_layout, &light_descs, &light_transforms);
+        let lights = Lights::new(device, &light_layout, light_descs, &light_transforms);
 
         Self {
             desc,
@@ -167,6 +169,7 @@ impl Scene {
 
             lights,
             light_idxs,
+            light_nodes,
             light_layout,
         }
     }
@@ -190,10 +193,17 @@ impl Scene {
     }
 
     pub fn node(&self, name: &str) -> &Node {
-        &self.desc.nodes[self.desc.names[name]]
+        let i = self.desc.names.get(name).expect(&format!("no such node '{}'", name));
+        &self.desc.nodes[*i]
     }
 
     pub fn node_mut(&mut self, name: &str) -> &mut Node {
-        &mut self.desc.nodes[self.desc.names[name]]
+        let i = self.desc.names.get(name).expect(&format!("no such node '{}'", name));
+        &mut self.desc.nodes[*i]
+    }
+
+    pub fn light_mut(&mut self, name: &str) -> &mut LightDesc {
+        let i = self.desc.names.get(name).expect(&format!("no such light '{}'", name));
+        &mut self.lights[self.light_nodes[&i]]
     }
 }

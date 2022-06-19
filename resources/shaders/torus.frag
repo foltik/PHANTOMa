@@ -21,7 +21,7 @@ layout(set = 0, binding = 0) uniform U {
 // https://www.shadertoy.com/view/fscGDH
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     st.y = 1.0 - st.y;
 
     vec3 R = vec3(u.w, u.h, 1.0);

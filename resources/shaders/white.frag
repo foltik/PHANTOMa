@@ -7,5 +7,5 @@ layout(location = 0) in vec2 tex;
 layout(location = 0) out vec4 color;
 
 void main() {
-    color = vec4(1.0, 1.0, 1.0, 1.0);
+    color = vec4(0.0, 0.03, 0.08, 1.0);
 }

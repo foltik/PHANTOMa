@@ -28,7 +28,7 @@ vec2 shake(vec2 uv, vec2 amt, float t) {
 }
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
     vec2 uv = shake(st, vec2(u.amt), u.t * u.speed);
     color = texture(sampler2D(imgs[0], samp), uv);
 }

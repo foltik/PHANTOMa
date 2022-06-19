@@ -102,7 +102,7 @@ pub fn run<M, WindowFn, ModelFn, InputFn, UpdateFn, ViewFn>(
 
         task::spawn(async move {
             let device = Arc::new(device);
-            log::info!("Using device '{}'", adapter.get_info().name);
+            log::info!("Using graphics device '{}'", adapter.get_info().name);
 
             let poll_device = Arc::clone(&device);
             task::spawn_blocking(move || loop {
@@ -141,20 +141,11 @@ pub fn run<M, WindowFn, ModelFn, InputFn, UpdateFn, ViewFn>(
 
                             if let WindowEvent::Resized(size) = event {
                                 if size != window.size {
-                                    log::debug!("Window resized to {}x{}", size.width, size.height);
+                                    log::info!("Window resized to {}x{}", size.width, size.height);
 
+                                    window.resize(&device, size);
                                     app.width = size.width;
                                     app.height = size.height;
-                                    window.size = size;
-
-                                    window.surface.configure(&device, &wgpu::SurfaceConfiguration {
-                                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                                        format: wgpu::defaults::texture_format(),
-                                        width: size.width,
-                                        height: size.height,
-                                        present_mode: wgpu::PresentMode::Mailbox,
-                                    });
-                                    // window.rebuild_swap_chain(&app.device, size);
                                 }
                             }
 
@@ -184,7 +175,7 @@ pub fn run<M, WindowFn, ModelFn, InputFn, UpdateFn, ViewFn>(
                 app.dt = since_last.as_secs_f32();
 
                 let dt = app.dt;
-                // log::info!("FPS: {:?}", app.fps());
+                log::trace!("FPS: {:?}", app.fps());
 
                 // User update function.
                 update_fn.call_mut(&app, &mut model, dt).await;
@@ -193,6 +184,7 @@ pub fn run<M, WindowFn, ModelFn, InputFn, UpdateFn, ViewFn>(
                 log::trace!("Updated in {:?}", now.elapsed());
 
                 if let Ok(surface) = window.surface.get_current_texture() {
+                    // window.surface.get_c
                     let view = surface.texture.create_view(&wgpu::TextureViewDescriptor {
                         label: None,
                         format: Some(wgpu::defaults::texture_format()),
@@ -203,7 +195,6 @@ pub fn run<M, WindowFn, ModelFn, InputFn, UpdateFn, ViewFn>(
                         base_array_layer: 0,
                         array_layer_count: None,
                     });
-
 
                     // FIXME: Figure out a better way to share the staging pool than doing this crap
                     let mut frame = Frame::new(Arc::clone(&app.device), Arc::clone(&app.queue), app.main_staging.take().unwrap());
@@ -246,8 +237,8 @@ pub fn run<M, WindowFn, ModelFn, InputFn, UpdateFn, ViewFn>(
                         return;
                     }
 
-                    if let Err(e) = event_tx.try_send(event) {
-                        log::debug!("Dropped event: {:?}", e)
+                    if let Err(_e) = event_tx.try_send(event) {
+                        // log::trace!("Dropped event: {:?}", e)
                     }
                 }
             }
@@ -289,7 +280,7 @@ fn init_logging() {
 
     std::env::set_var(
         "RUST_LOG",
-        format!("lib={},{}={}{}", app_level, module, app_level, global_level),
+        format!("warn,phantoma={},{}={}{}", app_level, module, app_level, global_level),
     );
 
     pretty_env_logger::init();

@@ -27,6 +27,7 @@ thiserror = "1"
 # Math
 cgmath = "0.18"
 splines = { version = "4", features = ["impl-cgmath"] }
+min-max = "0.1"
 
 # Audio
 # jack = "0.7"
@@ -36,6 +37,7 @@ rustfft = "6"
 
 # MIDI / OSC
 # midir = { version = "0.7", features = ["jack"] }
+midir = "0.7"
 rosc = "0.5"
 crossbeam-queue = "0.3"
 twitchchat = { version = "0.14.5", features = ["async", "async-std"] }

@@ -23,16 +23,12 @@ pub struct RenderPipelineBuilder<'a> {
     vs_buffers: Vec<wgpu::VertexBufferLayout<'a>>,
 
     fs_mod: Option<&'a wgpu::ShaderModule>,
-    // FIXME: NEED THIS?
-    // fs_targets: Vec<wgpu::ColorTargetState>,
+    fs_targets: Vec<wgpu::ColorTargetState>,
 
     primitive: wgpu::PrimitiveState,
     multisample: wgpu::MultisampleState,
 
     depth_stencil: Option<wgpu::DepthStencilState>,
-
-    // color_state: Option<wgpu::ColorStateDescriptor>,
-    // color_states: &'a [wgpu::ColorStateDescriptor],
 }
 
 impl<'a> RenderPipelineBuilder<'a> {
@@ -73,23 +69,26 @@ impl<'a> RenderPipelineBuilder<'a> {
     };
 
     // Color state defaults.
-    // pub const DEFAULT_COLOR_BLEND: wgpu::BlendDescriptor = wgpu::BlendDescriptor {
-    //     src_factor: wgpu::BlendFactor::SrcAlpha,
-    //     dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-    //     operation: wgpu::BlendOperation::Add,
-    // };
-    // pub const DEFAULT_ALPHA_BLEND: wgpu::BlendDescriptor = wgpu::BlendDescriptor {
-    //     src_factor: wgpu::BlendFactor::One,
-    //     dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-    //     operation: wgpu::BlendOperation::Add,
-    // };
-    // pub const DEFAULT_COLOR_WRITE: wgpu::ColorWrite = wgpu::ColorWrite::ALL;
-    // pub const DEFAULT_COLOR_STATE: wgpu::ColorStateDescriptor = wgpu::ColorStateDescriptor {
-    //     format: Self::DEFAULT_COLOR_FORMAT,
-    //     color_blend: Self::DEFAULT_COLOR_BLEND,
-    //     alpha_blend: Self::DEFAULT_ALPHA_BLEND,
-    //     write_mask: Self::DEFAULT_COLOR_WRITE,
-    // };
+    pub const DEFAULT_COLOR_WRITE: wgpu::ColorWrites = wgpu::ColorWrites::ALL;
+    pub const DEFAULT_COLOR_BLEND: wgpu::BlendComponent = wgpu::BlendComponent {
+        src_factor: wgpu::BlendFactor::SrcAlpha,
+        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+        operation: wgpu::BlendOperation::Add,
+    };
+    pub const DEFAULT_ALPHA_BLEND: wgpu::BlendComponent = wgpu::BlendComponent {
+        src_factor: wgpu::BlendFactor::One,
+        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+        operation: wgpu::BlendOperation::Add,
+    };
+    pub const DEFAULT_BLEND_STATE: wgpu::BlendState = wgpu::BlendState {
+        color: Self::DEFAULT_COLOR_BLEND,
+        alpha: Self::DEFAULT_ALPHA_BLEND,
+    };
+    pub const DEFAULT_COLOR_TARGET_STATE: wgpu::ColorTargetState = wgpu::ColorTargetState {
+        format: wgpu::defaults::texture_format(),
+        blend: None,
+        write_mask: Self::DEFAULT_COLOR_WRITE,
+    };
 
     // Constructors
 
@@ -101,15 +100,12 @@ impl<'a> RenderPipelineBuilder<'a> {
             vs_buffers: Vec::new(),
 
             fs_mod: None,
-            // fs_targets: Vec::new(),
+            fs_targets: Vec::new(),
 
             depth_stencil: None,
 
             multisample: Self::DEFAULT_MULTISAMPLE_STATE,
             primitive: Self::DEFAULT_PRIMITIVE_STATE,
-
-            // color_state: None,
-            // color_states: &[],
         }
     }
 
@@ -118,6 +114,7 @@ impl<'a> RenderPipelineBuilder<'a> {
     /// Specify a fragment shader for the render pipeline.
     pub fn fragment(mut self, module: &'a wgpu::ShaderModule) -> Self {
         self.fs_mod = Some(module);
+        self.fs_targets.push(Self::DEFAULT_COLOR_TARGET_STATE);
         self
     }
 
@@ -195,23 +192,27 @@ impl<'a> RenderPipelineBuilder<'a> {
     //     self
     // }
 
-    // pub fn color_blend(mut self, blend: wgpu::BlendDescriptor) -> Self {
-    //     let state = self.color_state.get_or_insert(Self::DEFAULT_COLOR_STATE);
-    //     state.color_blend = blend;
-    //     self
-    // }
+    pub fn color_blend(mut self, blend: wgpu::BlendComponent) -> Self {
+        let target = &mut self.fs_targets[0];
+        let mut state = target.blend.unwrap_or(Self::DEFAULT_BLEND_STATE);
+        state.color = blend;
+        target.blend = Some(state);
+        self
+    }
 
-    // pub fn alpha_blend(mut self, blend: wgpu::BlendDescriptor) -> Self {
-    //     let state = self.color_state.get_or_insert(Self::DEFAULT_COLOR_STATE);
-    //     state.alpha_blend = blend;
-    //     self
-    // }
+    pub fn alpha_blend(mut self, blend: wgpu::BlendComponent) -> Self {
+        let target = &mut self.fs_targets[0];
+        let mut state = target.blend.unwrap_or(Self::DEFAULT_BLEND_STATE);
+        state.alpha = blend;
+        target.blend = Some(state);
+        self
+    }
 
-    // pub fn write_mask(mut self, mask: wgpu::ColorWrite) -> Self {
-    //     let state = self.color_state.get_or_insert(Self::DEFAULT_COLOR_STATE);
-    //     state.write_mask = mask;
-    //     self
-    // }
+    pub fn write_mask(mut self, mask: wgpu::ColorWrites) -> Self {
+        let target = &mut self.fs_targets[0];
+        target.write_mask = mask;
+        self
+    }
 
     // // TODO: rethink this instead of just having this hack
     // pub fn color_states<const N: usize>(mut self) -> Self {
@@ -358,12 +359,10 @@ impl<'a> RenderPipelineBuilder<'a> {
             builder,
             
             vs_mod,
-            // FIXME: NEED THIS?
-            vs_buffers: _,
+            vs_buffers,
 
             fs_mod,
-            // FIXME: NEED THIS?
-            // fs_targets: _,
+            fs_targets,
 
             depth_stencil,
 
@@ -377,30 +376,7 @@ impl<'a> RenderPipelineBuilder<'a> {
             push_constant_ranges: &builder.constants
         });
 
-        // let mut single_color_state = [RenderPipelineBuilder::DEFAULT_COLOR_STATE];
-        // let color_states = match (fragment_stage.is_some(), color_states.is_empty()) {
-        //     (true, true) => {
-        //         if let Some(cs) = color_state {
-        //             single_color_state[0] = cs;
-        //         }
-        //         &single_color_state[..]
-        //     }
-        //     (true, false) => color_states,
-        //     (false, true) => panic!("specified color states but no fragment shader"),
-        //     (false, false) => match color_state.is_some() {
-        //         true => panic!("specified color state fields but no fragment shader"),
-        //         false => &[],
-        //     },
-        // };
-
         let label = &format!("{}_pipeline", builder.label);
-
-        // FIXME: BAD
-        let targets = &[wgpu::ColorTargetState {
-            format: wgpu::defaults::texture_format(),
-            blend: None,
-            write_mask: wgpu::ColorWrites::ALL,
-        }];
 
         let pipeline_desc = RenderPipelineDescriptor {
             label: Some(label),
@@ -409,12 +385,12 @@ impl<'a> RenderPipelineBuilder<'a> {
             vertex: wgpu::VertexState {
                 module: vs_mod,
                 entry_point: "main",
-                buffers: &[],
+                buffers: &vs_buffers,
             },
             fragment: fs_mod.map(|fs_mod| wgpu::FragmentState {
                 module: fs_mod,
                 entry_point: "main",
-                targets,
+                targets: &fs_targets,
             }),
 
             depth_stencil,

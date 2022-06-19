@@ -11,7 +11,7 @@ layout(set = 0, binding = 0) uniform texture2D imgs[];
 layout(set = 0, binding = 1) uniform sampler samp;
 
 void main() {
-    vec2 st = vec2(tex.x, 1.0 - tex.y);
+    vec2 st = vec2(tex.x, tex.y);
 
     vec3 c0 = texture(sampler2D(imgs[0], samp), st).rgb;
     vec3 c1 = texture(sampler2D(imgs[1], samp), st).rgb;

@@ -10,16 +10,16 @@ pub use texture::{Texture, TextureView};
 pub use wgpu::Instance;
 
 // Backend selection
-pub use wgpu::{Backends, Backend};
+pub use wgpu::{Backend, Backends};
 
 // Device
-pub use wgpu::{Adapter, Device, DeviceDescriptor};
+pub use wgpu::{util::DeviceExt, Adapter, Device, DeviceDescriptor};
 // Device polling
 pub use wgpu::Maintain;
 
 pub use wgpu::{Features, Limits};
 
-pub use wgpu::{Surface, SurfaceConfiguration, PresentMode};
+pub use wgpu::{PresentMode, Surface, SurfaceConfiguration};
 
 // Pipeline State
 pub use wgpu::{
@@ -36,31 +36,32 @@ pub use wgpu::{RenderPassColorAttachment, RenderPassDepthStencilAttachment};
 pub use wgpu::{VertexAttribute, VertexBufferLayout, VertexStepMode};
 
 // Fragment Shader Targets
-pub use wgpu::{ColorTargetState, BlendState, BlendComponent, ColorWrites};
+pub use wgpu::{BlendComponent, BlendState, ColorTargetState, ColorWrites};
 
 // Sampler
 pub use wgpu::{AddressMode, FilterMode, Sampler, SamplerBorderColor, SamplerDescriptor};
 
-pub use wgpu::{BindingType, BufferBinding, BufferBindingType, BindingResource};
+pub use wgpu::{BindingResource, BindingType, BufferBinding, BufferBindingType};
 
-pub use wgpu::{ShaderModule, ShaderSource, ShaderStages, ShaderModuleDescriptor};
+pub use wgpu::{ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages};
 
 pub use wgpu::{BufferUsages, TextureUsages};
 
+pub use wgpu::{
+    Texture as RawTexture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
+    TextureSampleType,
+};
 pub use wgpu::{TextureView as RawTextureView, TextureViewDescriptor, TextureViewDimension};
-pub use wgpu::{Texture as RawTexture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType};
 
 pub use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BlendFactor, BlendOperation, Buffer,
-    BufferAddress, BufferDescriptor, BufferSize, BufferView, BufferViewMut, Color,
-    CommandBuffer, CommandBufferDescriptor, CommandEncoder, CommandEncoderDescriptor,
-    CompareFunction, ComputePass, ComputePipeline, ComputePipelineDescriptor, DynamicOffset,
+    util::BufferInitDescriptor, BindGroup, BindGroupDescriptor, BindGroupLayout,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BlendFactor, BlendOperation, Buffer,
+    BufferAddress, BufferDescriptor, BufferSize, BufferView, BufferViewMut, Color, CommandBuffer,
+    CommandBufferDescriptor, CommandEncoder, CommandEncoderDescriptor, CompareFunction,
+    ComputePass, ComputePipeline, ComputePipelineDescriptor, DynamicOffset,
     Extent3d, /*Extensions,*/
-    ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, IndexFormat, LoadOp,
-    MapMode, Origin3d, PipelineLayout, PipelineLayoutDescriptor, PowerPreference,
-    PushConstantRange, Queue, RenderPass, RenderPassDescriptor, RequestAdapterOptions,
-    ShaderLocation, StencilOperation, 
-    VertexFormat,
-    COPY_BUFFER_ALIGNMENT,
+    ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, IndexFormat, LoadOp, MapMode, Origin3d,
+    PipelineLayout, PipelineLayoutDescriptor, PowerPreference, PushConstantRange, Queue,
+    RenderPass, RenderPassDescriptor, RequestAdapterOptions, ShaderLocation, StencilOperation,
+    VertexFormat, COPY_BUFFER_ALIGNMENT,
 };
